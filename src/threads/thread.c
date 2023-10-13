@@ -154,6 +154,12 @@ thread_print_stats (void)
           idle_ticks, kernel_ticks, user_ticks);
 }
 
+
+bool thread_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
+    return list_entry(fir, struct thread, elem)->priority > list_entry(sec, struct thread, elem)->priority;
+}
+
+
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
    and adds it to the ready queue.  Returns the thread identifier
