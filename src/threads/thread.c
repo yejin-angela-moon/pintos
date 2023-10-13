@@ -155,7 +155,7 @@ thread_print_stats (void)
 }
 
 
-static bool thread_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
+bool thread_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
     return list_entry(fir, struct thread, elem)->priority > list_entry(sec, struct thread, elem)->priority;
 }
 
