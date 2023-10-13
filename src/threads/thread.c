@@ -155,7 +155,7 @@ thread_print_stats (void)
 }
 
 
-static bool thread_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
+bool thread_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
     return list_entry(fir, struct thread, elem)->priority > list_entry(sec, struct thread, elem)->priority;
 }
 
@@ -267,6 +267,25 @@ thread_unblock (struct thread *t)
   //list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+  //printf("unblock %d, %d \n", thread_current ()->priority, t->priority);
+  //if (&thread_current ()->priority < &t->priority) {
+    //thread_yield();
+  //}
+  /*struct thread *cur = thread_current ();
+  if (cur->status == THREAD_READY)
+    {
+      list_remove (&cur->elem);
+      list_insert_ordered (&ready_list, &cur->elem, thread_priority, NULL);
+    }
+  else if (cur->status == THREAD_RUNNING &&
+           list_entry (list_begin (&ready_list),
+                       struct thread,
+                       elem
+                       )->priority > cur->priority
+           )
+    {
+      thread_yield ();
+    }*/
 }
 
 /* Returns the name of the running thread. */
@@ -334,8 +353,9 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread)
+  if (cur != idle_thread) {
     list_insert_ordered(&ready_list, &cur->elem, thread_priority, NULL);
+  }
     //list_push_back (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
