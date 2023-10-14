@@ -222,11 +222,6 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
-  struct thread *cur = thread_current ();
-  if (cur->priority < priority) {
-      thread_yield();
-  }
-
   return tid;
 }
 
@@ -266,26 +261,14 @@ thread_unblock (struct thread *t)
   list_insert_ordered(&ready_list, &t->elem, thread_priority, NULL);
   //list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
+
+
+  if ((!intr_context()) & (&thread_current()->priority < &t->priority)) {
+    thread_yield();
+  }
+
   intr_set_level (old_level);
-  //printf("unblock %d, %d \n", thread_current ()->priority, t->priority);
-  //if (&thread_current ()->priority < &t->priority) {
-    //thread_yield();
-  //}
-  /*struct thread *cur = thread_current ();
-  if (cur->status == THREAD_READY)
-    {
-      list_remove (&cur->elem);
-      list_insert_ordered (&ready_list, &cur->elem, thread_priority, NULL);
-    }
-  else if (cur->status == THREAD_RUNNING &&
-           list_entry (list_begin (&ready_list),
-                       struct thread,
-                       elem
-                       )->priority > cur->priority
-           )
-    {
-      thread_yield ();
-    }*/
+  
 }
 
 /* Returns the name of the running thread. */
@@ -515,6 +498,7 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->donated_priority = priority; ////////////////////
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
