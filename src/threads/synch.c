@@ -205,9 +205,16 @@ lock_acquire (struct lock *lock)
   
   //sema_down (&lock->semaphore);
   //lock->holder = thread_current ();
-  if ((!lock_try_acquire(lock)) & (lock->priority < thread_current () -> priority)) {
-      lock->priority = thread_current () -> priority;
+  
+  // if ((!lock_try_acquire(lock)) & (lock->priority < thread_current () -> priority)) {
+  //    lock->priority = thread_current () -> priority;
+  if (lock->holder && lock->holder->priority < thread_current()-> priority) {
+    lock->holder->original_priority = lock->holder->priority;
+    // nested donation TODO
   }
+  sema_down(&lock->semaphore);
+  lock->holder = thread_current();
+  lock->original_priority = thread_current()->priority;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
