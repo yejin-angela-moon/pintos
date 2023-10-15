@@ -251,7 +251,7 @@ lock_release (struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
 
   if (thread_current()->priority != lock->original_priority) {
-    thread_current()->priority = lock->original_priority();
+    thread_current()->priority = lock->original_priority;
   }
 
   lock->holder = NULL;
