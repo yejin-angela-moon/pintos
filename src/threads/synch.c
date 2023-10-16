@@ -188,6 +188,15 @@ lock_init (struct lock *lock)
   lock->priority = -1;
 }
 
+void modify_nest_donation (struct lock *lock, int pri) {
+  if (lock->holder) {
+    if (pri > lock->holder->max_priority) {
+      lock->holder->max_priority = pri;
+      modify_nest_donation(&lock->holder->wait_lock, pri);
+    }
+  }
+}
+
 /* Acquires LOCK, sleeping until it becomes available if
    necessary.  The lock must not already be held by the current
    thread.
@@ -210,9 +219,7 @@ lock_acquire (struct lock *lock)
   //    lock->priority = thread_current () -> priority;
   thread_current()->wait_lock = *lock;
 
-  if (lock->holder->max_priority < thread_get_priority()) {
-    lock->holder->max_priority = thread_get_priority();
-  }
+  modify_nest_donation(lock, thread_current()->max_priority);
 
 //  if (lock->holder && lock->holder->max_priority < get_priority()) {
 
@@ -258,10 +265,12 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-  if (thread_get_priority() != lock->original_priority) {
-    thread_current()->priority = lock->original_priority;    // replace with below once figured out how to add lock to thread queue
-    // update max priority, somehow add lock to donors list
-  }
+//  if (thread_get_priority() != lock->original_priority) {
+//    thread_current()->priority = lock->original_priority;    // replace with below once figured out how to add lock to thread queue
+//    // update max priority, somehow add lock to donors list
+//  }
+
+  lock->holder->max_priority = lock->holder->priority;
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
