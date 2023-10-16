@@ -66,10 +66,15 @@ static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
 static void init_thread (struct thread *, const char *name, int priority);
 static bool is_thread (struct thread *) UNUSED;
-                                        static void *alloc_frame (struct thread *, size_t size);
-                                        static void schedule (void);
-                                        void thread_schedule_tail (struct thread *prev);
-                                        static tid_t allocate_tid (void);
+static void *alloc_frame (struct thread *, size_t size);
+static void schedule (void);
+void thread_schedule_tail (struct thread *prev);
+static tid_t allocate_tid (void);
+
+bool donor_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
+
+void thread_add_donor (struct thread *receiver, struct thread *donor);
+void thread_remove_donor (struct thread *receiver, struct donor *d);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -156,9 +161,14 @@ thread_print_stats (void)
 
 
 bool thread_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
-    return list_entry(fir, struct thread, elem)->priority > list_entry(sec, struct thread, elem)->priority;
+  return (list_entry(fir, struct thread, elem)->priority > list_entry(sec, struct thread, elem)->priority);
 }
 
+bool donor_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
+  struct list_elem *a = &list_entry(fir, struct donor, elem)->t->elem;
+  struct list_elem *b = &list_entry(sec, struct donor, elem)->t->elem;
+  return thread_priority(a, b, NULL);
+}
 
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
@@ -258,9 +268,17 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem, thread_priority, NULL);
+  //list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
+
+
+  if ((!intr_context()) & (&thread_current()->max_priority < &t->max_priority)) {
+    thread_yield();
+  }
+
   intr_set_level (old_level);
+
 }
 
 /* Returns the name of the running thread. */
@@ -328,8 +346,10 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread)
-    list_push_back (&ready_list, &cur->elem);
+  if (cur != idle_thread) {
+    list_insert_ordered(&ready_list, &cur->elem, thread_priority, NULL);
+  }
+  //list_push_back (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -352,19 +372,61 @@ thread_foreach (thread_action_func *func, void *aux)
   }
 }
 
+static void
+update_max_priority(struct thread *t) {
+  int head_prio = list_entry(list_begin(&(t->donors)), struct donor, elem)->t->max_priority;
+  if (head_prio > t->max_priority)
+    t->max_priority = head_prio;
+}
+
+void
+thread_add_donor (struct thread *receiver, struct thread *donor)
+{
+  struct donor d;
+
+  d.t = donor;
+
+//  l->holder = donor;
+
+  list_insert_ordered(&(receiver->donors), &(d.elem), donor_priority, NULL);
+  update_max_priority(receiver);
+}
+
+void
+thread_remove_donor (struct thread *receiver, struct donor *d)
+{
+  list_remove(&(d->elem));
+  update_max_priority(receiver);
+}
+
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority)
 {
+  // leaving this unchanged, but should replace calls to this func with thread_add_donor
   thread_current ()->priority = new_priority;
+
+  struct thread *thread_get = list_entry(list_begin(&ready_list), struct thread, elem);
+  if (thread_get->max_priority > new_priority) { // updated to max_priority even though we aren't setting it
+    thread_yield();
+  }
 }
 
-/* Returns the current thread's priority. */
+/* Returns the highest donated priority. */
+
+int thread_highest_priority (struct thread *t)
+{
+  return t->max_priority;
+}
+
+/* Returns the current thread's highest donated priority */
 int
 thread_get_priority (void)
 {
-  return thread_current ()->priority;
+  return thread_current()->max_priority;
 }
+
 
 /* Sets the current thread's nice value to NICE. */
 void
@@ -483,6 +545,9 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  // t->donated_priority = priority; ////////////////////
+  list_init (&(t->donors));
+  t->max_priority = priority;
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
