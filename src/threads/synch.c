@@ -289,8 +289,8 @@ lock_release (struct lock *lock)
 
   if (!list_empty(&thread_current()->donations)) {
     for (struct list_elem *e = list_begin(&thread_current()->donations);
-    e != list_end(&thread_current()->donations);
-    e = list_next(e)) {
+         e != list_end(&thread_current()->donations);
+         e = list_next(e)) {
       struct thread *donor = list_entry(e, struct thread, mult_elem);
 
       if (donor->holder == lock) {
