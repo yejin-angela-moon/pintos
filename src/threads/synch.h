@@ -14,6 +14,8 @@ struct semaphore
 void sema_init (struct semaphore *, unsigned value);
 void sema_down (struct semaphore *);
 bool sema_try_down (struct semaphore *);
+
+//void set_priority(struct thread *thr);
 void sema_up (struct semaphore *);
 void sema_self_test (void);
 
@@ -22,6 +24,8 @@ struct lock
   {
     struct thread *holder;      /* Thread holding lock (for debugging). */
     struct semaphore semaphore; /* Binary semaphore controlling access. */
+    struct list donations;
+    struct list_elem lock_elem;
   };
 
 void lock_init (struct lock *);

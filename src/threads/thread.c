@@ -155,10 +155,13 @@ thread_print_stats (void)
 }
 
 
-static bool thread_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
-  return list_entry(fir, struct thread, elem)->priority > list_entry(sec, struct thread, elem)->priority;
+bool thread_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
+  return list_entry(fir, struct thread, elem)->donated_priority > list_entry(sec, struct thread, elem)->donated_priority;
 }
 
+bool mult_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
+  return list_entry(fir, struct thread, mult_elem)->donated_priority > list_entry(sec, struct thread, mult_elem)->donated_priority;
+}
 
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
@@ -222,11 +225,6 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
-  struct thread *cur = thread_current ();
-  if (cur->priority < priority) {
-    thread_yield();
-  }
-
   return tid;
 }
 
@@ -266,6 +264,12 @@ thread_unblock (struct thread *t)
   list_insert_ordered(&ready_list, &t->elem, thread_priority, NULL);
   //list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
+//printf("cur pri: %d and unblock pri: %d\n", thread_current()->donated_priority , t->donated_priority);
+  if ((!intr_context()) && (thread_current()->donated_priority < t->donated_priority)) {
+   // printf("yield!!\n");
+    thread_yield();
+  }
+
   intr_set_level (old_level);
 }
 
@@ -359,14 +363,47 @@ thread_foreach (thread_action_func *func, void *aux)
   }
 }
 
+bool new_priority_greater(int new_priority, struct list *locks) {
+  struct lock *l;
+  struct thread *thr;  
+  for (struct list_elem *e = list_begin(locks); e != list_end(locks); e = list_next(e)) {
+    l = list_entry(e, struct lock, lock_elem);
+    thr = list_entry(list_begin(&l->donations), struct thread, mult_elem);
+    if (new_priority < thr->donated_priority) {
+      return false;
+    }
+  }
+  return true;
+}
+
+int highest_priority(struct list *locks) {
+  struct lock *l;
+  struct thread *thr;
+  int highest = 0;
+  for (struct list_elem *e = list_begin(locks); e != list_end(locks); e = list_next(e)) {
+    l = list_entry(e, struct lock, lock_elem);
+    thr = list_entry(list_begin(&l->donations), struct thread, mult_elem);
+    if (highest < thr->donated_priority) {
+	   // printf("highest now is from tid %d with pri %d\n", thr->tid, thr->donated_priority);
+      highest = thr->donated_priority;
+    }
+  }
+  return highest;
+}
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
-
+  if (list_empty(&thread_current()->locks) || (!list_empty(&thread_current()->locks) && new_priority_greater(new_priority, (&thread_current()->locks)))) {
+    thread_current ()->donated_priority = new_priority;
+  } else if (!list_empty(&thread_current()->locks) && !new_priority_greater(new_priority, (&thread_current()->locks))) {
+//printf("get from the sec and pri %d\n", highest_priority(&thread_current()->locks));	
+     thread_current()->donated_priority = highest_priority(&thread_current()->locks);
+  }
   struct thread *thread_get = list_entry(list_begin(&ready_list), struct thread, elem);
-  if (thread_get->priority > new_priority) {
+  if (thread_get->donated_priority > thread_current ()->donated_priority) {
     thread_yield();
   }
 }
@@ -375,7 +412,7 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void)
 {
-  return thread_current ()->priority;
+  return thread_current ()->donated_priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -495,7 +532,11 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->donated_priority = priority;
   t->magic = THREAD_MAGIC;
+  lock_init(&t->wait_lock);
+  list_init(&t->locks);
+  t->holder = NULL;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
