@@ -113,7 +113,7 @@ bool list_contains(struct list *list, struct list_elem *search) {
   return false;
 }
 
-void set_donated_priority(struct thread *thr) {
+void set_donated_priority(struct thread *thread) {
   thr->donated_priority = thr->priority;
   struct thread *first = list_entry(list_begin(&thr->donations), struct thread, mult_elem);
   if (!list_empty(&thr->donations) && thr->priority < first->donated_priority) {
@@ -293,21 +293,21 @@ lock_release (struct lock *lock)
          e = list_next(e)) {
       struct thread *donor = list_entry(e, struct thread, mult_elem);
 
-      if (donor->holder == lock) {
+      if (donor->holder == lock->holder) {
         list_remove(e);
       }
     }
 
-    if (list_empty(thread_current()->donations)) {
+    if (list_empty(&(thread_current()->donations))) {
       thread_current()->priority = thread_current()->original_priority;
     } else {
-      struct list_elem *max_elem = list_max(*thread_current()->donations, thread_priority, NULL);
+      struct list_elem *max_elem = list_max(&(thread_current()->donations), thread_priority, NULL);
       struct thread *max_priority_thread = list_entry(max_elem, struct thread, mult_elem);
       thread_current()->priority = max_priority_thread->priority;
-    } else {
-      thread_current()->priority = thread_current()->original_priority;
     }
 
+  } else {
+    thread_current()->priority = thread_current()->original_priority;
   }
 
   set_donated_priority(thread_current());

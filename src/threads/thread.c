@@ -504,6 +504,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
+  t->original_priority = priority;
   t->priority = priority;
   t->donated_priority = priority; ///////////////
   list_init (&t->donations);
