@@ -49,6 +49,8 @@ void cond_broadcast (struct condition *, struct lock *);
 
 void set_donated_priority(struct thread *);
 
+#define MAX(X, Y) (((X) >= (Y)) ? (X) : (Y))
+
 /* Optimization barrier.
 
    The compiler will not reorder operations across an

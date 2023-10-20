@@ -89,10 +89,9 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
-    int original_priority;              /* Priority originally set to thread. */
     int donated_priority;               /* Priority donated by other thread. */
     struct list donations;
-    //struct lock wait_lock;
+    struct lock *wait_lock;
     struct list_elem allelem;           /* List element for all threads list. */
     struct list_elem mult_elem;
     struct thread *holder;
@@ -123,6 +122,7 @@ void thread_tick (void);
 void thread_print_stats (void);
 
 bool thread_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
+bool mult_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);

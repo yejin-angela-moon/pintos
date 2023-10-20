@@ -159,6 +159,10 @@ bool thread_priority(const struct list_elem *fir, const struct list_elem *sec, v
   return list_entry(fir, struct thread, elem)->donated_priority > list_entry(sec, struct thread, elem)->donated_priority;
 }
 
+bool mult_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
+  return list_entry(fir, struct thread, mult_elem)->donated_priority > list_entry(sec, struct thread, mult_elem)->donated_priority;
+}
+
 
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
@@ -504,7 +508,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
-  t->original_priority = priority;
   t->priority = priority;
   t->donated_priority = priority; ///////////////
   list_init (&t->donations);
