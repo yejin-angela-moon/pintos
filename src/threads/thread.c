@@ -266,7 +266,7 @@ thread_unblock (struct thread *t)
   t->status = THREAD_READY;
 //printf("cur pri: %d and unblock pri: %d\n", thread_current()->donated_priority , t->donated_priority);
   if ((!intr_context()) && (thread_current()->donated_priority < t->donated_priority)) {
-   // printf("yield!!\n");
+//  printf("yield!!\n");
     thread_yield();
   }
 
@@ -368,7 +368,13 @@ bool new_priority_greater(int new_priority, struct list *locks) {
   struct thread *thr;  
   for (struct list_elem *e = list_begin(locks); e != list_end(locks); e = list_next(e)) {
     l = list_entry(e, struct lock, lock_elem);
+  //  printf("chance!\n");
+    list_sort(&l->donations, mult_priority, NULL);
     thr = list_entry(list_begin(&l->donations), struct thread, mult_elem);
+    /*if (thread_current()->tid == thr->tid) {
+      list_remove(&thr->mult_elem);
+      continue;
+    }*/
     if (new_priority < thr->donated_priority) {
       return false;
     }
@@ -396,6 +402,7 @@ void
 thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
+  thread_current ()->donated_priority = new_priority;
   if (list_empty(&thread_current()->locks) || (!list_empty(&thread_current()->locks) && new_priority_greater(new_priority, (&thread_current()->locks)))) {
     thread_current ()->donated_priority = new_priority;
   } else if (!list_empty(&thread_current()->locks) && !new_priority_greater(new_priority, (&thread_current()->locks))) {
