@@ -94,7 +94,6 @@ struct thread
     struct list locks;
     struct lock wait_lock;
     struct list_elem mult_elem;
-    struct thread *holder;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -140,6 +139,9 @@ void thread_yield (void);
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
+
+bool new_priority_greater(int new_priority, struct list *locks);
+int highest_priority(struct list *locks);
 
 int thread_get_priority (void);
 void thread_set_priority (int);

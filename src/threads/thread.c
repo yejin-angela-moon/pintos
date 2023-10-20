@@ -262,11 +262,9 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
   list_insert_ordered(&ready_list, &t->elem, thread_priority, NULL);
-  //list_push_back (&ready_list, &t->elem);
+ 
   t->status = THREAD_READY;
-//printf("cur pri: %d and unblock pri: %d\n", thread_current()->donated_priority , t->donated_priority);
   if ((!intr_context()) && (thread_current()->donated_priority < t->donated_priority)) {
-//  printf("yield!!\n");
     thread_yield();
   }
 
@@ -340,7 +338,6 @@ thread_yield (void)
   old_level = intr_disable ();
   if (cur != idle_thread)
     list_insert_ordered(&ready_list, &cur->elem, thread_priority, NULL);
-  //list_push_back (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -368,13 +365,8 @@ bool new_priority_greater(int new_priority, struct list *locks) {
   struct thread *thr;  
   for (struct list_elem *e = list_begin(locks); e != list_end(locks); e = list_next(e)) {
     l = list_entry(e, struct lock, lock_elem);
-  //  printf("chance!\n");
     list_sort(&l->donations, mult_priority, NULL);
     thr = list_entry(list_begin(&l->donations), struct thread, mult_elem);
-    /*if (thread_current()->tid == thr->tid) {
-      list_remove(&thr->mult_elem);
-      continue;
-    }*/
     if (new_priority < thr->donated_priority) {
       return false;
     }
@@ -383,14 +375,13 @@ bool new_priority_greater(int new_priority, struct list *locks) {
 }
 
 int highest_priority(struct list *locks) {
-  struct lock *l;
+  //struct lock *l;
   struct thread *thr;
-  int highest = 0;
+  int highest = -1;
   for (struct list_elem *e = list_begin(locks); e != list_end(locks); e = list_next(e)) {
-    l = list_entry(e, struct lock, lock_elem);
-    thr = list_entry(list_begin(&l->donations), struct thread, mult_elem);
+    //l = list_entry(e, struct lock, lock_elem);
+    thr = list_entry(list_begin(&list_entry(e, struct lock, lock_elem)->donations), struct thread, mult_elem);
     if (highest < thr->donated_priority) {
-	   // printf("highest now is from tid %d with pri %d\n", thr->tid, thr->donated_priority);
       highest = thr->donated_priority;
     }
   }
@@ -402,12 +393,12 @@ void
 thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
-  thread_current ()->donated_priority = new_priority;
+//  thread_current ()->donated_priority = new_priority;
   if (list_empty(&thread_current()->locks) || (!list_empty(&thread_current()->locks) && new_priority_greater(new_priority, (&thread_current()->locks)))) {
     thread_current ()->donated_priority = new_priority;
-  } else if (!list_empty(&thread_current()->locks) && !new_priority_greater(new_priority, (&thread_current()->locks))) {
-//printf("get from the sec and pri %d\n", highest_priority(&thread_current()->locks));	
-     thread_current()->donated_priority = highest_priority(&thread_current()->locks);
+ // } else if (!list_empty(&thread_current()->locks) && !new_priority_greater(new_priority, (&thread_current()->locks))) {
+  } else {
+    thread_current()->donated_priority = highest_priority(&thread_current()->locks);
   }
   struct thread *thread_get = list_entry(list_begin(&ready_list), struct thread, elem);
   if (thread_get->donated_priority > thread_current ()->donated_priority) {
@@ -543,7 +534,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   lock_init(&t->wait_lock);
   list_init(&t->locks);
-  t->holder = NULL;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

@@ -19,6 +19,8 @@ bool sema_try_down (struct semaphore *);
 void sema_up (struct semaphore *);
 void sema_self_test (void);
 
+//void set_priority(struct thread *thr);
+
 /* Lock. */
 struct lock 
   {
@@ -29,6 +31,9 @@ struct lock
   };
 
 void lock_init (struct lock *);
+
+void modify_nest_donation (struct lock *lock, int pri);
+
 void lock_acquire (struct lock *);
 bool lock_try_acquire (struct lock *);
 void lock_release (struct lock *);
@@ -39,6 +44,8 @@ struct condition
   {
     struct list waiters;        /* List of waiting semaphore_elems. */
   };
+
+bool sema_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
 
 void cond_init (struct condition *);
 void cond_wait (struct condition *, struct lock *);
