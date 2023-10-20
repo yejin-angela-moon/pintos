@@ -62,15 +62,17 @@ sema_down (struct semaphore *sema)
 {
   enum intr_level old_level;
 
-  ASSERT (sema != NULL);
+ASSERT (sema != NULL);
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
       list_insert_ordered(&sema->waiters, &thread_current ()->elem, thread_priority, NULL);
+      //printf("tid %d with pri %d is blocked\n",  thread_current ()->tid, thread_current ()->donated_priority);
       thread_block ();
     }
+  //printf("dec sema\n");
   sema->value--;
   intr_set_level (old_level);
 }
@@ -151,9 +153,11 @@ sema_up (struct semaphore *sema)
   
   old_level = intr_disable ();
   sema->value++;
+  //printf("up sema\n");
   //sema->value++;
   if (!list_empty (&sema->waiters)) {
  //  printf("size of donations %d\n", list_size(&first->wait_lock.donations));
+    list_sort(&sema->waiters, thread_priority, NULL);
     struct thread *first = list_entry (list_begin (&sema->waiters), struct thread, elem);
 //   printf("the one going to unblovk is tid %d with pri %d\n", first->tid, first->donated_priority);
 /*    if (first->holder && list_contains(&first->wait_lock.donations, &first->mult_elem)) {
@@ -167,6 +171,7 @@ sema_up (struct semaphore *sema)
    //}
   //  set_priority(first->wait_lock.holder);
 //    printf("unblock don pri: %d\n", first->donated_priority);
+    //printf("unblock tid %d with pri %d\n", first->tid, first->donated_priority);
     thread_unblock (list_entry (list_pop_front (&sema->waiters), struct thread, elem));
   //  printf("alr unblock\n");
   }
@@ -264,7 +269,7 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  thread_current()->wait_lock = *lock;
+  //thread_current()->wait_lock = *lock;
   modify_nest_donation(lock, thread_current()->donated_priority);
 
   //if (!list_contains(&lock->donations, &thread_current()->mult_elem))
@@ -287,6 +292,7 @@ lock_acquire (struct lock *lock)
 
  
   sema_down (&lock->semaphore);
+  thread_current()->wait_lock = *lock;
   /*if (list_contains(&lock->donations, &thread_current()->mult_elem)) {
     list_remove( &thread_current()->mult_elem);
   }*/
@@ -343,8 +349,9 @@ enum intr_level old_level = intr_disable ();
   lock->holder = NULL;
   
 //  list_remove(list_begin(&lock->donations));
- if (!list_empty(&lock->donations))
+ if (!list_empty(&lock->donations)) {
     list_pop_front(&lock->donations);
+ }
   sema_up (&lock->semaphore);
   //if (!list_empty(&lock->donations))
     //list_pop_front(&lock->donations);
