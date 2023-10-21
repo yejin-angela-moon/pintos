@@ -4,7 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-//#include "threads/synch.h"
+#include <threads/synch.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -89,12 +89,12 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
-    int donated_priority;               /* Priority donated by other thread. */
-    struct list donations;
-    struct lock *wait_lock;
     struct list_elem allelem;           /* List element for all threads list. */
+    int donated_priority;
+    struct list locks;
+    struct lock wait_lock;
     struct list_elem mult_elem;
-    struct thread *holder;
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -107,12 +107,13 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
 };
 
-
-
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "mlfqs". */
 extern bool thread_mlfqs;
+
+bool thread_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
+bool mult_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
 
 void thread_init (void);
 void thread_start (void);
@@ -120,9 +121,6 @@ size_t threads_ready(void);
 
 void thread_tick (void);
 void thread_print_stats (void);
-
-bool thread_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
-bool mult_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
@@ -134,7 +132,6 @@ struct thread *thread_current (void);
 tid_t thread_tid (void);
 const char *thread_name (void);
 
-//list_less_func *thread_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
@@ -143,6 +140,9 @@ void thread_yield (void);
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
+bool new_priority_greater(int new_priority, struct list *locks);
+int highest_priority(struct list *locks);
+
 int thread_get_priority (void);
 void thread_set_priority (int);
 
@@ -150,5 +150,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+
 
 #endif /* threads/thread.h */
