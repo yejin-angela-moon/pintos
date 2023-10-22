@@ -6,16 +6,14 @@
 #include <stdint.h>
 #include <threads/synch.h>
 
-extern bool thread_yield_required;
-
 /* States in a thread's life cycle. */
 enum thread_status
-{
+  {
     THREAD_RUNNING,     /* Running thread. */
     THREAD_READY,       /* Not running but ready to run. */
     THREAD_BLOCKED,     /* Waiting for an event to trigger. */
     THREAD_DYING        /* About to be destroyed. */
-};
+  };
 
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
@@ -84,7 +82,7 @@ typedef int tid_t;
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
 struct thread
-{
+  {
     /* Owned by thread.c. */
     tid_t tid;                          /* Thread identifier. */
     enum thread_status status;          /* Thread state. */
@@ -107,14 +105,15 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-};
+  };
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "mlfqs". */
 extern bool thread_mlfqs;
 
-bool thread_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
+bool thread_priority_desc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
+bool thread_priority_asc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
 bool mult_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
 
 void thread_init (void);
@@ -142,7 +141,7 @@ void thread_yield (void);
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
-bool new_priority_greater(int new_priority, struct list *locks);
+//bool new_priority_greater(int new_priority, struct list *locks);
 int highest_priority(struct list *locks);
 
 int thread_get_priority (void);
