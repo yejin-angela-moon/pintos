@@ -244,6 +244,8 @@ thread_block (void)
   schedule ();
 }
 
+//bool thread_yield_required = false;
+
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
    make the running thread ready.)
@@ -266,6 +268,7 @@ thread_unblock (struct thread *t)
   t->status = THREAD_READY;
   if ((!intr_context()) && (thread_current()->donated_priority < t->donated_priority)) {
     thread_yield();
+    //thread_yield_required = true;
   }
 
   intr_set_level (old_level);

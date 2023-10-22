@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include <threads/synch.h>
 
+extern bool thread_yield_required;
+
 /* States in a thread's life cycle. */
 enum thread_status
 {
