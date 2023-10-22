@@ -224,7 +224,9 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-
+ if (thread_current()->donated_priority < t->donated_priority) {
+    thread_yield();
+  }
   return tid;
 }
 
@@ -263,10 +265,10 @@ thread_unblock (struct thread *t)
   ASSERT (t->status == THREAD_BLOCKED);
   list_insert_ordered(&ready_list, &t->elem, thread_priority, NULL);
  
-  t->status = THREAD_READY;
+  t->status = THREAD_READY; /*
   if ((!intr_context()) && (thread_current()->donated_priority < t->donated_priority)) {
     thread_yield();
-  }
+  }*/
 
   intr_set_level (old_level);
 }
@@ -359,7 +361,7 @@ thread_foreach (thread_action_func *func, void *aux)
     func (t, aux);
   }
 }
-
+/*
 bool new_priority_greater(int new_priority, struct list *locks) {
   struct lock *l;
   struct thread *thr;  
@@ -372,7 +374,7 @@ bool new_priority_greater(int new_priority, struct list *locks) {
     }
   }
   return true;
-}
+}*/
 
 int highest_priority(struct list *locks) {
   //struct lock *l;
@@ -394,7 +396,7 @@ thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
 //  thread_current ()->donated_priority = new_priority;
-  if (list_empty(&thread_current()->locks) || (!list_empty(&thread_current()->locks) && new_priority_greater(new_priority, (&thread_current()->locks)))) {
+  if (list_empty(&thread_current()->locks) || (!list_empty(&thread_current()->locks) && (highest_priority(&thread_current()->locks) < new_priority))) {
     thread_current ()->donated_priority = new_priority;
  // } else if (!list_empty(&thread_current()->locks) && !new_priority_greater(new_priority, (&thread_current()->locks))) {
   } else {

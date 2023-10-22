@@ -114,6 +114,12 @@ static void set_priority(struct thread *thr) {
   }
 }
 
+
+bool thread_priority2(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
+  return list_entry(fir, struct thread, elem)->donated_priority < list_entry(sec, struct thread, elem)->donated_priority;
+}
+
+
 /* Up or "V" operation on a semaphore.  Increments SEMA's value
    and wakes up one thread of those waiting for SEMA, if any.
 
@@ -128,8 +134,22 @@ sema_up (struct semaphore *sema)
   old_level = intr_disable ();
   sema->value++;
   if (!list_empty (&sema->waiters)) {
-    list_sort(&sema->waiters, thread_priority, NULL);
-    thread_unblock (list_entry (list_pop_front (&sema->waiters), struct thread, elem));
+  //  list_sort(&sema->waiters, thread_priority, NULL);
+    struct list_elem *e = list_max(&sema->waiters, thread_priority2, NULL);
+    //printf("the thread from list max has tid %d with pri %d\n", list_entry (e, struct thread, elem)->tid, list_entry (e, struct thread, elem)->donated_priority);
+    //list_sort(&sema->waiters, thread_priority, NULL);
+    // struct list_elem *ee = list_begin(&sema->waiters);
+     //printf("the thread from list begin has tid %d with pri %d\n", list_entry (ee, struct thread, elem)->tid, list_entry (ee, struct thread, elem)->donated_priority);
+    list_remove(e);
+    thread_unblock (list_entry (e, struct thread, elem));
+    //list_remove(e);
+   // list_sort(&sema->waiters, thread_priority, NULL);
+    //thread_unblock (list_entry (list_pop_front (&sema->waiters), struct thread, elem));
+    //
+    if ((!intr_context()) && (thread_current()->donated_priority < list_entry (e, struct thread, elem)->donated_priority)) {
+      thread_yield();
+    }
+
   }
 
   intr_set_level (old_level);
