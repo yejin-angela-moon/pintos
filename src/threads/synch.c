@@ -122,30 +122,19 @@ void
 sema_up (struct semaphore *sema) 
 {
   enum intr_level old_level;
-
   ASSERT (sema != NULL);
-  
   old_level = intr_disable ();
   sema->value++;
+
   if (!list_empty (&sema->waiters)) {
-  //  list_sort(&sema->waiters, thread_priority, NULL);
     struct list_elem *e = list_max(&sema->waiters, thread_priority_asc, NULL);
-    //printf("the thread from list max has tid %d with pri %d\n", list_entry (e, struct thread, elem)->tid, list_entry (e, struct thread, elem)->donated_priority);
-    //list_sort(&sema->waiters, thread_priority, NULL);
-    // struct list_elem *ee = list_begin(&sema->waiters);
-     //printf("the thread from list begin has tid %d with pri %d\n", list_entry (ee, struct thread, elem)->tid, list_entry (ee, struct thread, elem)->donated_priority);
     list_remove(e);
     thread_unblock (list_entry (e, struct thread, elem));
-    //list_remove(e);
-   // list_sort(&sema->waiters, thread_priority, NULL);
-    //thread_unblock (list_entry (list_pop_front (&sema->waiters), struct thread, elem));
-    //
-    if ((!intr_context()) && (thread_current()->donated_priority < list_entry (e, struct thread, elem)->donated_priority)) {
+
+    if ((!intr_context())&& (thread_current ()->donated_priority < list_entry (e, struct thread, elem)->donated_priority)) {
       thread_yield();
     }
-
   }
-
   intr_set_level (old_level);
 }
 
@@ -279,7 +268,7 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
  
-enum intr_level old_level = intr_disable ();
+  enum intr_level old_level = intr_disable ();
   lock->holder->donated_priority = lock->holder->priority;
 
   list_remove(&lock->lock_elem);
@@ -324,7 +313,8 @@ cond_init (struct condition *cond)
 }
 
 
-bool sema_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
+bool 
+sema_priority_desc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
     return list_entry(fir, struct semaphore_elem, elem)->priority > list_entry(sec, struct semaphore_elem, elem)->priority;
 }
 
@@ -360,7 +350,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   
   sema_init (&waiter.semaphore, 0);
   waiter.priority = lock->holder->donated_priority;
-  list_insert_ordered (&cond->waiters, &waiter.elem, sema_priority, NULL);
+  list_insert_ordered (&cond->waiters, &waiter.elem, sema_priority_desc, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);

@@ -155,15 +155,18 @@ thread_print_stats (void)
 }
 
 
-bool thread_priority_desc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
+bool 
+thread_priority_desc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
   return list_entry(fir, struct thread, elem)->donated_priority > list_entry(sec, struct thread, elem)->donated_priority;
 }
 
-bool thread_priority_asc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
+bool 
+thread_priority_asc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
   return list_entry(fir, struct thread, elem)->donated_priority < list_entry(sec, struct thread, elem)->donated_priority;
 }
 
-bool mult_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
+bool 
+mult_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
   return list_entry(fir, struct thread, mult_elem)->donated_priority > list_entry(sec, struct thread, mult_elem)->donated_priority;
 }
 
@@ -333,15 +336,17 @@ thread_exit (void)
 void
 thread_yield (void)
 {
-  struct thread *cur = thread_current ();
+  struct thread *t = thread_current ();
   enum intr_level old_level;
 
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread)
-    list_insert_ordered(&ready_list, &cur->elem, thread_priority_desc, NULL);
-  cur->status = THREAD_READY;
+
+  if (t != idle_thread)
+    list_insert_ordered(&ready_list, &t->elem, thread_priority_desc, NULL);
+
+  t->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
 }
@@ -362,30 +367,15 @@ thread_foreach (thread_action_func *func, void *aux)
     func (t, aux);
   }
 }
-/*
-bool new_priority_greater(int new_priority, struct list *locks) {
-  struct lock *l;
-  struct thread *thr;  
-  for (struct list_elem *e = list_begin(locks); e != list_end(locks); e = list_next(e)) {
-    l = list_entry(e, struct lock, lock_elem);
-    list_sort(&l->donations, mult_priority, NULL);
-    thr = list_entry(list_begin(&l->donations), struct thread, mult_elem);
-    if (new_priority < thr->donated_priority) {
-      return false;
-    }
-  }
-  return true;
-}*/
 
-int highest_priority(struct list *locks) {
-  //struct lock *l;
-  struct thread *thr;
+int 
+highest_priority(struct list *locks) {
+  struct thread *t;
   int highest = -1;
   for (struct list_elem *e = list_begin(locks); e != list_end(locks); e = list_next(e)) {
-    //l = list_entry(e, struct lock, lock_elem);
-    thr = list_entry(list_begin(&list_entry(e, struct lock, lock_elem)->donations), struct thread, mult_elem);
-    if (highest < thr->donated_priority) {
-      highest = thr->donated_priority;
+    t = list_entry(list_begin(&list_entry(e, struct lock, lock_elem)->donations), struct thread, mult_elem);
+    if (highest < t->donated_priority) {
+      highest = t->donated_priority;
     }
   }
   return highest;
@@ -396,16 +386,14 @@ void
 thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
-//  thread_current ()->donated_priority = new_priority;
-  if (list_empty(&thread_current()->locks) || (!list_empty(&thread_current()->locks) && (highest_priority(&thread_current()->locks) < new_priority))) {
+  if (list_empty(&thread_current ()->locks) || (!list_empty(&thread_current ()->locks) && (highest_priority(&thread_current ()->locks) < new_priority))) {
     thread_current ()->donated_priority = new_priority;
- // } else if (!list_empty(&thread_current()->locks) && !new_priority_greater(new_priority, (&thread_current()->locks))) {
   } else {
-    thread_current()->donated_priority = highest_priority(&thread_current()->locks);
+    thread_current ()->donated_priority = highest_priority(&thread_current ()->locks);
   }
-  struct thread *thread_get = list_entry(list_begin(&ready_list), struct thread, elem);
-  if (thread_get->donated_priority > thread_current ()->donated_priority) {
-    thread_yield();
+  struct thread *t = list_entry(list_begin(&ready_list), struct thread, elem);
+  if (t->donated_priority > thread_current ()->donated_priority) {
+    thread_yield ();
   }
 }
 

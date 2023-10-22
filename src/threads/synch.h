@@ -15,11 +15,8 @@ void sema_init (struct semaphore *, unsigned value);
 void sema_down (struct semaphore *);
 bool sema_try_down (struct semaphore *);
 
-//void set_priority(struct thread *thr);
 void sema_up (struct semaphore *);
 void sema_self_test (void);
-
-//void set_priority(struct thread *thr);
 
 /* Lock. */
 struct lock 
@@ -45,7 +42,7 @@ struct condition
     struct list waiters;        /* List of waiting semaphore_elems. */
   };
 
-bool sema_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
+bool sema_priority_desc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
 
 void cond_init (struct condition *);
 void cond_wait (struct condition *, struct lock *);

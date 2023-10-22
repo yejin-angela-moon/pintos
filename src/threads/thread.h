@@ -141,7 +141,6 @@ void thread_yield (void);
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
-//bool new_priority_greater(int new_priority, struct list *locks);
 int highest_priority(struct list *locks);
 
 int thread_get_priority (void);
