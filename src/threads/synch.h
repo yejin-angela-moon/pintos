@@ -27,6 +27,14 @@ struct lock
     struct list_elem lock_elem;
   };
 
+/* One semaphore in a list. */
+struct semaphore_elem
+{
+    struct list_elem elem;              /* List element. */
+    struct semaphore semaphore;         /* This semaphore. */
+    int priority;
+};
+
 void lock_init (struct lock *);
 
 void modify_nest_donation (struct lock *lock, int pri);

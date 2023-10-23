@@ -93,7 +93,7 @@ struct thread
     int donated_priority;
     struct list locks;
     struct lock wait_lock;
-    struct list_elem mult_elem;
+    struct list_elem mult_elem;         /* List element for donations list. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */

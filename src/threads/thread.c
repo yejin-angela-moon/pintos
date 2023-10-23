@@ -154,7 +154,6 @@ thread_print_stats (void)
           idle_ticks, kernel_ticks, user_ticks);
 }
 
-
 bool 
 thread_priority_desc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
   return list_entry(fir, struct thread, elem)->donated_priority > list_entry(sec, struct thread, elem)->donated_priority;
@@ -231,7 +230,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-  if (thread_current()->donated_priority < t->donated_priority) {
+  if (thread_current ()->donated_priority < t->donated_priority) {
     thread_yield();
   }
   return tid;
@@ -325,7 +324,7 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
-  list_remove (&thread_current()->allelem);
+  list_remove (&thread_current ()->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
