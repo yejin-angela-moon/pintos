@@ -372,7 +372,7 @@ highest_priority(struct list *locks) {
   struct thread *t;
   int highest = -1;
   for (struct list_elem *e = list_begin(locks); e != list_end(locks); e = list_next(e)) {
-    t = list_entry(list_begin(&list_entry(e, struct lock, lock_elem)->donations), struct thread, mult_elem);
+    t = list_entry(list_begin(&list_entry(e, struct lock, lock_elem)->semaphore.waiters), struct thread, elem);
     if (highest < t->donated_priority) {
       highest = t->donated_priority;
     }
