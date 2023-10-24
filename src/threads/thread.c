@@ -164,10 +164,6 @@ thread_priority_asc(const struct list_elem *fir, const struct list_elem *sec, vo
   return list_entry(fir, struct thread, elem)->donated_priority < list_entry(sec, struct thread, elem)->donated_priority;
 }
 
-bool 
-mult_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED) {
-  return list_entry(fir, struct thread, mult_elem)->donated_priority > list_entry(sec, struct thread, mult_elem)->donated_priority;
-}
 
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
