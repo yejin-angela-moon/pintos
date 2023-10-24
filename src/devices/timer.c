@@ -5,8 +5,7 @@
 #include <stdio.h>
 #include "devices/pit.h"
 #include "threads/interrupt.h"
-#include "threads/synch.h"
-#include "threads/thread.h"
+
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -30,6 +29,12 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
+static list_less_func thread_less_ticks;
+
+/* The list of sleeping threads */
+static struct list sleep_list;
+
+
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
@@ -37,6 +42,8 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+
+  list_init(&sleep_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -76,6 +83,14 @@ timer_ticks (void)
   return t;
 }
 
+/* Helper function to compare wake-up times of two threads in list. */
+static bool thread_less_ticks(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+  struct thread_sleep *t_a = list_entry(a, struct thread_sleep, sleep_elem);
+  struct thread_sleep *t_b = list_entry(b, struct thread_sleep, sleep_elem);
+  return t_a->wake_up_tick < t_b->wake_up_tick;
+}
+
+
 /* Returns the number of timer ticks elapsed since THEN, which
    should be a value once returned by timer_ticks(). */
 int64_t
@@ -89,7 +104,33 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
+  /* Retrieves the current timer tick. */
+  int64_t start = timer_ticks();
+  struct thread_sleep t;
+  enum intr_level old_level;
+
+  /* Asserts the interrupt is on */
+  ASSERT(intr_get_level() == INTR_ON);
+
+  /* Sets up the members of the wrapper thread_sleep */
+  t.thread = thread_current();
+  sema_init(&t.sleep_wait, 0);
+  t.wake_up_tick = start + ticks;
+
+  /* Disables interrupts when inserting the thread into the sleep_list,
+  in case multiple threads and the interrupt handler attempt to access it. */
+  old_level = intr_disable();
+
+  /* Inserts the thread into the sleep_list, in an ascending order of the
+    wake_up_tick value */
+    list_insert_ordered(&sleep_list, &t.sleep_elem, &thread_less_ticks, NULL);
+
+    intr_set_level(old_level);
+
+    /* Puts the thread to sleep for TICKS timer ticks, until wake_up_tick is
+    reached and timer interrupt handler wakes the thread up. */
+    sema_down(&t.sleep_wait);
+
 
   ASSERT (intr_get_level () == INTR_ON);
   while (timer_elapsed (start) < ticks) 
@@ -170,7 +211,41 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
+/* Update the CPU usage for running process. */
   ticks++;
+  if (!list_empty(&sleep_list)) {
+      /* Retrieves the head of the sleep_list. Since the list is sorted in an
+      ascending order based on wake_up_tick, the head thread should have the
+      smallest wake_up_tick value: closest to wake up. */
+      struct list_elem *e = list_begin(&sleep_list);
+      ASSERT(e != NULL);
+      struct thread_sleep *t = list_entry(e, struct thread_sleep, sleep_elem);
+      ASSERT(t != NULL && t->thread != NULL);
+
+      /* Iteration over threads in sleep_list to wake up every thread
+      that has reached the wake up time */
+      while (t->wake_up_tick <= ticks) {
+        /* Remove the thread that has to wake up */
+        list_pop_front(&sleep_list);
+        /* "UP" the semaphore for the thread to unblock it and reschedule it
+        by adding it to the ready_list */
+        sema_up(&t->sleep_wait);
+
+        /* Stop the iteration when the list is completely exhausted */
+        if (list_empty(&sleep_list)) {
+          break;
+        }
+
+        /* The next element to be checked */
+        e = list_begin(&sleep_list);
+        ASSERT(e != NULL);
+        t = list_entry(e, struct thread_sleep, sleep_elem);
+        ASSERT(t != NULL && t->thread != NULL);
+
+      }
+    }
+
+
   thread_tick ();
 }
 
