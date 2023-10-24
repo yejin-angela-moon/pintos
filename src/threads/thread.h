@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include <threads/synch.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -89,6 +90,10 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
+    int donated_priority;
+    struct list locks;
+    struct lock wait_lock;
+    struct list_elem mult_elem;         /* List element for donations list. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -107,6 +112,10 @@ struct thread
    Controlled by kernel command-line option "mlfqs". */
 extern bool thread_mlfqs;
 
+bool thread_priority_desc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
+bool thread_priority_asc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
+bool mult_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
+
 void thread_init (void);
 void thread_start (void);
 size_t threads_ready(void);
@@ -124,12 +133,15 @@ struct thread *thread_current (void);
 tid_t thread_tid (void);
 const char *thread_name (void);
 
+
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
+
+int highest_priority(struct list *locks);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
@@ -139,4 +151,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+
+
 #endif /* threads/thread.h */
+
