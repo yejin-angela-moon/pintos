@@ -11,6 +11,12 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+
+#include "threads/fixed-point.c"
+#include "devices/timer.h"
+#include <inttypes.h>
+ /////////
+
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -37,6 +43,8 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
+static fixed_t load_avg; ////////
+
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame
 {
@@ -52,7 +60,10 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
-static unsigned thread_ticks;   /* # of timer ticks since last yield. */
+//static unsigned thread_ticks; 
+  /* # of timer ticks since last yield. */
+//static int64_t ticks;
+static int64_t thread_ticks;
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -124,6 +135,64 @@ threads_ready (void)
   return list_size (&ready_list);
 }
 
+
+void recalculate_recent_cpu (struct thread *t) // to be run once per second
+{
+	//printf("ori cpu: %d\n", fp_to_int_round_nearest(thread_current()->recent_cpu));
+  t->recent_cpu = fp_add_int(fp_mul(fp_div(fp_mul_int(load_avg, 2), fp_add_int(fp_mul_int(load_avg, 2), 1)), t->recent_cpu), t->nice);
+  //printf("new cpu: %d\n", fp_to_int_round_nearest(thread_current()->recent_cpu));
+}
+
+
+void recalculate_load_avg ()  // to be run once per second
+{
+//load_avg = fp_add(fp_mul_int(thread_get_load_avg(), 59 / 60), fp_mul_int(list_size(&all_list), 1 / 60));
+  //int inc = 0;
+  //printf("no of elem in ready list: %d\n", list_size(&ready_list));
+    //inc = 1;
+  if (thread_current() != idle_thread) {
+//	  printf("cur not idle\n");
+    //load_avg = fp_add(fp_div_int(fp_mul_int(load_avg, 59), 60), fp_div_int(fp_add_int(list_size(&ready_list), 1), 60));
+    load_avg = fp_add(fp_div_int(fp_mul_int(load_avg, 59), 60), fp_div_int(int_to_fp(list_size(&ready_list) + 1),  60));
+  } else {
+    load_avg = fp_add(fp_div_int(fp_mul_int(load_avg, 59), 60), fp_div_int(int_to_fp(list_size(&ready_list)),  60));
+   // load_avg = fp_add(fp_div_int(fp_mul_int(load_avg, 59), 60), fp_div_int(fp_add_int(list_size(&ready_list), 0), 60));
+  }
+
+//  load_avg = fp_add(fp_div_int(fp_mul_int(load_avg, 59), 60), fp_div_int(fp_add_int(list_size(&ready_list), 0), 60));
+  //printf("new load_avg == 0: %d\n", load_avg == int_to_fp(0));
+}
+
+void recalculate_recent_cpu_all () {
+	//printf("recal cpu all\n");
+  for (struct list_elem *e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e))
+      {
+	  //    printf("recal cpu all\n");
+        recalculate_recent_cpu(list_entry(e, struct thread, elem));
+      }
+  recalculate_recent_cpu(thread_current());
+}
+
+
+void calculate_priority (struct thread *t)
+{
+  //int priority = fp_sub(int_to_fp(PRI_MAX), fp_sub(fp_div_int(t->recent_cpu, 4), fp_mul_int(t->nice, 2)));
+  int priority = fp_sub(int_to_fp(PRI_MAX), fp_add(fp_div_int(t->recent_cpu, 4), fp_mul_int(t->nice, 2)));
+  if (priority < PRI_MIN)
+    priority = PRI_MIN;
+  else if (priority > PRI_MAX)
+    priority = PRI_MAX;
+  t->priority = priority;
+  t->donated_priority = priority;  // many functions such as get_prio return donated so this prevents rewriting those functions
+}
+
+void calculate_priority_all() {
+  for (struct list_elem *e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e))
+      {
+        calculate_priority(list_entry(e, struct thread, elem));
+      }
+}
+
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
 void
@@ -138,8 +207,41 @@ thread_tick (void)
     else if (t->pagedir != NULL)
     user_ticks++;
 #endif
-  else
+  else {
     kernel_ticks++;
+  }
+
+  //thread_ticks++;
+//printf("thread ticks %lld\n", thread_ticks);
+  if (thread_mlfqs) {
+//        printf("mlfqs time\n");
+    //if (t != idle_thread)
+     // fp_add_int(t->recent_cpu, 1);
+//if (thread_current() != idle_thread) {
+  if (thread_current()->status == THREAD_RUNNING && thread_current() != idle_thread) {
+      //  printf("increase cpu by 1\n");
+   thread_current()->recent_cpu = fp_add_int(thread_current()->recent_cpu, 1);
+//   printf("new cpu of cur: %d\n\n\n", fp_to_int_round_nearest(thread_current()->recent_cpu));
+  }
+
+   //     printf("thread tick %lld and timer freq %d\n", thread_ticks, TIMER_FREQ);
+    if (thread_ticks % TIMER_FREQ == 0)
+    {
+  // printf("now recalculate cpu and la\n");
+      //recalculate_recent_cpu(thread_current());
+      recalculate_load_avg();
+       //recalculate_recent_cpu(thread_current());
+      recalculate_recent_cpu_all();
+    }
+    if (thread_ticks % 4 == 0){
+            calculate_priority_all();
+      // struct list_elem *e;  // TODO do not 'wastefully' calc all of them: if you have to, need to replace loop so its not using read_list
+     // for (e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e))
+      //{
+       // calculate_priority(list_entry(e, struct thread, elem));
+      //}
+    }
+  }
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
@@ -396,6 +498,9 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void)
 {
+  /*if (thread_mlfqs) {
+    return thread_current()->priority;
+  }*/
   return thread_current ()->donated_priority;
 }
 
@@ -404,22 +509,35 @@ void
 thread_set_nice (int nice UNUSED)
 {
   /* Not yet implemented. */
+  thread_current()->nice = nice;
+  calculate_priority(thread_current());
+
+  // check if higher prio thread exists:
+  int higher_prio = thread_get_priority() + 1;
+  bool should_yield = false;
+  while (higher_prio <= PRI_MAX) {
+    if (!list_empty(&mlfqueues[higher_prio])) {
+      should_yield = true;
+      break;
+    }
+    higher_prio++;
+  }
+
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void)
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void)
 {
-  /* Not yet implemented. */
-  return 0;
+ //printf("load avg: %d", fp_to_int_round_nearest(fp_mul_int(load_avg, 100)));
+  return fp_to_int_round_nearest(fp_mul_int(load_avg, 100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -427,8 +545,10 @@ int
 thread_get_recent_cpu (void)
 {
   /* Not yet implemented. */
-  return 0;
+//  return 0;
+  return fp_to_int_round_nearest(fp_mul_int(load_avg, 100));
 }
+
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -521,6 +641,19 @@ init_thread (struct thread *t, const char *name, int priority)
   lock_init(&t->wait_lock);
   list_init(&t->locks);
 
+  if (thread_mlfqs) {
+//    printf("it is in mlfqs\n");
+      if (t != initial_thread) {
+        t->nice = thread_get_nice();
+        t->recent_cpu = thread_get_recent_cpu();
+      } else {
+        t->nice = 0;
+        t->recent_cpu = 0;
+      }
+      calculate_priority(t);
+    }
+  load_avg = 0;
+
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
@@ -580,7 +713,7 @@ thread_schedule_tail (struct thread *prev)
   cur->status = THREAD_RUNNING;
 
   /* Start new time slice. */
-  thread_ticks = 0;
+ // thread_ticks = 0;
 
 #ifdef USERPROG
   /* Activate the new address space. */

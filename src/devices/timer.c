@@ -6,6 +6,7 @@
 #include "devices/pit.h"
 #include "threads/interrupt.h"
 
+//#include "threads/thread.h"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -122,17 +123,17 @@ timer_sleep (int64_t ticks)
   old_level = intr_disable();
 
   /* Inserts the thread into the sleep_list, in an ascending order of the
-    wake_up_tick value */
-    list_insert_ordered(&sleep_list, &t.sleep_elem, &thread_less_ticks, NULL);
+  wake_up_tick value */
+  list_insert_ordered(&sleep_list, &t.sleep_elem, &thread_less_ticks, NULL);
 
-    intr_set_level(old_level);
+  intr_set_level(old_level);
 
-    /* Puts the thread to sleep for TICKS timer ticks, until wake_up_tick is
-    reached and timer interrupt handler wakes the thread up. */
-    sema_down(&t.sleep_wait);
+  /* Puts the thread to sleep for TICKS timer ticks, until wake_up_tick is
+  reached and timer interrupt handler wakes the thread up. */
+  sema_down(&t.sleep_wait);
 
 
-  ASSERT (intr_get_level () == INTR_ON);
+  ASSERT (intr_get_level () == INTR_ON);   ////??remove
   while (timer_elapsed (start) < ticks) 
     thread_yield ();
 }
@@ -246,6 +247,46 @@ timer_interrupt (struct intr_frame *args UNUSED)
   }
 
   thread_tick ();
+//struct thread *t = thread_current();
+/*if (thread_mlfqs) {
+//        printf("mlfqs time\n");
+    //if (t != idle_thread)
+     // fp_add_int(t->recent_cpu, 1);
+    
+  if (thread_current()->status == THREAD_RUNNING) {
+       // printf("increase cpu by 1\n");
+   thread_current()->recent_cpu = fp_add_int(thread_current()->recent_cpu, 1);
+ //  printf("new cpu of cur = 0?: %d\n\n\n", thread_current()->recent_cpu == int_to_fp(0));
+  }
+
+//	  printf("thread tick %lld and timer freq %d\n", ticks, TIMER_FREQ);
+    if (ticks % TIMER_FREQ == 0)
+    {
+  // printf("now recalculate cpu and la\n");
+      recalculate_recent_cpu();
+      recalculate_load_avg();
+    }
+    if (ticks % 4 == 0){
+	    calculate_priority_all();
+     // struct list_elem *e;  // TODO do not 'wastefully' calc all of them: if you have to, need to replace loop so its not using read_list
+     // for (e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e))
+      //{
+       // calculate_priority(list_entry(e, struct thread, elem));
+      //}
+    }
+  }*/
+     /* struct thread *cur;
+ 
+        }*/
+/*	    printf("thread tick %lld and timer freq %d\n", ticks, TIMER_FREQ);
+      if (ticks % TIMER_FREQ == 0)
+        {
+		printf("now recalculate cpu and la\n");
+//		printf("old la: %d\n", fp_to_int_round_nearest(load_avg));
+          recalculate_load_avg ();
+
+ 
+    }*/
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

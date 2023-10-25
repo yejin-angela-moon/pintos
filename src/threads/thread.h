@@ -114,6 +114,10 @@ struct thread
    Controlled by kernel command-line option "mlfqs". */
 extern bool thread_mlfqs;
 
+//static struct thread *idle_thread;
+
+//extern int64_t ticks;
+
 struct list mlfqueues[PRI_MAX];
 
 bool thread_priority_desc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
@@ -122,6 +126,10 @@ bool thread_priority_asc(const struct list_elem *fir, const struct list_elem *se
 void thread_init (void);
 void thread_start (void);
 size_t threads_ready(void);
+
+void recalculate_recent_cpu (struct thread *t);
+void recalculate_load_avg (void);
+void calculate_priority_all(void);
 
 void thread_tick (void);
 void thread_print_stats (void);
