@@ -60,10 +60,10 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
-//static unsigned thread_ticks; 
+static unsigned thread_ticks; 
   /* # of timer ticks since last yield. */
 //static int64_t ticks;
-static int64_t thread_ticks;
+//static int64_t timer_ticks;
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -140,7 +140,7 @@ void recalculate_recent_cpu (struct thread *t) // to be run once per second
 {
 	//printf("ori cpu: %d\n", fp_to_int_round_nearest(thread_current()->recent_cpu));
   t->recent_cpu = fp_add_int(fp_mul(fp_div(fp_mul_int(load_avg, 2), fp_add_int(fp_mul_int(load_avg, 2), 1)), t->recent_cpu), t->nice);
-  //printf("new cpu: %d\n", fp_to_int_round_nearest(thread_current()->recent_cpu));
+ // printf("new cpu: %d\n", fp_to_int_round_nearest(thread_current()->recent_cpu));
 }
 
 
@@ -165,7 +165,7 @@ void recalculate_load_avg ()  // to be run once per second
 
 void recalculate_recent_cpu_all () {
 	//printf("recal cpu all\n");
-  for (struct list_elem *e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e))
+  for (struct list_elem *e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
       {
 	  //    printf("recal cpu all\n");
         recalculate_recent_cpu(list_entry(e, struct thread, elem));
@@ -177,20 +177,24 @@ void recalculate_recent_cpu_all () {
 void calculate_priority (struct thread *t)
 {
   //int priority = fp_sub(int_to_fp(PRI_MAX), fp_sub(fp_div_int(t->recent_cpu, 4), fp_mul_int(t->nice, 2)));
-  int priority = fp_sub(int_to_fp(PRI_MAX), fp_add(fp_div_int(t->recent_cpu, 4), fp_mul_int(t->nice, 2)));
-  if (priority < PRI_MIN)
-    priority = PRI_MIN;
-  else if (priority > PRI_MAX)
-    priority = PRI_MAX;
-  t->priority = priority;
-  t->donated_priority = priority;  // many functions such as get_prio return donated so this prevents rewriting those functions
+  if (t != idle_thread) {
+    int priority = PRI_MAX - fp_to_int_round_nearest(fp_div_int(t->recent_cpu, 4)) - t->nice * 2;
+    if (priority < PRI_MIN)
+      priority = PRI_MIN;
+    else if (priority > PRI_MAX)
+      priority = PRI_MAX;
+    t->priority = priority;
+    t->donated_priority = priority;  // many functions such as get_prio return donated so this prevents rewriting those functions
+    list_sort(&ready_list, thread_priority_desc, NULL);
+  }
 }
 
 void calculate_priority_all() {
-  for (struct list_elem *e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e))
+  for (struct list_elem *e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
       {
         calculate_priority(list_entry(e, struct thread, elem));
       }
+ // list_sort(&ready_list, thread_priority_desc, NULL);
 }
 
 /* Called by the timer interrupt handler at each timer tick.
@@ -211,7 +215,7 @@ thread_tick (void)
     kernel_ticks++;
   }
 
-  //thread_ticks++;
+//  timer_ticks++;
 //printf("thread ticks %lld\n", thread_ticks);
   if (thread_mlfqs) {
 //        printf("mlfqs time\n");
@@ -225,7 +229,7 @@ thread_tick (void)
   }
 
    //     printf("thread tick %lld and timer freq %d\n", thread_ticks, TIMER_FREQ);
-    if (thread_ticks % TIMER_FREQ == 0)
+    if (timer_ticks() % TIMER_FREQ == 0)
     {
   // printf("now recalculate cpu and la\n");
       //recalculate_recent_cpu(thread_current());
@@ -233,7 +237,7 @@ thread_tick (void)
        //recalculate_recent_cpu(thread_current());
       recalculate_recent_cpu_all();
     }
-    if (thread_ticks % 4 == 0){
+    if (timer_ticks() % 4 == 0){
             calculate_priority_all();
       // struct list_elem *e;  // TODO do not 'wastefully' calc all of them: if you have to, need to replace loop so its not using read_list
      // for (e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e))
@@ -325,6 +329,12 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   intr_set_level (old_level);
+
+  if (thread_mlfqs) {
+      recalculate_recent_cpu (t);
+      calculate_priority (t);
+  }
+
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -512,8 +522,11 @@ thread_set_nice (int nice UNUSED)
   thread_current()->nice = nice;
   calculate_priority(thread_current());
 
+  if (thread_current()->donated_priority < list_entry(list_begin(&ready_list), struct thread, elem)->donated_priority) {
+    thread_yield();
+  }
   // check if higher prio thread exists:
-  int higher_prio = thread_get_priority() + 1;
+  /*t higher_prio = thread_get_priority() + 1;
   bool should_yield = false;
   while (higher_prio <= PRI_MAX) {
     if (!list_empty(&mlfqueues[higher_prio])) {
@@ -521,7 +534,7 @@ thread_set_nice (int nice UNUSED)
       break;
     }
     higher_prio++;
-  }
+  }*/
 
 }
 
@@ -546,7 +559,7 @@ thread_get_recent_cpu (void)
 {
   /* Not yet implemented. */
 //  return 0;
-  return fp_to_int_round_nearest(fp_mul_int(load_avg, 100));
+  return fp_to_int_round_nearest(fp_mul_int(thread_current()->recent_cpu, 100));
 }
 
 
@@ -713,7 +726,7 @@ thread_schedule_tail (struct thread *prev)
   cur->status = THREAD_RUNNING;
 
   /* Start new time slice. */
- // thread_ticks = 0;
+  thread_ticks = 0;
 
 #ifdef USERPROG
   /* Activate the new address space. */
