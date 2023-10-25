@@ -123,7 +123,7 @@ thread_start (void)
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
-
+  
   /* Wait for the idle thread to initialize idle_thread. */
   sema_down (&idle_started);
 }
@@ -140,7 +140,7 @@ void recalculate_recent_cpu (struct thread *t) // to be run once per second
 {
 	//printf("ori cpu: %d\n", fp_to_int_round_nearest(thread_current()->recent_cpu));
   t->recent_cpu = fp_add_int(fp_mul(fp_div(fp_mul_int(load_avg, 2), fp_add_int(fp_mul_int(load_avg, 2), 1)), t->recent_cpu), t->nice);
- // printf("new cpu: %d\n", fp_to_int_round_nearest(thread_current()->recent_cpu));
+  //printf("new cpu: %d\n", fp_to_int_round_nearest(t->recent_cpu));
 }
 
 
@@ -150,6 +150,7 @@ void recalculate_load_avg ()  // to be run once per second
   //int inc = 0;
   //printf("no of elem in ready list: %d\n", list_size(&ready_list));
     //inc = 1;
+   // printf("idle tid %d\n", idle_thread->tid);
   if (thread_current() != idle_thread) {
 //	  printf("cur not idle\n");
     //load_avg = fp_add(fp_div_int(fp_mul_int(load_avg, 59), 60), fp_div_int(fp_add_int(list_size(&ready_list), 1), 60));
@@ -160,7 +161,7 @@ void recalculate_load_avg ()  // to be run once per second
   }
 
 //  load_avg = fp_add(fp_div_int(fp_mul_int(load_avg, 59), 60), fp_div_int(fp_add_int(list_size(&ready_list), 0), 60));
-  //printf("new load_avg == 0: %d\n", load_avg == int_to_fp(0));
+ // printf("new load_avg: %d\n",  fp_to_int_round_nearest(load_avg));
 }
 
 void recalculate_recent_cpu_all () {
@@ -168,9 +169,9 @@ void recalculate_recent_cpu_all () {
   for (struct list_elem *e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
       {
 	  //    printf("recal cpu all\n");
-        recalculate_recent_cpu(list_entry(e, struct thread, elem));
+        recalculate_recent_cpu(list_entry(e, struct thread, allelem));
       }
-  recalculate_recent_cpu(thread_current());
+ // recalculate_recent_cpu(thread_current());
 }
 
 
@@ -186,13 +187,16 @@ void calculate_priority (struct thread *t)
     t->priority = priority;
     t->donated_priority = priority;  // many functions such as get_prio return donated so this prevents rewriting those functions
     list_sort(&ready_list, thread_priority_desc, NULL);
+//  printf("new prio for tid %d is %d\n", t->tid, t->priority);
+//  printf("not idle");
   }
+  //printf("new prio for tid %d is %d\n", t->tid, t->priority);
 }
 
 void calculate_priority_all() {
   for (struct list_elem *e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
       {
-        calculate_priority(list_entry(e, struct thread, elem));
+        calculate_priority(list_entry(e, struct thread, allelem));
       }
  // list_sort(&ready_list, thread_priority_desc, NULL);
 }
@@ -203,6 +207,7 @@ void
 thread_tick (void)
 {
   struct thread *t = thread_current ();
+//printf("thread_ticks\n");
 
   /* Update statistics. */
   if (t == idle_thread)
@@ -516,14 +521,20 @@ thread_get_priority (void)
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED)
+thread_set_nice (int nice)
 {
   /* Not yet implemented. */
+//	printf("setting new nice for tid %d from %d to %d\n\n", thread_current()->tid, thread_current()->nice, nice);
   thread_current()->nice = nice;
   calculate_priority(thread_current());
+  //printf("list empty? %d", list_empty(&ready_list));
+//printf("curr donate %d and ready donate %d\n", thread_current()->donated_priority, list_entry(list_begin(&ready_list), struct thread, elem)->donated_priority);
+  
+  list_sort(&ready_list, thread_priority_desc, NULL);
 
-  if (thread_current()->donated_priority < list_entry(list_begin(&ready_list), struct thread, elem)->donated_priority) {
-    thread_yield();
+  if (thread_current()->status == THREAD_RUNNING && !list_empty(&ready_list) && thread_current()->donated_priority < list_entry(list_begin(&ready_list), struct thread, elem)->donated_priority) {
+    //printf("yield after setting nice\n");
+	  thread_yield();
   }
   // check if higher prio thread exists:
   /*t higher_prio = thread_get_priority() + 1;
@@ -665,10 +676,11 @@ init_thread (struct thread *t, const char *name, int priority)
       }
       calculate_priority(t);
     }
-  load_avg = 0;
-
+  //load_avg = 0;
+ 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
+  
   intr_set_level (old_level);
 }
 
