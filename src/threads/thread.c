@@ -123,7 +123,7 @@ thread_start (void)
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
-  
+   
   /* Wait for the idle thread to initialize idle_thread. */
   sema_down (&idle_started);
 }
@@ -334,12 +334,12 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   intr_set_level (old_level);
-
+/*
   if (thread_mlfqs) {
       recalculate_recent_cpu (t);
       calculate_priority (t);
   }
-
+*/
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -508,7 +508,7 @@ thread_set_priority (int new_priority)
     thread_yield ();
   }
 }
-
+  
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void)
@@ -518,7 +518,7 @@ thread_get_priority (void)
   }*/
   return thread_current ()->donated_priority;
 }
-
+ 
 /* Sets the current thread's nice value to NICE. */
 void
 thread_set_nice (int nice)
@@ -526,6 +526,7 @@ thread_set_nice (int nice)
   /* Not yet implemented. */
 //	printf("setting new nice for tid %d from %d to %d\n\n", thread_current()->tid, thread_current()->nice, nice);
   thread_current()->nice = nice;
+  recalculate_recent_cpu(thread_current());
   calculate_priority(thread_current());
   //printf("list empty? %d", list_empty(&ready_list));
 //printf("curr donate %d and ready donate %d\n", thread_current()->donated_priority, list_entry(list_begin(&ready_list), struct thread, elem)->donated_priority);
