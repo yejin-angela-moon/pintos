@@ -6,6 +6,7 @@
 #include "devices/pit.h"
 #include "threads/interrupt.h"
 
+//#include "threads/thread.h"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -122,17 +123,17 @@ timer_sleep (int64_t ticks)
   old_level = intr_disable();
 
   /* Inserts the thread into the sleep_list, in an ascending order of the
-    wake_up_tick value */
-    list_insert_ordered(&sleep_list, &t.sleep_elem, &thread_less_ticks, NULL);
+  wake_up_tick value */
+  list_insert_ordered(&sleep_list, &t.sleep_elem, &thread_less_ticks, NULL);
 
-    intr_set_level(old_level);
+  intr_set_level(old_level);
 
-    /* Puts the thread to sleep for TICKS timer ticks, until wake_up_tick is
-    reached and timer interrupt handler wakes the thread up. */
-    sema_down(&t.sleep_wait);
+  /* Puts the thread to sleep for TICKS timer ticks, until wake_up_tick is
+  reached and timer interrupt handler wakes the thread up. */
+  sema_down(&t.sleep_wait);
 
 
-  ASSERT (intr_get_level () == INTR_ON);
+  ASSERT (intr_get_level () == INTR_ON);   ////??remove
   while (timer_elapsed (start) < ticks) 
     thread_yield ();
 }
@@ -214,39 +215,78 @@ timer_interrupt (struct intr_frame *args UNUSED)
 /* Update the CPU usage for running process. */
   ticks++;
   if (!list_empty(&sleep_list)) {
-      /* Retrieves the head of the sleep_list. Since the list is sorted in an
-      ascending order based on wake_up_tick, the head thread should have the
-      smallest wake_up_tick value: closest to wake up. */
-      struct list_elem *e = list_begin(&sleep_list);
+    /* Retrieves the head of the sleep_list. Since the list is sorted in an
+    ascending order based on wake_up_tick, the head thread should have the
+    smallest wake_up_tick value: closest to wake up. */
+    struct list_elem *e = list_begin(&sleep_list);
+    ASSERT(e != NULL);
+    struct thread_sleep *t = list_entry(e, struct thread_sleep, sleep_elem);
+    ASSERT(t != NULL && t->thread != NULL);
+
+    /* Iteration over threads in sleep_list to wake up every thread
+    that has reached the wake up time */
+    while (t->wake_up_tick <= ticks) {
+      /* Remove the thread that has to wake up */
+      list_pop_front(&sleep_list);
+      /* "UP" the semaphore for the thread to unblock it and reschedule it
+      by adding it to the ready_list */
+      sema_up(&t->sleep_wait);
+
+      /* Stop the iteration when the list is completely exhausted */
+      if (list_empty(&sleep_list)) {
+        break;
+      }
+
+      /* The next element to be checked */
+      e = list_begin(&sleep_list);
       ASSERT(e != NULL);
-      struct thread_sleep *t = list_entry(e, struct thread_sleep, sleep_elem);
+      t = list_entry(e, struct thread_sleep, sleep_elem);
       ASSERT(t != NULL && t->thread != NULL);
 
-      /* Iteration over threads in sleep_list to wake up every thread
-      that has reached the wake up time */
-      while (t->wake_up_tick <= ticks) {
-        /* Remove the thread that has to wake up */
-        list_pop_front(&sleep_list);
-        /* "UP" the semaphore for the thread to unblock it and reschedule it
-        by adding it to the ready_list */
-        sema_up(&t->sleep_wait);
-
-        /* Stop the iteration when the list is completely exhausted */
-        if (list_empty(&sleep_list)) {
-          break;
-        }
-
-        /* The next element to be checked */
-        e = list_begin(&sleep_list);
-        ASSERT(e != NULL);
-        t = list_entry(e, struct thread_sleep, sleep_elem);
-        ASSERT(t != NULL && t->thread != NULL);
-
-      }
     }
-
+  }
 
   thread_tick ();
+//struct thread *t = thread_current();
+/*if (thread_mlfqs) {
+//        printf("mlfqs time\n");
+    //if (t != idle_thread)
+     // fp_add_int(t->recent_cpu, 1);
+    
+  if (thread_current()->status == THREAD_RUNNING) {
+       // printf("increase cpu by 1\n");
+   thread_current()->recent_cpu = fp_add_int(thread_current()->recent_cpu, 1);
+ //  printf("new cpu of cur = 0?: %d\n\n\n", thread_current()->recent_cpu == int_to_fp(0));
+  }
+
+//	  printf("thread tick %lld and timer freq %d\n", ticks, TIMER_FREQ);
+    if (ticks % TIMER_FREQ == 0)
+    {
+  // printf("now recalculate cpu and la\n");
+      recalculate_recent_cpu();
+      recalculate_load_avg();
+    }
+    if (ticks % 4 == 0){
+	    calculate_priority_all();
+     // struct list_elem *e;  // TODO do not 'wastefully' calc all of them: if you have to, need to replace loop so its not using read_list
+     // for (e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e))
+      //{
+       // calculate_priority(list_entry(e, struct thread, elem));
+      //}
+    }
+  }*/
+     /* struct thread *cur;
+ 
+        }*/
+/*	    printf("thread tick %lld and timer freq %d\n", ticks, TIMER_FREQ);
+      if (ticks % TIMER_FREQ == 0)
+        {
+		printf("now recalculate cpu and la\n");
+//		printf("old la: %d\n", fp_to_int_round_nearest(load_avg));
+          recalculate_load_avg ();
+
+ 
+    }*/
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
