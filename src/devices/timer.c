@@ -7,7 +7,7 @@
 #include "threads/interrupt.h"
 
 //#include "threads/thread.h"
-  
+
 /* See [8254] for hardware details of the 8254 timer chip. */
 
 #if TIMER_FREQ < 19
@@ -25,10 +25,14 @@ static int64_t ticks;
 static unsigned loops_per_tick;
 
 static intr_handler_func timer_interrupt;
-static bool too_many_loops (unsigned loops);
-static void busy_wait (int64_t loops);
-static void real_time_sleep (int64_t num, int32_t denom);
-static void real_time_delay (int64_t num, int32_t denom);
+
+static bool too_many_loops(unsigned loops);
+
+static void busy_wait(int64_t loops);
+
+static void real_time_sleep(int64_t num, int32_t denom);
+
+static void real_time_delay(int64_t num, int32_t denom);
 
 static list_less_func thread_less_ticks;
 
@@ -39,55 +43,55 @@ static struct list sleep_list;
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
-timer_init (void) 
-{
-  pit_configure_channel (0, 2, TIMER_FREQ);
-  intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+timer_init(void) {
+  pit_configure_channel(0, 2, TIMER_FREQ);
+  intr_register_ext(0x20, timer_interrupt, "8254 Timer");
 
   list_init(&sleep_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
 void
-timer_calibrate (void) 
-{
+timer_calibrate(void) {
   unsigned high_bit, test_bit;
 
-  ASSERT (intr_get_level () == INTR_ON);
-  printf ("Calibrating timer...  ");
+  ASSERT(intr_get_level() == INTR_ON);
+  printf("Calibrating timer...  ");
 
   /* Approximate loops_per_tick as the largest power-of-two
      still less than one timer tick. */
   loops_per_tick = 1u << 10;
-  while (!too_many_loops (loops_per_tick << 1)) 
-    {
-      loops_per_tick <<= 1;
-      ASSERT (loops_per_tick != 0);
-    }
+  while (!too_many_loops(loops_per_tick << 1)) {
+    loops_per_tick <<= 1;
+    ASSERT(loops_per_tick != 0);
+  }
 
   /* Refine the next 8 bits of loops_per_tick. */
   high_bit = loops_per_tick;
   for (test_bit = high_bit >> 1; test_bit != high_bit >> 10; test_bit >>= 1)
-    if (!too_many_loops (high_bit | test_bit))
+    if (!too_many_loops(high_bit | test_bit))
       loops_per_tick |= test_bit;
 
-  printf ("%'"PRIu64" loops/s.\n", (uint64_t) loops_per_tick * TIMER_FREQ);
+  printf("%'"
+  PRIu64
+  " loops/s.\n", (uint64_t) loops_per_tick * TIMER_FREQ);
 }
 
 /* Returns the number of timer ticks since the OS booted. */
 int64_t
-timer_ticks (void) 
-{
-  enum intr_level old_level = intr_disable ();
+timer_ticks(void) {
+  enum intr_level old_level = intr_disable();
   int64_t t = ticks;
-  intr_set_level (old_level);
+  intr_set_level(old_level);
   return t;
 }
 
 /* Helper function to compare wake-up times of two threads in list. */
 static bool thread_less_ticks(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
-  struct thread_sleep *t_a = list_entry(a, struct thread_sleep, sleep_elem);
-  struct thread_sleep *t_b = list_entry(b, struct thread_sleep, sleep_elem);
+  struct thread_sleep *t_a = list_entry(a,
+  struct thread_sleep, sleep_elem);
+  struct thread_sleep *t_b = list_entry(b,
+  struct thread_sleep, sleep_elem);
   return t_a->wake_up_tick < t_b->wake_up_tick;
 }
 
@@ -95,16 +99,14 @@ static bool thread_less_ticks(const struct list_elem *a, const struct list_elem 
 /* Returns the number of timer ticks elapsed since THEN, which
    should be a value once returned by timer_ticks(). */
 int64_t
-timer_elapsed (int64_t then) 
-{
-  return timer_ticks () - then;
+timer_elapsed(int64_t then) {
+  return timer_ticks() - then;
 }
 
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
-timer_sleep (int64_t ticks) 
-{
+timer_sleep(int64_t ticks) {
   /* Retrieves the current timer tick. */
   int64_t start = timer_ticks();
   struct thread_sleep t;
@@ -133,33 +135,30 @@ timer_sleep (int64_t ticks)
   sema_down(&t.sleep_wait);
 
 
-  ASSERT (intr_get_level () == INTR_ON);   ////??remove
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+  ASSERT(intr_get_level() == INTR_ON);   ////??remove
+  while (timer_elapsed(start) < ticks)
+    thread_yield();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
    turned on. */
 void
-timer_msleep (int64_t ms) 
-{
-  real_time_sleep (ms, 1000);
+timer_msleep(int64_t ms) {
+  real_time_sleep(ms, 1000);
 }
 
 /* Sleeps for approximately US microseconds.  Interrupts must be
    turned on. */
 void
-timer_usleep (int64_t us) 
-{
-  real_time_sleep (us, 1000 * 1000);
+timer_usleep(int64_t us) {
+  real_time_sleep(us, 1000 * 1000);
 }
 
 /* Sleeps for approximately NS nanoseconds.  Interrupts must be
    turned on. */
 void
-timer_nsleep (int64_t ns) 
-{
-  real_time_sleep (ns, 1000 * 1000 * 1000);
+timer_nsleep(int64_t ns) {
+  real_time_sleep(ns, 1000 * 1000 * 1000);
 }
 
 /* Busy-waits for approximately MS milliseconds.  Interrupts need
@@ -170,9 +169,8 @@ timer_nsleep (int64_t ns)
    will cause timer ticks to be lost.  Thus, use timer_msleep()
    instead if interrupts are enabled. */
 void
-timer_mdelay (int64_t ms) 
-{
-  real_time_delay (ms, 1000);
+timer_mdelay(int64_t ms) {
+  real_time_delay(ms, 1000);
 }
 
 /* Sleeps for approximately US microseconds.  Interrupts need not
@@ -183,9 +181,8 @@ timer_mdelay (int64_t ms)
    will cause timer ticks to be lost.  Thus, use timer_usleep()
    instead if interrupts are enabled. */
 void
-timer_udelay (int64_t us) 
-{
-  real_time_delay (us, 1000 * 1000);
+timer_udelay(int64_t us) {
+  real_time_delay(us, 1000 * 1000);
 }
 
 /* Sleeps execution for approximately NS nanoseconds.  Interrupts
@@ -196,22 +193,21 @@ timer_udelay (int64_t us)
    will cause timer ticks to be lost.  Thus, use timer_nsleep()
    instead if interrupts are enabled.*/
 void
-timer_ndelay (int64_t ns) 
-{
-  real_time_delay (ns, 1000 * 1000 * 1000);
+timer_ndelay(int64_t ns) {
+  real_time_delay(ns, 1000 * 1000 * 1000);
 }
 
 /* Prints timer statistics. */
 void
-timer_print_stats (void) 
-{
-  printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
+timer_print_stats(void) {
+  printf("Timer: %"
+  PRId64
+  " ticks\n", timer_ticks());
 }
 
 /* Timer interrupt handler. */
 static void
-timer_interrupt (struct intr_frame *args UNUSED)
-{
+timer_interrupt(struct intr_frame *args UNUSED) {
 /* Update the CPU usage for running process. */
   ticks++;
   if (!list_empty(&sleep_list)) {
@@ -220,7 +216,8 @@ timer_interrupt (struct intr_frame *args UNUSED)
     smallest wake_up_tick value: closest to wake up. */
     struct list_elem *e = list_begin(&sleep_list);
     ASSERT(e != NULL);
-    struct thread_sleep *t = list_entry(e, struct thread_sleep, sleep_elem);
+    struct thread_sleep *t = list_entry(e,
+    struct thread_sleep, sleep_elem);
     ASSERT(t != NULL && t->thread != NULL);
 
     /* Iteration over threads in sleep_list to wake up every thread
@@ -240,71 +237,30 @@ timer_interrupt (struct intr_frame *args UNUSED)
       /* The next element to be checked */
       e = list_begin(&sleep_list);
       ASSERT(e != NULL);
-      t = list_entry(e, struct thread_sleep, sleep_elem);
+      t = list_entry(e,
+      struct thread_sleep, sleep_elem);
       ASSERT(t != NULL && t->thread != NULL);
 
     }
   }
-
-  thread_tick ();
-//struct thread *t = thread_current();
-/*if (thread_mlfqs) {
-//        printf("mlfqs time\n");
-    //if (t != idle_thread)
-     // fp_add_int(t->recent_cpu, 1);
-    
-  if (thread_current()->status == THREAD_RUNNING) {
-       // printf("increase cpu by 1\n");
-   thread_current()->recent_cpu = fp_add_int(thread_current()->recent_cpu, 1);
- //  printf("new cpu of cur = 0?: %d\n\n\n", thread_current()->recent_cpu == int_to_fp(0));
-  }
-
-//	  printf("thread tick %lld and timer freq %d\n", ticks, TIMER_FREQ);
-    if (ticks % TIMER_FREQ == 0)
-    {
-  // printf("now recalculate cpu and la\n");
-      recalculate_recent_cpu();
-      recalculate_load_avg();
-    }
-    if (ticks % 4 == 0){
-	    calculate_priority_all();
-     // struct list_elem *e;  // TODO do not 'wastefully' calc all of them: if you have to, need to replace loop so its not using read_list
-     // for (e = list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e))
-      //{
-       // calculate_priority(list_entry(e, struct thread, elem));
-      //}
-    }
-  }*/
-     /* struct thread *cur;
- 
-        }*/
-/*	    printf("thread tick %lld and timer freq %d\n", ticks, TIMER_FREQ);
-      if (ticks % TIMER_FREQ == 0)
-        {
-		printf("now recalculate cpu and la\n");
-//		printf("old la: %d\n", fp_to_int_round_nearest(load_avg));
-          recalculate_load_avg ();
-
- 
-    }*/
+  thread_tick();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
    tick, otherwise false. */
 static bool
-too_many_loops (unsigned loops) 
-{
+too_many_loops(unsigned loops) {
   /* Wait for a timer tick. */
   int64_t start = ticks;
   while (ticks == start)
-    barrier ();
+    barrier();
 
   /* Run LOOPS loops. */
   start = ticks;
-  busy_wait (loops);
+  busy_wait(loops);
 
   /* If the tick count changed, we iterated too long. */
-  barrier ();
+  barrier();
   return start != ticks;
 }
 
@@ -316,16 +272,18 @@ too_many_loops (unsigned loops)
    differently in different places the results would be difficult
    to predict. */
 static void NO_INLINE
-busy_wait (int64_t loops) 
+busy_wait (int64_t
+loops)
 {
-  while (loops-- > 0)
-    barrier ();
+while (loops-- > 0)
+
+barrier();
+
 }
 
 /* Sleep for approximately NUM/DENOM seconds. */
 static void
-real_time_sleep (int64_t num, int32_t denom) 
-{
+real_time_sleep(int64_t num, int32_t denom) {
   /* Convert NUM/DENOM seconds into timer ticks, rounding down.
           
         (NUM / DENOM) s          
@@ -334,28 +292,24 @@ real_time_sleep (int64_t num, int32_t denom)
   */
   int64_t ticks = num * TIMER_FREQ / denom;
 
-  ASSERT (intr_get_level () == INTR_ON);
-  if (ticks > 0)
-    {
-      /* We're waiting for at least one full timer tick.  Use
-         timer_sleep() because it will yield the CPU to other
-         processes. */                
-      timer_sleep (ticks); 
-    }
-  else 
-    {
-      /* Otherwise, use a busy-wait loop for more accurate
-         sub-tick timing. */
-      real_time_delay (num, denom); 
-    }
+  ASSERT(intr_get_level() == INTR_ON);
+  if (ticks > 0) {
+    /* We're waiting for at least one full timer tick.  Use
+       timer_sleep() because it will yield the CPU to other
+       processes. */
+    timer_sleep(ticks);
+  } else {
+    /* Otherwise, use a busy-wait loop for more accurate
+       sub-tick timing. */
+    real_time_delay(num, denom);
+  }
 }
 
 /* Busy-wait for approximately NUM/DENOM seconds. */
 static void
-real_time_delay (int64_t num, int32_t denom)
-{
+real_time_delay(int64_t num, int32_t denom) {
   /* Scale the numerator and denominator down by 1000 to avoid
      the possibility of overflow. */
-  ASSERT (denom % 1000 == 0);
-  busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
+  ASSERT(denom % 1000 == 0);
+  busy_wait(loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000));
 }
