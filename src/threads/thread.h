@@ -118,7 +118,7 @@ extern bool thread_mlfqs;
 
 //extern int64_t ticks;
 
-struct list mlfqueues[PRI_MAX];
+struct list mlfqueues[PRI_MAX + 1];
 
 bool thread_priority_desc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
 bool thread_priority_asc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
