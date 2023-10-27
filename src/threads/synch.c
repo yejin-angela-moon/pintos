@@ -109,7 +109,7 @@ set_priority(struct thread *t) {
   t->donated_priority = t->priority;
   for (struct list_elem *e = list_begin(&t->locks); e != list_end(&t->locks); e = list_next(e)) {
     struct lock *l = list_entry(e, struct lock, lock_elem);
-    if (!list_empty(&l->semaphore.waiters)){
+    if (!list_empty(&l->semaphore.waiters)) {
       struct thread *first = list_entry(list_max(&l->semaphore.waiters, thread_priority_asc, NULL), struct thread, elem);
       if (t->donated_priority < first->donated_priority) {
         t->donated_priority = first->donated_priority;
