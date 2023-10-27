@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include <threads/synch.h>
+#include <threads/fixed-point.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -93,10 +94,11 @@ struct thread
     int donated_priority;
     struct list locks;
     struct lock wait_lock;
-    struct list_elem mult_elem;         /* List element for donations list. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+    fixed_t recent_cpu;
+    int nice;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -112,13 +114,22 @@ struct thread
    Controlled by kernel command-line option "mlfqs". */
 extern bool thread_mlfqs;
 
+//static struct thread *idle_thread;
+
+//extern int64_t ticks;
+
+struct list mlfqueues[PRI_MAX];
+
 bool thread_priority_desc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
 bool thread_priority_asc(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
-bool mult_priority(const struct list_elem *fir, const struct list_elem *sec, void *UNUSED);
 
 void thread_init (void);
 void thread_start (void);
 size_t threads_ready(void);
+
+void recalculate_recent_cpu (struct thread *t);
+void recalculate_load_avg (void);
+void calculate_priority_all(void);
 
 void thread_tick (void);
 void thread_print_stats (void);
@@ -150,6 +161,8 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+void recalculate_recent_cpu_all (void);
+void calculate_priority (struct thread *t);
 
 
 
