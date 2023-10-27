@@ -98,8 +98,8 @@ static bool is_thread(struct thread *)UNUSED;
 
    It is not safe to call thread_current() until this function
    finishes. */
-        void
-        thread_init(void)
+void
+thread_init(void)
 {
   ASSERT(intr_get_level() == INTR_OFF);
 
