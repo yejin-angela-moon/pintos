@@ -161,6 +161,8 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+void recalculate_recent_cpu_all (void);
+void calculate_priority (struct thread *t);
 
 
 

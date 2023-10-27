@@ -136,7 +136,8 @@ threads_ready (void)
 }
 
 
-void recalculate_recent_cpu (struct thread *t) // to be run once per second
+void
+recalculate_recent_cpu (struct thread *t) // to be run once per second
 {
 	//printf("ori cpu: %d\n", fp_to_int_round_nearest(thread_current()->recent_cpu));
   t->recent_cpu = fp_add_int(fp_mul(fp_div(fp_mul_int(load_avg, 2), fp_add_int(fp_mul_int(load_avg, 2), 1)), t->recent_cpu), t->nice);
@@ -144,7 +145,8 @@ void recalculate_recent_cpu (struct thread *t) // to be run once per second
 }
 
 
-void recalculate_load_avg ()  // to be run once per second
+void
+recalculate_load_avg (void)  // to be run once per second
 {
 //load_avg = fp_add(fp_mul_int(thread_get_load_avg(), 59 / 60), fp_mul_int(list_size(&all_list), 1 / 60));
   //int inc = 0;
@@ -164,7 +166,9 @@ void recalculate_load_avg ()  // to be run once per second
  // printf("new load_avg: %d\n",  fp_to_int_round_nearest(load_avg));
 }
 
-void recalculate_recent_cpu_all () {
+void
+recalculate_recent_cpu_all (void)
+{
 	//printf("recal cpu all\n");
   for (struct list_elem *e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
       {
@@ -175,7 +179,8 @@ void recalculate_recent_cpu_all () {
 }
 
 
-void calculate_priority (struct thread *t)
+void
+calculate_priority (struct thread *t)
 {
   //int priority = fp_sub(int_to_fp(PRI_MAX), fp_sub(fp_div_int(t->recent_cpu, 4), fp_mul_int(t->nice, 2)));
   if (t != idle_thread) {
@@ -485,7 +490,7 @@ highest_priority(struct list *locks) {
   struct thread *t;
   int highest = -1;
   for (struct list_elem *e = list_begin(locks); e != list_end(locks); e = list_next(e)) {
-    t = list_entry(list_begin(&list_entry(e, struct lock, lock_elem)->semaphore.waiters), struct thread, elem);
+    t = list_entry(list_max(&list_entry(e, struct lock, lock_elem)->semaphore.waiters, thread_priority_asc, NULL), struct thread, elem);
     if (highest < t->donated_priority) {
       highest = t->donated_priority;
     }
@@ -534,20 +539,8 @@ thread_set_nice (int nice)
   list_sort(&ready_list, thread_priority_desc, NULL);
 
   if (thread_current()->status == THREAD_RUNNING && !list_empty(&ready_list) && thread_current()->donated_priority < list_entry(list_begin(&ready_list), struct thread, elem)->donated_priority) {
-    //printf("yield after setting nice\n");
 	  thread_yield();
   }
-  // check if higher prio thread exists:
-  /*t higher_prio = thread_get_priority() + 1;
-  bool should_yield = false;
-  while (higher_prio <= PRI_MAX) {
-    if (!list_empty(&mlfqueues[higher_prio])) {
-      should_yield = true;
-      break;
-    }
-    higher_prio++;
-  }*/
-
 }
 
 /* Returns the current thread's nice value. */
@@ -561,7 +554,7 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void)
 {
- //printf("load avg: %d", fp_to_int_round_nearest(fp_mul_int(load_avg, 100)));
+  //printf("load avg: %d", fp_to_int_round_nearest(fp_mul_int(load_avg, 100)));
   return fp_to_int_round_nearest(fp_mul_int(load_avg, 100));
 }
 
@@ -570,7 +563,7 @@ int
 thread_get_recent_cpu (void)
 {
   /* Not yet implemented. */
-//  return 0;
+  //  return 0;
   return fp_to_int_round_nearest(fp_mul_int(thread_current()->recent_cpu, 100));
 }
 
@@ -669,8 +662,9 @@ init_thread (struct thread *t, const char *name, int priority)
   if (thread_mlfqs) {
 //    printf("it is in mlfqs\n");
       if (t != initial_thread) {
-        t->nice = thread_get_nice();
-        t->recent_cpu = thread_get_recent_cpu();
+        struct thread *cur = thread_current();
+        t->nice = cur->nice;
+        t->recent_cpu = cur->recent_cpu;
       } else {
         t->nice = 0;
         t->recent_cpu = 0;
@@ -681,7 +675,6 @@ init_thread (struct thread *t, const char *name, int priority)
  
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
-  
   intr_set_level (old_level);
 }
 
