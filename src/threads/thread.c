@@ -497,16 +497,20 @@ highest_priority(struct list *locks) {
 void
 thread_set_priority (int new_priority)
 {
+  enum intr_level old_level = intr_disable ();
+
   thread_current ()->priority = new_priority;
   if (list_empty(&thread_current ()->locks) || (!list_empty(&thread_current ()->locks) && (highest_priority(&thread_current ()->locks) < new_priority))) {
     thread_current ()->donated_priority = new_priority;
   } else {
     thread_current ()->donated_priority = highest_priority(&thread_current ()->locks);
   }
+  intr_set_level (old_level);
   struct thread *t = list_entry(list_begin(&ready_list), struct thread, elem);
   if (t->donated_priority > thread_current ()->donated_priority) {
     thread_yield ();
-  }
+  } 
+  //intr_set_level (old_level);
 }
   
 /* Returns the current thread's priority. */
