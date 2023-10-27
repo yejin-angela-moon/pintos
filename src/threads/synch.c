@@ -269,7 +269,7 @@ lock_release (struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
  
   enum intr_level old_level = intr_disable ();
-  lock->holder->donated_priority = lock->holder->priority;
+  thread_current()->donated_priority = thread_current()->priority;
 
   list_remove(&lock->lock_elem);
   set_priority(thread_current());
