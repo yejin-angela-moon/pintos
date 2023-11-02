@@ -209,7 +209,7 @@ thread_tick(void) {
       recalculate_load_avg();
       recalculate_recent_cpu_all();
     }
-    if (timer_ticks() % 4 == 0) {
+    if (timer_ticks() % TIME_SLICE == 0) {
       calculate_priority_all();
     }
   }
