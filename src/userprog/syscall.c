@@ -15,8 +15,18 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  // if (f->esp < PHYS_BASE) 
-  // page_fault(f);
+  check_user_pointer(f, f->esp);  // check the frame's stack ptr is valid
+  // whoever is dealing with arguments, call the above func on each one
   printf ("system call!\n");
   thread_exit ();
 }
+
+static void
+check_user_pointer (struct intr_frame *f, uint32_t ptr)
+{
+// don't need to worry about code running after as it should kill the process
+  if (!is_user_vaddr(ptr))
+    page_fault(f);  
+}
+
+
