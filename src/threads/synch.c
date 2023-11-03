@@ -219,7 +219,7 @@ lock_acquire(struct lock *lock) {
 
   enum intr_level old_level = intr_disable();
   modify_nest_donation(lock, thread_current()->donated_priority);
-  intr_set_level(old_leveil);
+  intr_set_level(old_level);
 
   thread_current()->wait_lock = *lock;
 
