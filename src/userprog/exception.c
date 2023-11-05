@@ -82,7 +82,8 @@ kill (struct intr_frame *f)
     {
     case SEL_UCSEG:
       /* User's code segment, so it's a user exception, as we
-         expected.  Kill the user process.  */
+         expected. Kill the user process.  */
+      // TODO free resources from user process
       printf ("%s: dying due to interrupt %#04x (%s).\n",
               thread_name (), f->vec_no, intr_name (f->vec_no));
       intr_dump_frame (f);
@@ -156,10 +157,12 @@ page_fault (struct intr_frame *f)
   //         user ? "user" : "kernel");
   // kill (f);
 
-  // if pagefault in kernel:
-  f->eip = f->eax
-  f->eax = 0xffffffff;
-  // endif
+  if (f->cs == SEL_KCSEG) {
+    f->eip = f->eax;
+    f->eax = 0xffffffff;
+  } else {
+    kill(f);
+  }
 
 
 }
