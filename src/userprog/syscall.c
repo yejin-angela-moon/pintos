@@ -24,6 +24,10 @@ syscall_handler (struct intr_frame *f)
   if !(put_user(f->esp, 0))    // for any write
     page_fault(f);
 
+  // these checks should ensure that page_fault is only called when a user program
+  // makes an invalid memory access: if on happens in the kernel during a system call,
+  // we detect it and kill the program to stop the kernel exploding
+
   printf ("system call!\n");
   thread_exit ();
 }
@@ -35,7 +39,7 @@ check_user (struct intr_frame *f, uint32_t ptr)
 {
 // don't need to worry about code running after as it kills the process
   if (!is_user_vaddr(ptr))
-    kill();  
+    kill(f);  
 }
 
 
