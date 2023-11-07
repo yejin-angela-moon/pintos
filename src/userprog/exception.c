@@ -82,7 +82,15 @@ kill (struct intr_frame *f)
     {
     case SEL_UCSEG:
       /* User's code segment, so it's a user exception, as we
-         expected.  Kill the user process.  */
+         expected. Kill the user process.  */
+      struct list_elem *e;
+      struct list held_locks = thread_current()->locks;
+      for (e = list_begin(held_locks); e != list_end(held_locks);
+              e = list_next(e))
+      {
+        lock_release(list_entry(e, struct lock, lock_elem));
+      }
+      // TODO maybe free all user program mallocs?
       printf ("%s: dying due to interrupt %#04x (%s).\n",
               thread_name (), f->vec_no, intr_name (f->vec_no));
       intr_dump_frame (f);
@@ -148,11 +156,21 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-  kill (f);
+
+  // printf ("Page fault at %p: %s error %s page in %s context.\n",
+  //         fault_addr,
+  //         not_present ? "not present" : "rights violation",
+  //         write ? "writing" : "reading",
+  //         user ? "user" : "kernel");
+  // kill (f);
+
+  if (f->cs == SEL_KCSEG) {
+    f->eip = f->eax;
+    f->eax = 0xffffffff;
+  } else {
+    kill(f);
+  }
+
+
 }
 
