@@ -42,6 +42,9 @@ process_execute (const char *file_name)
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  else {
+    list_push_back(&thread_current()->children, &get_thread_by_tid(tid)->child_elem);
+  }
   return tid;
 }
 
@@ -86,11 +89,30 @@ start_process (void *file_name_)
  * This function will be implemented in task 2.
  * For now, it does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid)        //TODO still need to consider the terminated by the kernel case
 {
-  return -1;
-}
+  if (child_tid == TID_ERROR) {
+     return TID_ERROR;
+  }
+  bool isChild = false; 
+  struct thread *cur = thread_current();
+  struct list_elem *e;
+  for (e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
+    if (list_entry(e, struct thread, child_elem)->tid == child_tid) {
+      isChild = true;
+      break;
+    }
+  } 
+  if (!isChild) {
+    return TID_ERROR;
+  } else {
+    struct thread *child = list_entry(e, struct thread, child_elem);
+    while (child->status != THREAD_DYING) {
+    }
+    return list_entry(e, struct thread, child_elem)->exit_status;
+  }
 
+}
 /* Free the current process's resources. */
 void
 process_exit (void)
@@ -114,6 +136,10 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+  //struct list_elem *e = list_begin(&cur->children);
+  for (struct list_elem *e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
+    list_pop_front(&cur->children);
+  }
 }
 
 /* Sets up the CPU for running user code in the current
