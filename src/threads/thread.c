@@ -598,6 +598,9 @@ init_thread(struct thread *t, const char *name, int priority) {
   t->magic = THREAD_MAGIC;
   lock_init(&t->wait_lock);
   list_init(&t->locks);
+  list_init(&t->children);
+  t->waited = false; 
+  t->call_exit = false;
 
   if (thread_mlfqs) {
     if (t != initial_thread) {

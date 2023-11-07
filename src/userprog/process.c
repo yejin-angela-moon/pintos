@@ -89,7 +89,7 @@ start_process (void *file_name_)
  * This function will be implemented in task 2.
  * For now, it does nothing. */
 int
-process_wait (tid_t child_tid)        //TODO still need to consider the terminated by the kernel case
+process_wait (tid_t child_tid)       
 {
   if (child_tid == TID_ERROR) {
      return TID_ERROR;
@@ -107,11 +107,20 @@ process_wait (tid_t child_tid)        //TODO still need to consider the terminat
     return TID_ERROR;
   } else {
     struct thread *child = list_entry(e, struct thread, child_elem);
-    while (child->status != THREAD_DYING) {
+    if (child->waited) {
+      return TID_ERROR;
     }
-    return list_entry(e, struct thread, child_elem)->exit_status;
+    child->waited = true;
+    while (true) {
+      if (child->status == THREAD_DYING) {
+	if (child->call_exit) {
+          return child->exit_status;
+	} else {
+	  return TID_ERROR;
+	}
+      }
+    }
   }
-
 }
 /* Free the current process's resources. */
 void
