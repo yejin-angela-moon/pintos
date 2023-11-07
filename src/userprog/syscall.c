@@ -40,12 +40,12 @@ syscall_handler(struct intr_frame *f) {
             break;
         }
         case SYS_EXIT: { /* Terminate user process */
-            int status = *((int *) (f->esp + 4));
+            int status = get_user(f->esp + 4); // if status = -1 page_fault
             exit(status);
             break;
         }
         case SYS_EXEC: { /**/
-            const char *cmd_line = *((const char **)(f->esp + 4));
+            const char *cmd_line = get_user(f->esp + 4); // if status...
             f->eax = (uint32_t) exec(cmd_line);
             break;
         }
@@ -168,7 +168,17 @@ read(int fd, void *buffer, unsigned size) {
 
 int 
 write(int fd, const void *buffer, unsigned size) {
-    //TODO
+  if (fd == 1) {  // writes to conole 
+    for (int j; j < size; j += 200)  // max 200B at a time  
+      putbuf(buffer + j, min(200+j, size);
+    return size;
+  }
+  int i;
+  for (i = 0; i < size; i++) {
+    if (!put_user(fd+i, buffer+i))
+      break;
+  }
+  return i;
 }
 
 void 
