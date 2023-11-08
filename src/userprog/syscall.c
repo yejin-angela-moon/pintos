@@ -1,4 +1,5 @@
 #include "userprog/syscall.h"
+#include "userprog/process.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
@@ -105,7 +106,9 @@ halt(void) {
 
 void
 exit(int status) {
-    //TODO: Send exit status to Kernel
+    struct thread *cur = thread_current();
+    cur->exit_status = status;
+    cur->call_exit = true;
     thread_exit();
 }
 
@@ -115,8 +118,9 @@ exec(const char *cmd_line){
 }
 
 int
-wait(pid_t pid){
-    //TODO
+wait(pid_t pid) {
+    /*since each process has one thread, pid == tid*/
+    return process_wait(pid);
 }
 
 bool 
