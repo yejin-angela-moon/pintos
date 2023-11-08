@@ -130,6 +130,7 @@ exit(int status) {
 pid_t
 exec(const char *cmd_line){
   //TODO
+  return 0;
 }
 
 int
@@ -163,11 +164,13 @@ open(const char *file) {
 int
 filesize(int fd) {
   //TODO
+  return 0;
 }
 
 int
 read(int fd, void *buffer, unsigned size) {
   //TODO
+  return 0;
 }
 
 int
@@ -193,6 +196,7 @@ seek(int fd, unsigned position) {
 unsigned
 tell(int fd) {
   //TODO
+  return 0;
 }
 
 void
@@ -202,7 +206,7 @@ close(int fd) {
 
 
 // credit to pintos manual: modified to include check_user
-static void
+void
 check_user (struct intr_frame *f, uint32_t ptr)
 {
 // don't need to worry about code running after as it kills the process
@@ -214,7 +218,7 @@ check_user (struct intr_frame *f, uint32_t ptr)
 /* Reads a byte at user virtual address UADDR.
  * Returns the byte value if successful, -1 if a segfault
  * occurred. */
-static int
+int
 get_user (const uint8_t *uaddr)
 {
   check_user(uaddr);

@@ -86,7 +86,7 @@ void setup_stack_populate (char **argv, int argc, void **esp) {
     *(void **) *esp = (void *) argv_addresses[i];
   }
 
-  free(argv_addresses);
+//  free(argv_addresses);
 
   /* Push address of argv[0] */
   void *argv0_addr = *esp;

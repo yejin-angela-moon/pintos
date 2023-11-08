@@ -85,7 +85,7 @@ kill (struct intr_frame *f)
          expected. Kill the user process.  */
       struct list_elem *e;
       struct list held_locks = thread_current()->locks;
-      for (e = list_begin(held_locks); e != list_end(held_locks);
+      for (e = list_begin(&held_locks); e != list_end(&held_locks);
               e = list_next(e))
       {
         lock_release(list_entry(e, struct lock, lock_elem));
