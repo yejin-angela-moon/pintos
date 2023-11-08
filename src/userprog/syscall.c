@@ -51,23 +51,23 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     case SYS_WAIT: {
-      pid_t pid = *((pid_t *)(f->esp +4));
+      pid_t pid = *((pid_t * )(f->esp + 4));
       f->eax = (uint32_t) wait(pid);
       break;
     }
     case SYS_CREATE: { /* Create a file. */
-      const char *file = *((const char **)(f->esp + 4));
-      unsigned initial_size = *((unsigned *)(f->esp + 8));
+      const char *file = *((const char **) (f->esp + 4));
+      unsigned initial_size = *((unsigned *) (f->esp + 8));
       f->eax = (uint32_t) create(file, initial_size);
       break;
     }
     case SYS_REMOVE: { /* Delete a file. */
-      const char *file = *((const char **)(f->esp + 4));
+      const char *file = *((const char **) (f->esp + 4));
       f->eax = (uint32_t) remove(file);
       break;
     }
     case SYS_OPEN: {  /* Open a file. */
-      const char *file = *((const char **)(f->esp + 4));
+      const char *file = *((const char **) (f->esp + 4));
       f->eax = (uint32_t) open(file);
       break;
     }
@@ -78,21 +78,21 @@ syscall_handler(struct intr_frame *f) {
     }
     case SYS_READ: {  /* Read from a file. */
       int fd = *((int *) (f->esp + 4));
-      void *buffer = *((void **)(f->esp + 8));
-      unsigned size = *((unsigned *)(f->esp + 12));
+      void *buffer = *((void **) (f->esp + 8));
+      unsigned size = *((unsigned *) (f->esp + 12));
       f->eax = (uint32_t) read(fd, buffer, size);
       break;
     }
     case SYS_WRITE: { /* Write to a file. */
       int fd = *((int *) (f->esp + 4));
-      const void *buffer = *((const void **)(f->esp + 8));
-      unsigned size = *((unsigned *)(f->esp + 12));
+      const void *buffer = *((const void **) (f->esp + 8));
+      unsigned size = *((unsigned *) (f->esp + 12));
       f->eax = (uint32_t) write(fd, buffer, size);
       break;
     }
     case SYS_SEEK: { /* Change position in a file. */
       int fd = *((int *) (f->esp + 4));
-      unsigned position = *((unsigned *)(f->esp + 8));
+      unsigned position = *((unsigned *) (f->esp + 8));
       seek(fd, position);
       break;
     }
@@ -128,7 +128,7 @@ exit(int status) {
 }
 
 pid_t
-exec(const char *cmd_line){
+exec(const char *cmd_line) {
   //TODO
 }
 
@@ -174,12 +174,12 @@ int
 write(int fd, const void *buffer, unsigned size) {
   if (fd == 1) {  // writes to conole
     for (int j; j < size; j += 200)  // max 200B at a time
-      putbuf(buffer + j, min(200+j, size);
+      putbuf(buffer + j, min(200 + j, size);
     return size;
   }
   int i;
   for (i = 0; i < size; i++) {
-    if (!put_user(fd+i, buffer+i))
+    if (!put_user(fd + i, buffer + i))
       break;
   }
   return i;
@@ -203,8 +203,7 @@ close(int fd) {
 
 // credit to pintos manual: modified to include check_user
 static void
-check_user (struct intr_frame *f, uint32_t ptr)
-{
+check_user(struct intr_frame *f, uint32_t ptr) {
 // don't need to worry about code running after as it kills the process
   if (!is_user_vaddr(ptr))
     kill(f);
@@ -215,8 +214,7 @@ check_user (struct intr_frame *f, uint32_t ptr)
  * Returns the byte value if successful, -1 if a segfault
  * occurred. */
 static int
-get_user (const uint8_t *uaddr)
-{
+get_user(const uint8_t *uaddr) {
   check_user(uaddr);
   int result;
   asm ("movl $1f, %0; movzbl %1, %0; 1:"
@@ -227,8 +225,7 @@ get_user (const uint8_t *uaddr)
 /* Writes BYTE to user address UDST.
  * Returns true if successful, false if a segfault occurred. */
 static bool
-put_user (uint8_t *udst, uint8_t byte)
-{
+put_user(uint8_t *udst, uint8_t byte) {
   check_user(udst);
   int error_code;
   asm ("movl $1f, %0; movb %b2, %1; 1:"
