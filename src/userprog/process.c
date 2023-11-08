@@ -70,6 +70,7 @@ void setup_stack_populate (char **argv, int argc, void **esp) {
     *esp -= strlen(argv[i]) + 1;
     memcpy(*esp, argv[i], strlen(argv[i]) + 1);
     argv_addresses[i] = (uint32_t *) *esp;
+
   }
 
   /* Word-align the stack pointer */
@@ -137,8 +138,6 @@ start_process (void *file_name_)
   if (!success)
     thread_exit ();
 
-  // _start (argc, argv);
-
   /* Set up the stack. Push arguments from right to left. */
   setup_stack_populate(argv, argc, &if_.esp);
 
@@ -195,6 +194,7 @@ process_wait (tid_t child_tid)
     }
   }
 }
+
 /* Free the current process's resources. */
 void
 process_exit (void)
