@@ -38,14 +38,66 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  /* Parse the argement strings */
+  char *save_ptr;
+  char *process_name = strtok_r(fn_copy, " ", &save_ptr);
+
+  /* Check for strtok_r failure (could be ASSUME)*/
+  if (process_name == NULL) {
+    palloc_free_page(fn_copy);
+    return TID_ERROR;
+  }
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy);  
+  // tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   else {
     list_push_back(&thread_current()->children, &get_thread_by_tid(tid)->child_elem);
   }
   return tid;
+}
+
+/* Set up the stack. Push arguments from right to left. */
+void setup_stack (char **argv, int argc, void **esp) {
+  uint32_t *argv_addresses[argc];
+
+  /* Push arguments from right to left */
+  /* Push argv[argc - 1], argv[argc - 2], ..., argv[0] onto the stack */
+  for (int i = argc - 1; i >= 0; i--) {
+    *esp -= strlen(argv[i]) + 1;
+    memcpy(*esp, argv[i], strlen(argv[i]) + 1);
+    argv_addresses[i] = (uint32_t) *esp;
+  }
+
+  /* Word-align the stack pointer */
+  *esp = (void *) (((unsigned int) *esp) & WORD_ALIGN_MASK);
+
+  /* Push a null pointer sentinel */
+  *esp -= sizeof(char *);
+  *(void **)esp = NULL;
+
+  /* Push the addresses of arguments */
+  for (int i = argc - 1; i >= 0; i--) {
+    *esp -= sizeof(char *);
+    *(void **) *esp = (void *) argv_addresses[i];
+  }
+
+  free(argv_addresses);
+
+  /* Push address of argv[0] */
+  void *argv0_addr = *esp;
+  *esp -= sizeof(char **);
+  *(void **) *esp = argv0_addr;
+
+  /* Push argc */
+  *esp -= sizeof(int);
+  *(int *) *esp = argc;
+
+  /* Push fake return address */
+  *esp -= sizeof(void *);
+  *(void **) *esp = NULL;
 }
 
 /* A thread function that loads a user process and starts it
@@ -62,12 +114,32 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+
+  /* Parse file name into arguments */
+  char *token, *save_ptr;
+  int argc = 0;
+  char *argv[MAX_ARGS];
+
+  /* Parse file_name and save arguments in argv */
+  for (token = strtok_r (file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+    argv[argc++] = token;
+  }
+
+  /* Terminate argv */
+  argv[argc] = NULL;
+
+  /* Load the actual process in the the thread */
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
     thread_exit ();
+  
+  // _start (argc, argv);
+
+  /* Set up the stack. Push arguments from right to left. */
+  setup_stack(argv, argc, &if_.esp);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -486,7 +558,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        *esp = PHYS_BASE - 12; // fake the set-up for a minimal stack
       else
         palloc_free_page (kpage);
     }
