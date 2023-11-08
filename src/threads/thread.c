@@ -504,6 +504,15 @@ thread_get_recent_cpu(void) {
   return fp_to_int_round_nearest(fp_mul_int(thread_current()->recent_cpu, 100));
 }
 
+struct thread *get_thread_by_tid(tid_t tid) {
+  struct thread *target;
+  for (struct list_elem *e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e)) {
+    if (list_entry(e, struct thread, allelem)->tid == tid) {
+      target = list_entry(e, struct thread, allelem);
+    }
+  }
+  return target;
+}
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -589,6 +598,9 @@ init_thread(struct thread *t, const char *name, int priority) {
   t->magic = THREAD_MAGIC;
   lock_init(&t->wait_lock);
   list_init(&t->locks);
+  list_init(&t->children);
+  t->waited = false; 
+  t->call_exit = false;
 
   if (thread_mlfqs) {
     if (t != initial_thread) {

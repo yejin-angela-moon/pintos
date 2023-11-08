@@ -93,6 +93,12 @@ struct thread {
     struct list locks;                  /* List of locks held by the thread. */
     struct lock wait_lock;              /* Lock that the thread is attempting to acquire, but still waiting for. */
 
+    struct list children;
+    struct list_elem child_elem;
+    int exit_status;
+    bool waited;
+    bool call_exit;
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
     fixed_t recent_cpu;
@@ -101,6 +107,11 @@ struct thread {
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    /*struct list children;
+    struct list_elem child_elem;
+    int exit_status;
+    bool waited;
+    bool kernel_terminate;*/
 #endif
 
     /* Owned by thread.c. */
@@ -182,6 +193,7 @@ void recalculate_recent_cpu_all(void);
 
 void calculate_priority(struct thread *t);
 
+struct thread *get_thread_by_tid(tid_t tid);
 
 #endif /* threads/thread.h */
 
