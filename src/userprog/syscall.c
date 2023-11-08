@@ -12,6 +12,21 @@ syscall_init(void) {
 
 static void
 syscall_handler(struct intr_frame *f) {
+
+//   check_user_pointer(f, f->esp);  // check the frame's stack ptr is valid
+//   				  // whoever is dealing with arguments, call the above func on each one
+//   int val = get_user(f->esp);  // check and put user should be used to dereference
+//   if (val == -1)               // or write to location at any user pointer  
+//     page_fault(f) 
+
+//   if !(put_user(f->esp, 0))    // for any write
+//     page_fault(f);
+
+//   // these checks should ensure that page_fault is only called when a user program
+//   // makes an invalid memory access: if on happens in the kernel during a system call,
+//   // we detect it and kill the program to stop the kernel exploding
+
+
     printf("system call!\n");
     int syscall_num = *(int *) (f->esp);
 
@@ -26,12 +41,12 @@ syscall_handler(struct intr_frame *f) {
             break;
         }
         case SYS_EXIT: { /* Terminate user process */
-            int status = *((int *) (f->esp + 4));
+            int status = get_user(f->esp + 4); // if status = -1 page_fault
             exit(status);
             break;
         }
         case SYS_EXEC: { /**/
-            const char *cmd_line = *((const char **)(f->esp + 4));
+            const char *cmd_line = get_user(f->esp + 4); // if status...
             f->eax = (uint32_t) exec(cmd_line);
             break;
         }
@@ -157,18 +172,17 @@ read(int fd, void *buffer, unsigned size) {
 
 int 
 write(int fd, const void *buffer, unsigned size) {
-    if (fd == 1) {  // writes to console
-        for (int j; j < size; j += 200)  // max 200B at a time
-            putbuf(buffer + j, min(200+j, size);
-        return size;
-    }
-    int i;
-    for (i = 0; i < size; i++) {
-        if (!put_user(fd+i, buffer+i))
-            break;
-    }
-    return i;
-
+  if (fd == 1) {  // writes to conole 
+    for (int j; j < size; j += 200)  // max 200B at a time  
+      putbuf(buffer + j, min(200+j, size);
+    return size;
+  }
+  int i;
+  for (i = 0; i < size; i++) {
+    if (!put_user(fd+i, buffer+i))
+      break;
+  }
+  return i;
 }
 
 void 
@@ -185,3 +199,40 @@ void
 close(int fd) {
     //TODO
 }
+
+
+// credit to pintos manual: modified to include check_user
+static void
+check_user (struct intr_frame *f, uint32_t ptr)
+{
+// don't need to worry about code running after as it kills the process
+  if (!is_user_vaddr(ptr))
+    kill(f);  
+}
+
+
+/* Reads a byte at user virtual address UADDR.
+ * Returns the byte value if successful, -1 if a segfault
+ * occurred. */
+static int
+get_user (const uint8_t *uaddr)
+{
+  check_user(uaddr);
+  int result;
+  asm ("movl $1f, %0; movzbl %1, %0; 1:"
+	: "=&a" (result) : "m" (*uaddr));
+  return result;
+}
+
+/* Writes BYTE to user address UDST.
+ * Returns true if successful, false if a segfault occurred. */
+static bool
+put_user (uint8_t *udst, uint8_t byte)
+{
+  check_user(udst);
+  int error_code;
+  asm ("movl $1f, %0; movb %b2, %1; 1:"
+	: "=&a" (error_code), "=m" (*udst) : "q" (byte));
+  return error_code != -1;
+}
+
