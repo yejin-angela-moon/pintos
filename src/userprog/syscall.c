@@ -153,7 +153,18 @@ read(int fd, void *buffer, unsigned size) {
 
 int 
 write(int fd, const void *buffer, unsigned size) {
-    //TODO
+    if (fd == 1) {  // writes to console
+        for (int j; j < size; j += 200)  // max 200B at a time
+            putbuf(buffer + j, min(200+j, size);
+        return size;
+    }
+    int i;
+    for (i = 0; i < size; i++) {
+        if (!put_user(fd+i, buffer+i))
+            break;
+    }
+    return i;
+
 }
 
 void 
