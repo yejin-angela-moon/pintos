@@ -6,8 +6,6 @@ typedef int pid_t;
 
 void syscall_init (void);
 
-static void syscall_handler(struct intr_frame *f);
-
 void halt(void);
 
 void exit(int status);

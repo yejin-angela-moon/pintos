@@ -7,6 +7,8 @@
 
 #include "filesys/filesys.h"
 
+static void syscall_handler(struct intr_frame *);
+
 void
 syscall_init(void) {
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
@@ -179,7 +181,7 @@ int
 write(int fd, const void *buffer, unsigned size) {
   if (fd == 1) {  // writes to conole
     for (int j; j < size; j += 200)  // max 200B at a time
-      putbuf(buffer + j, min(200+j, size);
+      putbuf(buffer + j, min(200+j, size));
     return size;
   }
   int i;
