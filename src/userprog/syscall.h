@@ -6,8 +6,6 @@ typedef int pid_t;
 
 void syscall_init (void);
 
-static void syscall_handler(struct intr_frame *f);
-
 void halt(void);
 
 void exit(int status);
@@ -33,6 +31,8 @@ void seek(int fd, unsigned position);
 unsigned tell(int fd);
 
 void close(int fd); 
+
+bool hash_less(int a, int b);
 
 
 #endif /* userprog/syscall.h */
