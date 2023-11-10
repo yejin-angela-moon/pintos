@@ -48,7 +48,7 @@ process_execute (const char *file_name)
     palloc_free_page(fn_copy);
     return TID_ERROR;
   }
-printf("filename: %s\n", process_name);
+
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy);
   // tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
@@ -56,17 +56,14 @@ printf("filename: %s\n", process_name);
     palloc_free_page (fn_copy);
   else {
     list_push_back(&thread_current()->children, &get_thread_by_tid(tid)->child_elem);
-    printf("create a new thread\n");
   }
-  printf("tid: %d\n", tid);
   return tid;
 }
 
 /* Set up the stack. Push arguments from right to left. */
 void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
   uint32_t argv_addresses[argc];
-//  strlcat(argv[0], "\0", 1);
-  printf("num: %d, argv: %s\n", argc, argv[0]);
+//  printf("num: %d, argv: %s\n", argc, argv[0]);
   *esp = PHYS_BASE;
   /* Push arguments from right to left */
   /* Push argv[argc - 1], argv[argc - 2], ..., argv[0] onto the stack */
@@ -74,26 +71,23 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
     *esp -= strlen(argv[i]) + 1;
     memcpy(*esp, argv[i], strlen(argv[i]) + 1);
     argv_addresses[i] = (uint32_t) *esp;
-    printf("addr: %x\n",  argv_addresses[i]);
+//    printf("addr: %x\n",  argv_addresses[i]);
   }
-printf("end for\n");
+
   /* Word-align the stack pointer */
   *esp = (void *) (((unsigned int) *esp) & WORD_ALIGN_MASK);
-printf("word align\n");
+
   /* Push a null pointer sentinel */
   *esp -= sizeof(char *);
   *(void **)esp = 0;
-printf("null pointer\n");
+
   /* Push the addresses of arguments */
   for (int i = argc - 1; i >= 0; i--) {
     //*esp -= sizeof(char *);
-    //*(void **) *esp = (char *) argv_addresses[i];
-    printf("i = %d\n", i);
     *esp -= 4;
     *esp =  (void *) argv_addresses[i];
   }
 
-printf("end sec for\n");
 //  free(argv_addresses);
 
   /* Push address of argv */
@@ -133,11 +127,8 @@ start_process (void *file_name_)
   /* Parse file_name and save arguments in argv */
   for (token = strtok_r (file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
     //printf("token: %s\n", token);
-   // strlcat(token, "\0", 1);
     argv[argc++] = token;
-    //printf("token: %s and argc: %d\n", argv[0], argc);
   }
- //printf("pn: %s and argc: %d\n", argv[0], argc);
   /* Terminate argv */
   argv[argc] = NULL;
 
@@ -148,10 +139,10 @@ start_process (void *file_name_)
   //palloc_free_page (file_name);
   if (!success)
     thread_exit ();
-printf("before setup stack %s\n", argv[0]);
+//printf("before setup stack %s\n", argv[0]);
   /* Set up the stack. Push arguments from right to left. */
   setup_stack_populate(argv, argc, &if_.esp);
-printf("after setup stack\n");
+
   palloc_free_page (file_name);  
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in

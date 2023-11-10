@@ -39,7 +39,7 @@ syscall_handler(struct intr_frame *f) {
 //   // we detect it and kill the program to stop the kernel exploding
 
 
-  printf("system call!\n");
+//  printf("system call!\n");
   int syscall_num = *(int *) (f->esp);
 
   if (!is_user_vaddr(f->esp) || f->esp < (void *) 0x08048000) {
@@ -188,7 +188,6 @@ read(int fd UNUSED, void *buffer UNUSED, unsigned size UNUSED) {
 
 int
 write(int fd, const void *buffer, unsigned size) {
-  printf("write \n");
   if (fd == 1) {  // writes to conole
   //  int linesToPut;
   //  for (unsigned j = 0; j < size; j += 200) {  // max 200B at a time, j US so can compare with size
