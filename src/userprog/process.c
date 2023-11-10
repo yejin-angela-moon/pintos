@@ -205,6 +205,14 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  struct list_elem *e;
+  for (e = list_begin(&cur->locks); e != list_end(&cur->locks);
+          e = list_next(e))
+  {
+    lock_release(list_entry(e, struct lock, lock_elem));
+  }
+  // TODO maybe free all user program mallocs?
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;

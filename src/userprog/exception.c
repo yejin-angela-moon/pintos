@@ -83,18 +83,10 @@ kill (struct intr_frame *f)
     case SEL_UCSEG:
       /* User's code segment, so it's a user exception, as we
          expected. Kill the user process.  */
-      struct list_elem *e;
-      struct list held_locks = thread_current()->locks;
-      for (e = list_begin(&held_locks); e != list_end(&held_locks);
-              e = list_next(e))
-      {
-        lock_release(list_entry(e, struct lock, lock_elem));
-      }
-      // TODO maybe free all user program mallocs?
       printf ("%s: dying due to interrupt %#04x (%s).\n",
               thread_name (), f->vec_no, intr_name (f->vec_no));
       intr_dump_frame (f);
-      thread_exit (); 
+      thread_exit ();
 
     case SEL_KCSEG:
       /* Kernel's code segment, which indicates a kernel bug.
