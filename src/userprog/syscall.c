@@ -4,10 +4,18 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-
+#include "threads/vaddr.h"
 #include "filesys/filesys.h"
+#include "devices/shutdown.h"
 
 static void syscall_handler(struct intr_frame *);
+
+int get_user(const uint8_t *uaddr);
+
+static bool put_user(uint8_t *udst, uint8_t byte);
+
+void check_user(struct intr_frame *f, uint32_t ptr);
+
 
 void
 syscall_init(void) {
@@ -49,8 +57,8 @@ syscall_handler(struct intr_frame *f) {
       exit(status);
       break;
     }
-    case SYS_EXEC: { /**/
-      const char *cmd_line = get_user(f->esp + 4); // if status...
+    case SYS_EXEC: { /**/  // added cast to line below: fixes warning but is it safe?
+      const char *cmd_line = (char *) get_user(f->esp + 4); // if status...
       f->eax = (uint32_t) exec(cmd_line);
       break;
     }
@@ -89,6 +97,7 @@ syscall_handler(struct intr_frame *f) {
     }
     case SYS_WRITE: { /* Write to a file. */
       int fd = *((int *) (f->esp + 4));
+      // maybe should be: int fd = get_user(f->esp + 4);
       const void *buffer = *((const void **)(f->esp + 8));
       unsigned size = *((unsigned *)(f->esp + 12));
       f->eax = (uint32_t) write(fd, buffer, size);
@@ -132,7 +141,7 @@ exit(int status) {
 }
 
 pid_t
-exec(const char *cmd_line){
+exec(const char *cmd_line UNUSED){
   //TODO
   return 0;
 }
@@ -161,18 +170,18 @@ open(const char *file) {
     return -1;
   } else {
     // Add the file to the process's open file list and return the file descriptor
-    return process_add_file(f);
+    return 0; //TODO implement process_add_file(f);
   }
 }
 
 int
-filesize(int fd) {
+filesize(int fd UNUSED) {
   //TODO
   return 0;
 }
 
 int
-read(int fd, void *buffer, unsigned size) {
+read(int fd UNUSED, void *buffer UNUSED, unsigned size UNUSED) {
   //TODO
   return 0;
 }
@@ -180,31 +189,34 @@ read(int fd, void *buffer, unsigned size) {
 int
 write(int fd, const void *buffer, unsigned size) {
   if (fd == 1) {  // writes to conole
-    for (int j; j < size; j += 200)  // max 200B at a time
-      putbuf(buffer + j, min(200+j, size));
+    int linesToPut;
+    for (unsigned j; j < size; j += 200) {  // max 200B at a time, j US so can compare with size
+      linesToPut = (size < j + 200) ? size : j + 200;
+      putbuf(buffer + j, linesToPut);
+    }
     return size;
   }
-  int i;
+  unsigned i;
   for (i = 0; i < size; i++) {
-    if (!put_user(fd+i, buffer+i))
+    if (!put_user((uint8_t) fd+i, (uint8_t) buffer+i)) // added cast not sure if thats cool
       break;
   }
   return i;
 }
 
 void
-seek(int fd, unsigned position) {
+seek(int fd UNUSED, unsigned position) {
   //TODO
 }
 
 unsigned
-tell(int fd) {
+tell(int fd UNUSED) {
   //TODO
   return 0;
 }
 
 void
-close(int fd) {
+close(int fd UNUSED) {
   //TODO
 }
 
