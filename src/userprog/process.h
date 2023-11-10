@@ -2,6 +2,7 @@
 #define USERPROG_PROCESS_H
 
 #include "threads/thread.h"
+#include <stdlib.h>
 
 #define MAX_ARGS 4
 #define WORD_ALIGN_MASK 0xfffffffc

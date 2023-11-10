@@ -98,6 +98,8 @@ struct thread {
     int exit_status;
     bool waited;
     bool call_exit;
+    struct lock children_lock;
+    struct condition children_cond;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -107,15 +109,19 @@ struct thread {
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-    /*struct list children;
-    struct list_elem child_elem;
-    int exit_status;
-    bool waited;
-    bool kernel_terminate;*/
+    
 #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+};
+
+struct child {
+    tid_t tid;
+    struct list_elem child_elem;
+    int exit_status;
+    bool waited;
+    bool call_exit;
 };
 
 /* If false (default), use round-robin scheduler.

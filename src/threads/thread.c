@@ -380,7 +380,7 @@ thread_tid(void) {
 void
 thread_exit(void) {
   ASSERT(!intr_context());
-
+//printf("thread exit\n");
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -388,11 +388,17 @@ thread_exit(void) {
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
+  //printf("after the process_exit function\n");
   intr_disable();
+//  list_remove(&thread_current()->child_elem);
   list_remove(&thread_current()->allelem);
+  //printf("remove elem from allelem\n");
   thread_current()->status = THREAD_DYING;
+  //printf("ready to schedule\n");
   schedule();
+  //printf("finish schedule\n");
   NOT_REACHED();
+  //printf("thread exited\n");
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and
@@ -601,6 +607,9 @@ init_thread(struct thread *t, const char *name, int priority) {
   list_init(&t->children);
   t->waited = false; 
   t->call_exit = false;
+  lock_init (&t->children_lock);
+  cond_init (&t->children_cond);
+
 
   if (thread_mlfqs) {
     if (t != initial_thread) {
@@ -670,6 +679,7 @@ thread_schedule_tail(struct thread *prev) {
   /* Mark us as running. */
   cur->status = THREAD_RUNNING;
 
+  //printf("tst");
   /* Start new time slice. */
   thread_ticks = 0;
 
@@ -677,6 +687,8 @@ thread_schedule_tail(struct thread *prev) {
   /* Activate the new address space. */
   process_activate ();
 #endif
+
+  //printf("process avtivated\n");
 
   /* If the thread we switched from is dying, destroy its struct
      thread.  This must happen late so that thread_exit() doesn't
@@ -686,6 +698,7 @@ thread_schedule_tail(struct thread *prev) {
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) {
     ASSERT(prev != cur);
     palloc_free_page(prev);
+    //printf("one thread left\n");
   }
 }
 
@@ -709,6 +722,7 @@ schedule(void) {
   if (cur != next)
     prev = switch_threads(cur, next);
   thread_schedule_tail(prev);
+  //printf("tst\n");
 }
 
 /* Returns a tid to use for a new thread. */

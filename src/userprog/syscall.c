@@ -100,6 +100,7 @@ syscall_handler(struct intr_frame *f) {
       // maybe should be: int fd = get_user(f->esp + 4);
       const void *buffer = *((const void **)(f->esp + 8));
       unsigned size = *((unsigned *)(f->esp + 12));
+      printf("fd %d and size %d\n", fd, size);
       f->eax = (uint32_t) write(fd, buffer, size);
       break;
     }
@@ -120,11 +121,11 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     default: {
-      exit(-1);
+  //    exit(-1);
       break;
     }
   }
-  thread_exit();
+  //thread_exit();
 }
 
 void
@@ -134,6 +135,7 @@ halt(void) {
 
 void
 exit(int status) {
+  printf("exit syscall\n");
   struct thread *cur = thread_current();
   cur->exit_status = status;
   cur->call_exit = true;
@@ -188,8 +190,9 @@ read(int fd UNUSED, void *buffer UNUSED, unsigned size UNUSED) {
 
 int
 write(int fd, const void *buffer, unsigned size) {
-  printf("write \n");
+  //printf("write \n");
   if (fd == 1) {  // writes to conole
+//  printf("fd == 1");
   //  int linesToPut;
   //  for (unsigned j = 0; j < size; j += 200) {  // max 200B at a time, j US so can compare with size
 //      linesToPut = (size < j) ? size : j;
