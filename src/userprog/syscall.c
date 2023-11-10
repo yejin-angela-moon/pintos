@@ -188,24 +188,25 @@ read(int fd UNUSED, void *buffer UNUSED, unsigned size UNUSED) {
 
 int
 write(int fd, const void *buffer, unsigned size) {
+  printf("write \n");
   if (fd == 1) {  // writes to conole
-    int linesToPut;
-    for (unsigned j; j < size; j += 200) {  // max 200B at a time, j US so can compare with size
-      linesToPut = (size < j + 200) ? size : j + 200;
-      putbuf(buffer + j, linesToPut);
-    }
+  //  int linesToPut;
+  //  for (unsigned j = 0; j < size; j += 200) {  // max 200B at a time, j US so can compare with size
+//      linesToPut = (size < j) ? size : j;
+      putbuf(buffer, size);
+    //}
     return size;
   }
   unsigned i;
   for (i = 0; i < size; i++) {
-    if (!put_user((uint8_t) fd+i, (uint8_t) buffer+i)) // added cast not sure if thats cool
+    if (!put_user((uint8_t*)((uint8_t) fd+i), size)) // added cast not sure if thats cool
       break;
   }
   return i;
 }
 
 void
-seek(int fd UNUSED, unsigned position) {
+seek(int fd UNUSED, unsigned position UNUSED) {
   //TODO
 }
 
@@ -222,14 +223,14 @@ close(int fd UNUSED) {
 
 
 // credit to pintos manual: modified to include check_user
-void
+/*void
 check_user (struct intr_frame *f, uint32_t ptr)
 {
 // don't need to worry about code running after as it kills the process
   if (!is_user_vaddr(ptr))
     kill(f);
 }
-
+*/
 
 /* Reads a byte at user virtual address UADDR.
  * Returns the byte value if successful, -1 if a segfault
@@ -237,7 +238,7 @@ check_user (struct intr_frame *f, uint32_t ptr)
 int
 get_user (const uint8_t *uaddr)
 {
-  check_user(uaddr);
+  //check_user(uaddr);
   int result;
   asm ("movl $1f, %0; movzbl %1, %0; 1:"
           : "=&a" (result) : "m" (*uaddr));
@@ -249,7 +250,7 @@ get_user (const uint8_t *uaddr)
 static bool
 put_user (uint8_t *udst, uint8_t byte)
 {
-  check_user(udst);
+  //check_user(udst);
   int error_code;
   asm ("movl $1f, %0; movb %b2, %1; 1:"
           : "=&a" (error_code), "=m" (*udst) : "q" (byte));
