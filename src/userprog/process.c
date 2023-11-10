@@ -16,6 +16,7 @@
 #include "threads/init.h"
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
+#include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 //#include <stdlib.h>
@@ -56,13 +57,14 @@ process_execute (const char *file_name)
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   else {
-/*    struct child *child = malloc (sizeof(*child));
+    struct child *child = malloc (sizeof(*child));
     if (child != NULL) {
       child->tid = tid;  
       child->waited = false;
-      child->call_exit = false;*/
-      list_push_back(&thread_current()->children, &get_thread_by_tid(tid)->child_elem);
- //   }//printf("create a new thread\n");
+      child->call_exit = false;
+      get_thread_by_tid(tid)->child = *child;
+      list_push_back(&thread_current()->children, &child->child_elem);
+    }//printf("create a new thread\n");
   }
   //printf("tid: %d\n", tid);
   return tid;
@@ -253,7 +255,7 @@ process_wait (tid_t child_tid)
   struct thread *cur = thread_current();
   struct list_elem *e;
   for (e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
-    if (list_entry(e, struct thread, child_elem)->tid == child_tid) {
+    if (list_entry(e, struct child, child_elem)->tid == child_tid) {
       isChild = true;
       break;
     }
@@ -262,7 +264,7 @@ process_wait (tid_t child_tid)
 	  printf("not child\n");
     return TID_ERROR;
   } else {
-    struct thread *child = list_entry(e, struct thread, child_elem);
+    struct child *child = list_entry(e, struct child, child_elem);
     if (child->waited) {
       return TID_ERROR;
     }
@@ -328,8 +330,8 @@ process_exit (void)
   for (struct list_elem *e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
   //  printf("hi i am in loop");
     list_pop_front(&cur->children);
-//    struct child *child = list_entry (e, struct child, child_elem);
-  //  free(child);
+    struct child *child = list_entry (e, struct child, child_elem);
+    free(child);
   }
 //  printf("exited\n");
 }

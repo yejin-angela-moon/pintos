@@ -605,8 +605,8 @@ init_thread(struct thread *t, const char *name, int priority) {
   lock_init(&t->wait_lock);
   list_init(&t->locks);
   list_init(&t->children);
-  t->waited = false; 
-  t->call_exit = false;
+  //t->waited = false; 
+  //t->call_exit = false;
   lock_init (&t->children_lock);
   cond_init (&t->children_cond);
 
