@@ -4,10 +4,18 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-
+#include "threads/vaddr.h"
 #include "filesys/filesys.h"
+#include "devices/shutdown.h"
 
 static void syscall_handler(struct intr_frame *);
+
+int get_user(const uint8_t *uaddr);
+
+static bool put_user(uint8_t *udst, uint8_t byte);
+
+void check_user(struct intr_frame *f, uint32_t ptr);
+
 
 void
 syscall_init(void) {
@@ -49,8 +57,8 @@ syscall_handler(struct intr_frame *f) {
       exit(status);
       break;
     }
-    case SYS_EXEC: { /**/
-      const char *cmd_line = get_user(f->esp + 4); // if status...
+    case SYS_EXEC: { /**/  // added cast to line below: fixes warning but is it safe?
+      const char *cmd_line = (char *) get_user(f->esp + 4); // if status...
       f->eax = (uint32_t) exec(cmd_line);
       break;
     }
@@ -89,6 +97,7 @@ syscall_handler(struct intr_frame *f) {
     }
     case SYS_WRITE: { /* Write to a file. */
       int fd = *((int *) (f->esp + 4));
+      // maybe should be: int fd = get_user(f->esp + 4);
       const void *buffer = *((const void **)(f->esp + 8));
       unsigned size = *((unsigned *)(f->esp + 12));
       f->eax = (uint32_t) write(fd, buffer, size);
@@ -132,7 +141,7 @@ exit(int status) {
 }
 
 pid_t
-exec(const char *cmd_line){
+exec(const char *cmd_line UNUSED){
   //TODO
   return 0;
 }
@@ -161,63 +170,67 @@ open(const char *file) {
     return -1;
   } else {
     // Add the file to the process's open file list and return the file descriptor
-    return process_add_file(f);
+    return 0; //TODO implement process_add_file(f);
   }
 }
 
 int
-filesize(int fd) {
+filesize(int fd UNUSED) {
   //TODO
   return 0;
 }
 
 int
-read(int fd, void *buffer, unsigned size) {
+read(int fd UNUSED, void *buffer UNUSED, unsigned size UNUSED) {
   //TODO
   return 0;
 }
 
 int
 write(int fd, const void *buffer, unsigned size) {
+  printf("write \n");
   if (fd == 1) {  // writes to conole
-    for (int j; j < size; j += 200)  // max 200B at a time
-      putbuf(buffer + j, min(200+j, size));
+  //  int linesToPut;
+  //  for (unsigned j = 0; j < size; j += 200) {  // max 200B at a time, j US so can compare with size
+//      linesToPut = (size < j) ? size : j;
+      putbuf(buffer, size);
+    //}
     return size;
   }
-  int i;
+  unsigned i;
   for (i = 0; i < size; i++) {
-    if (!put_user(fd+i, buffer+i))
+    if (!put_user((uint8_t*)((uint8_t) fd+i), size)) // added cast not sure if thats cool
       break;
   }
   return i;
 }
 
 void
-seek(int fd, unsigned position) {
+seek(int fd UNUSED, unsigned position UNUSED) {
   //TODO
 }
 
 unsigned
-tell(int fd) {
+tell(int fd UNUSED) {
   //TODO
   return 0;
 }
 
 void
-close(int fd) {
+close(int fd UNUSED) {
   //TODO
 }
 
 
 // credit to pintos manual: modified to include check_user
-void
+/*void
 check_user (struct intr_frame *f, uint32_t ptr)
 {
 // don't need to worry about code running after as it kills the process
   if (!is_user_vaddr(ptr))
     kill(f);
 }
-
+*/
 
 /* Reads a byte at user virtual address UADDR.
  * Returns the byte value if successful, -1 if a segfault
@@ -225,7 +238,7 @@ check_user (struct intr_frame *f, uint32_t ptr)
 int
 get_user (const uint8_t *uaddr)
 {
-  check_user(uaddr);
+  //check_user(uaddr);
   int result;
   asm ("movl $1f, %0; movzbl %1, %0; 1:"
           : "=&a" (result) : "m" (*uaddr));
@@ -237,7 +250,7 @@ get_user (const uint8_t *uaddr)
 static bool
 put_user (uint8_t *udst, uint8_t byte)
 {
-  check_user(udst);
+  //check_user(udst);
   int error_code;
   asm ("movl $1f, %0; movb %b2, %1; 1:"
           : "=&a" (error_code), "=m" (*udst) : "q" (byte));
