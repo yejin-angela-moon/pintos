@@ -205,7 +205,8 @@ start_process (void *file_name_)
     argv[argc++] = token;
     //printf("token: %s and argc: %d\n", argv[0], argc);
   }
- //printf("pn: %s and argc: %d\n", argv[0], argc);
+ 
+//printf("pn: %s and argc: %d\n", argv[0], argc);
   /* Terminate argv */
   argv[argc] = NULL;
 
@@ -269,12 +270,13 @@ process_wait (tid_t child_tid)
      printf("waited\n");
      //TODO need synchronisation in some way
  //   lock_acquire(&cur->children_lock);
-    while (get_thread_by_tid (child_tid) != NULL)
-      //  cond_wait (&cur->children_cond, &cur->children_lock);
+    while (get_thread_by_tid (child_tid) != NULL) {
+      //  cond_wait (&cur->children_cond, &cur->children_lock);}
      //sema_up(&cur->children);
+  }
   //  while (true) {
       //if (child->status == THREAD_DYING) {
-	      printf("dead\n");
+	 //     printf("dead\n");
         if (child->call_exit) {
 		printf("status\n");
           return child->exit_status;
@@ -282,11 +284,11 @@ process_wait (tid_t child_tid)
 		printf("terminate\n");
           return TID_ERROR;
         }
+   }
       //}
     //}
     //lock_release(&cur->children_lock);
-  }
-  //return -1;
+  
 }
 
 /* Free the current process's resources. */
@@ -296,6 +298,15 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 //printf("exit process\n");
+  
+ // struct list_elem *e;
+  for (struct list_elem *e = list_begin(&cur->locks); e != list_end(&cur->locks);
+          e = list_next(e))
+  {
+    lock_release(list_entry(e, struct lock, lock_elem));
+  }
+  // TODO maybe free all user program mallocs?
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -576,7 +587,8 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
    UPAGE.  In total, READ_BYTES + ZERO_BYTES bytes of virtual
    memory are initialized, as follows:
 
-        - READ_BYTES bytes at UPAGE must be read from FILE
+        - RE:q
+AD_BYTES bytes at UPAGE must be read from FILE
           starting at offset OFS.
 
         - ZERO_BYTES bytes at UPAGE + READ_BYTES must be zeroed.

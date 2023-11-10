@@ -1,5 +1,6 @@
 #include "userprog/syscall.h"
 #include "userprog/process.h"
+#include "userprog/exception.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
@@ -14,7 +15,7 @@ int get_user(const uint8_t *uaddr);
 
 static bool put_user(uint8_t *udst, uint8_t byte);
 
-void check_user(struct intr_frame *f, uint32_t ptr);
+void check_user(struct intr_frame *f, void * ptr);
 
 
 void
@@ -52,12 +53,14 @@ syscall_handler(struct intr_frame *f) {
       halt();
       break;
     }
-    case SYS_EXIT: { /* Terminate user process */
+    case SYS_EXIT: { /* Terminate user process*/
+      check_user(f, f->esp + 4);
       int status = get_user(f->esp + 4); // if status = -1 page_fault
       exit(status);
       break;
     }
     case SYS_EXEC: { /**/  // added cast to line below: fixes warning but is it safe?
+      check_user(f, f->esp + 4);
       const char *cmd_line = (char *) get_user(f->esp + 4); // if status...
       f->eax = (uint32_t) exec(cmd_line);
       break;
@@ -192,17 +195,16 @@ int
 write(int fd, const void *buffer, unsigned size) {
   //printf("write \n");
   if (fd == 1) {  // writes to conole
-//  printf("fd == 1");
-  //  int linesToPut;
-  //  for (unsigned j = 0; j < size; j += 200) {  // max 200B at a time, j US so can compare with size
-//      linesToPut = (size < j) ? size : j;
-      putbuf(buffer, size);
-    //}
+    int linesToPut;
+    for (uint32_t j = 0; j < size; j += 200) {  // max 200B at a time, j US so can compare with size
+      linesToPut = (size < j + 200) ? size : j + 200;
+      putbuf(buffer + j, linesToPut);
+    }
     return size;
   }
-  unsigned i;
+  uint32_t i;  // TODO check fd+i in handler for writing
   for (i = 0; i < size; i++) {
-    if (!put_user((uint8_t*)((uint8_t) fd+i), size)) // added cast not sure if thats cool
+    if (!put_user((uint8_t*)(fd+i), size)) // added cast not sure if thats cool
       break;
   }
   return i;
@@ -225,23 +227,22 @@ close(int fd UNUSED) {
 }
 
 
-// credit to pintos manual: modified to include check_user
-/*void
-check_user (struct intr_frame *f, uint32_t ptr)
+void
+check_user (struct intr_frame *f UNUSED, void *ptr UNUSED)
 {
 // don't need to worry about code running after as it kills the process
-  if (!is_user_vaddr(ptr))
-    kill(f);
+  if (!is_user_vaddr((void *) ptr))
+    exit(-1);
+  
 }
-*/
 
+// credit to pintos manual:
 /* Reads a byte at user virtual address UADDR.
  * Returns the byte value if successful, -1 if a segfault
  * occurred. */
 int
 get_user (const uint8_t *uaddr)
 {
-  //check_user(uaddr);
   int result;
   asm ("movl $1f, %0; movzbl %1, %0; 1:"
           : "=&a" (result) : "m" (*uaddr));
@@ -253,7 +254,6 @@ get_user (const uint8_t *uaddr)
 static bool
 put_user (uint8_t *udst, uint8_t byte)
 {
-  //check_user(udst);
   int error_code;
   asm ("movl $1f, %0; movb %b2, %1; 1:"
           : "=&a" (error_code), "=m" (*udst) : "q" (byte));
