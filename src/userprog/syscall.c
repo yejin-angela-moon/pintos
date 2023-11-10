@@ -141,7 +141,9 @@ exit(int status) {
   printf("exit syscall\n");
   struct thread *cur = thread_current();
   cur->child.exit_status = status;
+   printf("bwforw tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
   cur->child.call_exit = true;
+  printf("tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
   thread_exit();
 }
 

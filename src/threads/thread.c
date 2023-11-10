@@ -392,11 +392,11 @@ thread_exit(void) {
   intr_disable();
 //  list_remove(&thread_current()->child_elem);
   list_remove(&thread_current()->allelem);
-  //printf("remove elem from allelem\n");
+  printf("remove elem from allelem\n");
   thread_current()->status = THREAD_DYING;
   //printf("ready to schedule\n");
   schedule();
-  //printf("finish schedule\n");
+  printf("finish schedule\n");
   NOT_REACHED();
   //printf("thread exited\n");
 }
@@ -511,13 +511,13 @@ thread_get_recent_cpu(void) {
 }
 
 struct thread *get_thread_by_tid(tid_t tid) {
-  struct thread *target;
+ // struct thread *target;
   for (struct list_elem *e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e)) {
     if (list_entry(e, struct thread, allelem)->tid == tid) {
-      target = list_entry(e, struct thread, allelem);
+      return list_entry(e, struct thread, allelem);
     }
   }
-  return target;
+  return NULL;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -722,7 +722,7 @@ schedule(void) {
   if (cur != next)
     prev = switch_threads(cur, next);
   thread_schedule_tail(prev);
-  //printf("tst\n");
+ // printf("tst\n");
 }
 
 /* Returns a tid to use for a new thread. */

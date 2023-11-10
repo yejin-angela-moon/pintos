@@ -247,6 +247,7 @@ int
 process_wait (tid_t child_tid)
 {
   printf("process wait\n");
+  //return -1;
   if (child_tid == TID_ERROR) {
 	  printf("tid error\n");
     return TID_ERROR;
@@ -271,25 +272,43 @@ process_wait (tid_t child_tid)
     child->waited = true;
      printf("waited\n");
      //TODO need synchronisation in some way
- //   lock_acquire(&cur->children_lock);
-    while (get_thread_by_tid (child_tid) != NULL) {
-      //  cond_wait (&cur->children_cond, &cur->children_lock);}
+    lock_acquire(&cur->children_lock);
+  //  while (get_thread_by_tid (child_tid) != NULL) {
+     while (true) {
+       if (get_thread_by_tid (child_tid) == NULL) {
+         printf("it dead\n");
+	 child = list_entry(e, struct child, child_elem);
+	  printf("in pw, tid %d call_exit now is %d\n", child_tid, child->call_exit);
+  //  while (true) {
+      //if (child->status == THREAD_DYING) {
+         //     printf("dead\n");
+         if (child->call_exit) {
+                printf("status\n");
+           return child->exit_status;
+         } else {
+                printf("terminate\n");
+           return TID_ERROR;
+         }
+      
+       }
+    //    cond_wait (&cur->children_cond, &cur->children_lock);
      //sema_up(&cur->children);
-  }
+    }
+ // printf("it dead\n");
   //  while (true) {
       //if (child->status == THREAD_DYING) {
 	 //     printf("dead\n");
-        if (child->call_exit) {
+    /*    if (child->call_exit) {
 		printf("status\n");
           return child->exit_status;
         } else {
 		printf("terminate\n");
           return TID_ERROR;
-        }
+        }*/
    }
       //}
     //}
-    //lock_release(&cur->children_lock);
+    lock_release(&cur->children_lock);
   
 }
 
