@@ -44,9 +44,6 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-// printf("the input is %s\n", file_name);
-  //  printf("the input size is %d\n", strlen(file_name));
-
   /* Parse the argement strings */
   char *save_ptr;
   char *process_name = strtok_r(fn_copy, " ", &save_ptr);
@@ -60,10 +57,10 @@ process_execute (const char *file_name)
    
     /* Parse file name into arguments */
   //TODO free inputs in somewhere
-  char *inputs = malloc(strlen(file_name));
+  char *inputs = malloc(strlen(file_name) + 1);
   char *token, *save_ptr2;
   //inputs = *file_name;
-  strlcpy (inputs, file_name, strlen(file_name));
+  strlcpy (inputs, file_name, strlen(file_name) + 1);
 //  int argc = 1;
   //char *argv[MAX_ARGS];
   
@@ -71,21 +68,19 @@ process_execute (const char *file_name)
   //  printf("the input size is %d\n", strlen(inputs));
   /* Parse file_name and save arguments in argv */
   for (token = strtok_r (inputs, " ", &save_ptr2); token != NULL; token = strtok_r(NULL, " ", &save_ptr2)) {
-    printf("token: %s\n", token);
-   // strlcat(token, "\0", 1);
+ //   printf("token: %s\n", token);
     argv[argc++] = token;
-    //printf("token: %s and argc: %d\n", argv[0], argc);
   }
 
- printf("pn: %s and argc: %d\n", argv[0], argc);
+ //printf("pn: %s and argc: %d\n", argv[0], argc);
   /* Terminate argv */
   argv[argc] = NULL;
 //  free(inputs);
 //    setup_stack_populate(argv, argc, &if_.esp);
 //printf("filename: %s\n", process_name);
   /* Create a new thread to execute FILE_NAME. */
-  //tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy);
-   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy);
+   //tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   else {
@@ -238,7 +233,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid)
 {
-  printf("process wait\n");
+//  printf("process wait\n");
   //return -1;
   if (child_tid == TID_ERROR) {
 	  printf("tid error\n");
@@ -262,7 +257,7 @@ process_wait (tid_t child_tid)
       return TID_ERROR;
     }
     child->waited = true;
-     printf("waited\n");
+   //  printf("waited\n");
      int status;
      //TODO call_exit is now wrong with unknown reason
     lock_acquire(&cur->children_lock);
@@ -272,9 +267,9 @@ process_wait (tid_t child_tid)
     //}    // child = list_entry(e, struct child, child_elem);
  //lock_release(&cur->children_lock);   
     if (get_thread_by_tid (child_tid) == NULL) {
-         printf("it dead\n");
+  ///       printf("it dead\n");
 	 child = list_entry(e, struct child, child_elem);
-	  printf("in pw, tid %d call_exit now is %d\n", child_tid, list_entry(e, struct child, child_elem)->call_exit);
+//	  printf("in pw, tid %d call_exit now is %d\n", child_tid, list_entry(e, struct child, child_elem)->call_exit);
   //  while (true) {
       
          //     printf("dead\n");
@@ -282,7 +277,7 @@ process_wait (tid_t child_tid)
                 printf("status\n");
            status = child->exit_status;
          } else {
-                printf("terminate\n");
+     //           printf("terminate\n");
            status =  TID_ERROR;
          }
 	  //status = child->exit_status;
@@ -674,7 +669,7 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
-printf("only setup\n");
+//printf("only setup\n");
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL)
   {

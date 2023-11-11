@@ -40,7 +40,7 @@ syscall_handler(struct intr_frame *f) {
 //   // we detect it and kill the program to stop the kernel exploding
 
 
-  printf("system call!\n");
+//  printf("system call!\n");
   int syscall_num = *(int *) (f->esp);
 
   if (!is_user_vaddr(f->esp) || f->esp < (void *) 0x08048000) {
@@ -103,7 +103,7 @@ syscall_handler(struct intr_frame *f) {
       // maybe should be: int fd = get_user(f->esp + 4);
       const void *buffer = *((const void **)(f->esp + 8));
       unsigned size = *((unsigned *)(f->esp + 12));
-      printf("fd %d and size %d\n", fd, size);
+    //  printf("fd %d and size %d\n", fd, size);
       f->eax = (uint32_t) write(fd, buffer, size);
       break;
     }
@@ -124,7 +124,7 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     default: {
-  //    exit(-1);
+      //exit(-1);
       break;
     }
   }
@@ -138,12 +138,13 @@ halt(void) {
 
 void
 exit(int status) {
-  printf("exit syscall\n");
+  //printf("exit syscall\n");
   //lock_acquire(&cur->lock_children);
   struct thread *cur = thread_current();
+  printf ("%s: exit(%d)\n", cur->name, status);
    lock_acquire(&cur->children_lock);
   cur->child.exit_status = status;
-  printf("bwforw tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
+  //printf("bwforw tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
   cur->child.call_exit = true;
    lock_release(&cur->children_lock);
   thread_exit();
