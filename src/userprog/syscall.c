@@ -139,11 +139,13 @@ halt(void) {
 void
 exit(int status) {
   printf("exit syscall\n");
+  //lock_acquire(&cur->lock_children);
   struct thread *cur = thread_current();
+   lock_acquire(&cur->children_lock);
   cur->child.exit_status = status;
-   printf("bwforw tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
+  printf("bwforw tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
   cur->child.call_exit = true;
-  printf("tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
+   lock_release(&cur->children_lock);
   thread_exit();
 }
 

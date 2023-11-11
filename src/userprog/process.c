@@ -24,6 +24,9 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp);
 
+ int argc = 0;
+ char *argv[MAX_ARGS];
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -41,6 +44,9 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+// printf("the input is %s\n", file_name);
+  //  printf("the input size is %d\n", strlen(file_name));
+
   /* Parse the argement strings */
   char *save_ptr;
   char *process_name = strtok_r(fn_copy, " ", &save_ptr);
@@ -50,13 +56,40 @@ process_execute (const char *file_name)
     palloc_free_page(fn_copy);
     return TID_ERROR;
   }
+
+   
+    /* Parse file name into arguments */
+  //TODO free inputs in somewhere
+  char *inputs = malloc(strlen(file_name));
+  char *token, *save_ptr2;
+  //inputs = *file_name;
+  strlcpy (inputs, file_name, strlen(file_name));
+//  int argc = 1;
+  //char *argv[MAX_ARGS];
+  
+ //  printf("the input is %s\n", inputs);
+  //  printf("the input size is %d\n", strlen(inputs));
+  /* Parse file_name and save arguments in argv */
+  for (token = strtok_r (inputs, " ", &save_ptr2); token != NULL; token = strtok_r(NULL, " ", &save_ptr2)) {
+    printf("token: %s\n", token);
+   // strlcat(token, "\0", 1);
+    argv[argc++] = token;
+    //printf("token: %s and argc: %d\n", argv[0], argc);
+  }
+
+ printf("pn: %s and argc: %d\n", argv[0], argc);
+  /* Terminate argv */
+  argv[argc] = NULL;
+//  free(inputs);
+//    setup_stack_populate(argv, argc, &if_.esp);
 //printf("filename: %s\n", process_name);
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy);
-  // tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  //tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy);
+   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   else {
+ lock_acquire(&thread_current()->children_lock);
     struct child *child = malloc (sizeof(*child));
     if (child != NULL) {
       child->tid = tid;  
@@ -64,7 +97,9 @@ process_execute (const char *file_name)
       child->call_exit = false;
       get_thread_by_tid(tid)->child = *child;
       list_push_back(&thread_current()->children, &child->child_elem);
+      
     }//printf("create a new thread\n");
+    lock_release(&thread_current()->children_lock);
   }
   //printf("tid: %d\n", tid);
   return tid;
@@ -76,51 +111,7 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
 //  strlcat(argv[0], "\0", 1);
 //  printf("num: %d, argv: %s\n", argc, argv[0]);
   *esp = PHYS_BASE;
-  /* Push arguments from right to left */
-  /* Push argv[argc - 1], argv[argc - 2], ..., argv[0] onto the stack */
-/*  for (int i = argc - 1; i >= 0; i--) {
-    *esp -= strlen(argv[i]) + 1;
-    memcpy(*esp, argv[i], strlen(argv[i]) + 1);
-    // *esp = argv[i];
-    printf("pn in esp: %s\n", (char *) *esp);
-    argv_addresses[i] = (uint32_t) *esp;
-    printf("addr: %x\n",  argv_addresses[i]);
-  }
-printf("end for\n");*/
-  /* Word-align the stack pointer */
-/*  esp = (void *) (((unsigned int) *esp) & WORD_ALIGN_MASK);
-printf("word align\n");*/
-  /* Push a null pointer sentinel */
-/*  *esp -= sizeof(char *);
-  *(void **)esp = 0;
-printf("null pointer\n");*/
-  /* Push the addresses of arguments */
-/*  for (int i = argc - 1; i >= 0; i--) {
-    // *esp -= sizeof(char *);
-    // *(void **) *esp = (char *) argv_addresses[i];
-    //printf("i = %d\n", i);
-    *esp -= 4;
-    *esp =  (void *) argv_addresses[i];
-    printf("addr in esp: %x\n", (uint32_t) *esp);
-  }
-
-printf("end sec for\n");
-//  free(argv_addresses);
-*/
-  /* Push address of argv */
-  /*uint32_t *argv0_addr = *esp;
-  *esp -= sizeof(char **);
-  *esp = (void *) argv0_addr;*/
-  //printf("addr0 in esp: %x\n", (uint32_t) *esp);
-
-  /* Push argc *//*
-  *esp -= sizeof(int);
-  *(int *) *esp = argc;
-*/
-  /* Push fake return address */
-  /**esp -= sizeof(void *);
-  *(void **) *esp = NULL;
-*/
+ 
   int length = 0;
   for (int i = argc - 1; i >= 0; i--) {
     *esp = *esp - strlen(argv[i]) - 1;
@@ -196,21 +187,22 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   /* Parse file name into arguments */
-  char *token, *save_ptr;
+/*  char *token, *save_ptr;
   int argc = 0;
   char *argv[MAX_ARGS];
-
-  /* Parse file_name and save arguments in argv */
-  for (token = strtok_r (file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
-    //printf("token: %s\n", token);
+   printf("the input is %s\n", file_name);
+    printf("the input size is %d\n", strlen(file_name));
+  *//* Parse file_name and save arguments in argv */
+ /* for (token = strtok_r (file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+    printf("token: %s\n", token);
    // strlcat(token, "\0", 1);
     argv[argc++] = token;
     //printf("token: %s and argc: %d\n", argv[0], argc);
   }
  
-//printf("pn: %s and argc: %d\n", argv[0], argc);
-  /* Terminate argv */
-  argv[argc] = NULL;
+ printf("pn: %s and argc: %d\n", argv[0], argc);
+ */ /* Terminate argv */
+  //argv[argc] = NULL;
 
   /* Load the actual process in the the thread */
   success = load (file_name, &if_.eip, &if_.esp);
@@ -271,45 +263,38 @@ process_wait (tid_t child_tid)
     }
     child->waited = true;
      printf("waited\n");
-     //TODO need synchronisation in some way
+     int status;
+     //TODO call_exit is now wrong with unknown reason
     lock_acquire(&cur->children_lock);
-  //  while (get_thread_by_tid (child_tid) != NULL) {
+    //while (get_thread_by_tid (child_tid) != NULL) {
      while (true) {
-       if (get_thread_by_tid (child_tid) == NULL) {
+     //cond_wait (&cur->children_cond, &cur->children_lock);
+    //}    // child = list_entry(e, struct child, child_elem);
+ //lock_release(&cur->children_lock);   
+    if (get_thread_by_tid (child_tid) == NULL) {
          printf("it dead\n");
 	 child = list_entry(e, struct child, child_elem);
-	  printf("in pw, tid %d call_exit now is %d\n", child_tid, child->call_exit);
+	  printf("in pw, tid %d call_exit now is %d\n", child_tid, list_entry(e, struct child, child_elem)->call_exit);
   //  while (true) {
-      //if (child->status == THREAD_DYING) {
+      
          //     printf("dead\n");
          if (child->call_exit) {
                 printf("status\n");
-           return child->exit_status;
+           status = child->exit_status;
          } else {
                 printf("terminate\n");
-           return TID_ERROR;
+           status =  TID_ERROR;
          }
-      
-       }
-    //    cond_wait (&cur->children_cond, &cur->children_lock);
+	  //status = child->exit_status;
+         break;
+       } 
+    //   cond_wait (&cur->children_cond, &cur->children_lock);
      //sema_up(&cur->children);
     }
- // printf("it dead\n");
-  //  while (true) {
-      //if (child->status == THREAD_DYING) {
-	 //     printf("dead\n");
-    /*    if (child->call_exit) {
-		printf("status\n");
-          return child->exit_status;
-        } else {
-		printf("terminate\n");
-          return TID_ERROR;
-        }*/
-   }
-      //}
-    //}
+       
     lock_release(&cur->children_lock);
-  
+    return status;  
+  }
 }
 
 /* Free the current process's resources. */
@@ -319,7 +304,8 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 //printf("exit process\n");
-  
+
+//  cond_signal (&cur->children_cond, &cur->children_lock);
  // struct list_elem *e;
   for (struct list_elem *e = list_begin(&cur->locks); e != list_end(&cur->locks);
           e = list_next(e))
@@ -352,6 +338,9 @@ process_exit (void)
     struct child *child = list_entry (e, struct child, child_elem);
     free(child);
   }
+  // lock_acquire(&cur->children_lock);
+  //cond_signal (&cur->children_cond, &cur->children_lock);
+  //lock_release(&cur->children_lock);
 //  printf("exited\n");
 }
 
