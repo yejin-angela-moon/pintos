@@ -60,7 +60,7 @@ process_execute (const char *file_name)
   char *inputs = malloc(strlen(file_name) + 1);
   char *token, *save_ptr2;
   //inputs = *file_name;
-  strlcpy (inputs, file_name, strlen(file_name) + 1);
+  memcpy (inputs, file_name, strlen(file_name) + 1);
 //  int argc = 1;
   //char *argv[MAX_ARGS];
   
@@ -68,7 +68,7 @@ process_execute (const char *file_name)
   //  printf("the input size is %d\n", strlen(inputs));
   /* Parse file_name and save arguments in argv */
   for (token = strtok_r (inputs, " ", &save_ptr2); token != NULL; token = strtok_r(NULL, " ", &save_ptr2)) {
- //   printf("token: %s\n", token);
+    //printf("token: %s\n", token);
     argv[argc++] = token;
   }
 
@@ -161,8 +161,8 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
   *esp -= 4;
   * (uint32_t *) *esp = 0x0;
 
- //printf("false addr in esp: %d\n",  *(uint32_t *) *esp);
-//printf("addr: %x\n",  (uint32_t) *esp);  
+  //printf("false addr in esp: %d\n",  *(uint32_t *) *esp);
+  //printf("addr: %x\n",  (uint32_t) *esp);  
  
 }
 
@@ -174,13 +174,13 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-// printf("start process\n");
+ //printf("start process\n");
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-
+//printf("before load, file name = %s", file_name);
   /* Parse file name into arguments */
 /*  char *token, *save_ptr;
   int argc = 0;
@@ -204,8 +204,10 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   //palloc_free_page (file_name);
-  if (!success)
+  if (!success) {
+	  printf("not success");
     thread_exit ();
+  }
 //printf("before setup stack %s\n", argv[0]);
   /* Set up the stack. Push arguments from right to left. */
   setup_stack_populate(argv, argc, &if_.esp);
@@ -233,7 +235,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid)
 {
-//  printf("process wait\n");
+  //printf("process wait\n");
   //return -1;
   if (child_tid == TID_ERROR) {
 	  printf("tid error\n");
@@ -242,6 +244,7 @@ process_wait (tid_t child_tid)
   bool isChild = false;
   struct thread *cur = thread_current();
   struct list_elem *e;
+//  printf("see if it a child\n");
   for (e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
     if (list_entry(e, struct child, child_elem)->tid == child_tid) {
       isChild = true;
@@ -257,7 +260,7 @@ process_wait (tid_t child_tid)
       return TID_ERROR;
     }
     child->waited = true;
-   //  printf("waited\n");
+    // printf("waited\n");
      int status;
      //TODO call_exit is now wrong with unknown reason
     lock_acquire(&cur->children_lock);
@@ -267,9 +270,9 @@ process_wait (tid_t child_tid)
     //}    // child = list_entry(e, struct child, child_elem);
  //lock_release(&cur->children_lock);   
     if (get_thread_by_tid (child_tid) == NULL) {
-  ///       printf("it dead\n");
-	 child = list_entry(e, struct child, child_elem);
-//	  printf("in pw, tid %d call_exit now is %d\n", child_tid, list_entry(e, struct child, child_elem)->call_exit);
+//         printf("it dead\n");
+ 	 child = list_entry(e, struct child, child_elem);
+//	   printf("in pw, tid %d call_exit now is %d\n", child_tid, list_entry(e, struct child, child_elem)->call_exit);
   //  while (true) {
       
          //     printf("dead\n");
@@ -443,15 +446,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (t->pagedir == NULL)
     goto done;
   process_activate ();
-
+//printf("file name: %s, try open it", file_name);
   /* Open executable file. */
   file = filesys_open (file_name);
+  //printf("end the file open line");
   if (file == NULL)
   {
     printf ("load: %s: open failed\n", file_name);
     goto done;
   }
 
+  //printf("open file ");
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -464,7 +469,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     printf ("load: %s: error loading executable\n", file_name);
     goto done;
   }
-
+//printf("read program");
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++)
@@ -524,9 +529,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
   }
 
+  //printf("before setup stack");
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
+ // printf("after setup stack\n");
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
