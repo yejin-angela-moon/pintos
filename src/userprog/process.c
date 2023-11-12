@@ -192,7 +192,6 @@ start_process (void *file_name_)
     printf("token: %s\n", token);
    // strlcat(token, "\0", 1);
     argv[argc++] = token;
-    //printf("token: %s and argc: %d\n", argv[0], argc);
   }
  
  printf("pn: %s and argc: %d\n", argv[0], argc);
@@ -306,6 +305,14 @@ process_exit (void)
 //  cond_signal (&cur->children_cond, &cur->children_lock);
  // struct list_elem *e;
   for (struct list_elem *e = list_begin(&cur->locks); e != list_end(&cur->locks);
+          e = list_next(e))
+  {
+    lock_release(list_entry(e, struct lock, lock_elem));
+  }
+  // TODO maybe free all user program mallocs?
+
+  struct list_elem *e;
+  for (e = list_begin(&cur->locks); e != list_end(&cur->locks);
           e = list_next(e))
   {
     lock_release(list_entry(e, struct lock, lock_elem));

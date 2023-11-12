@@ -242,7 +242,7 @@ close(int fd UNUSED) {
 
 
 void
-check_user (struct intr_frame *f UNUSED, void *ptr UNUSED)
+check_user (struct intr_frame *f, void *ptr)
 {
 // don't need to worry about code running after as it kills the process
   if (!is_user_vaddr((void *) ptr))
