@@ -394,7 +394,7 @@ thread_exit(void) {
 //  list_remove(&thread_current()->child_elem);
   list_remove(&thread_current()->allelem);
   //printf("remove elem from allelem\n");
-  struct list_elem *e = &thread_current()->child.child_elem;
+  //struct list_elem *e = &thread_current()->child.child_elem;
   //printf("in te tid %d call_exit now is %d\n", thread_current()->tid, list_entry(e, struct child, child_elem)->call_exit);;
   thread_current()->status = THREAD_DYING;
   //printf("ready to schedule\n");
