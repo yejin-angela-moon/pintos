@@ -1,14 +1,17 @@
+#include <stdio.h>
+#include <syscall-nr.h>
+#include <string.h>
 #include "userprog/syscall.h"
 #include "userprog/process.h"
 #include "userprog/exception.h"
-#include <stdio.h>
-#include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "filesys/filesys.h"
+#include "filesys/file.h"
 #include "devices/shutdown.h"
-#include <string.h>
+#include "devices/input.h"
+
 
 static void syscall_handler(struct intr_frame *);
 
@@ -16,7 +19,7 @@ int get_user(const uint8_t *uaddr);
 
 static bool put_user(uint8_t *udst, uint8_t byte);
 
-void check_user(struct intr_frame *f, void * ptr);
+void check_user(void * ptr);
 
 
 void
@@ -55,13 +58,13 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     case SYS_EXIT: { /* Terminate user process*/
-      check_user(f, f->esp + 4);
+      check_user(f->esp + 4);
       int status = get_user(f->esp + 4); // if status = -1 page_fault
       exit(status);
       break;
     }
     case SYS_EXEC: { /**/  // added cast to line below: fixes warning but is it safe?
-      check_user(f, f->esp + 4);
+      check_user(f->esp + 4);
       const char *cmd_line = (char *) get_user(f->esp + 4); // if status...
       f->eax = (uint32_t) exec(cmd_line);
       break;
@@ -152,10 +155,20 @@ exit(int status) {
 }
 
 pid_t
-exec(const char *cmd_line UNUSED){
-  //TODO
-  return 0;
+exec(const char *cmd_line) {
+  // Check if the command line pointer is valid
+  if (cmd_line == NULL || !is_user_vaddr(cmd_line)) {
+    return -1;
+  }
+
+  // Load and execute the new process
+  pid_t pid = process_execute(cmd_line);
+  if (pid == TID_ERROR) {
+    return -1;
+  }
+  return pid;
 }
+
 
 int
 wait(pid_t pid) {
@@ -193,16 +206,31 @@ open(const char *file) {
   }
 }
 
-int
-filesize(int fd UNUSED) {
-  //TODO
-  return 0;
+int 
+filesize(int fd) {
+  struct file *f = process_get_fd(fd);
+  if (f == NULL) {
+    return -1; // File not found
+  }
+  return file_length(f);
 }
 
+
 int
-read(int fd UNUSED, void *buffer UNUSED, unsigned size UNUSED) {
-  //TODO
-  return 0;
+read(int fd, void *buffer, unsigned size) {
+  if (fd == 0) {
+    // Reading from the keyboard
+    unsigned i;
+    for (i = 0; i < size; i++) {
+      ((uint8_t *) buffer)[i] = input_getc();
+    }
+    return size;
+  }
+  struct file *f = process_get_fd(fd);
+  if (f == NULL) {
+    return -1; // File not found
+  }
+  return file_read(f, buffer, size);
 }
 
 int
@@ -225,24 +253,33 @@ write(int fd, const void *buffer, unsigned size) {
 }
 
 void
-seek(int fd UNUSED, unsigned position UNUSED) {
-  //TODO
+seek(int fd , unsigned position) {
+  struct file *f = process_get_fd(fd);
+  if (f != NULL) {
+    file_seek(f, position);
+  }
 }
 
 unsigned
-tell(int fd UNUSED) {
-  //TODO
-  return 0;
+tell(int fd) {
+  struct file *f = process_get_fd(fd);
+  if (f == NULL) {
+    return -1; // File not found
+  }
+  return file_tell(f);
 }
 
 void
-close(int fd UNUSED) {
-  //TODO
+close(int fd) {
+  struct file *f = process_get_fd(fd);
+  if (f != NULL) {
+    process_remove_fd(fd);
+  }
 }
 
 
 void
-check_user (struct intr_frame *f UNUSED, void *ptr UNUSED)
+check_user (void *ptr)
 {
 // don't need to worry about code running after as it kills the process
   if (!is_user_vaddr((void *) ptr))

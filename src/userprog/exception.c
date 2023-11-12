@@ -86,7 +86,7 @@ kill (struct intr_frame *f)
       printf ("%s: dying due to interrupt %#04x (%s).\n",
               thread_name (), f->vec_no, intr_name (f->vec_no));
       intr_dump_frame (f);
-      thread_exit (); 
+      thread_exit ();
 
     case SEL_KCSEG:
       /* Kernel's code segment, which indicates a kernel bug.
@@ -156,6 +156,7 @@ page_fault (struct intr_frame *f)
   //         user ? "user" : "kernel");
   // kill (f);
 
+  // might be: if (!user):
   if (f->cs == SEL_KCSEG) {
     f->eip = (void (*)(void))f->eax;
     f->eax = 0xffffffff;
