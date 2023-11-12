@@ -25,12 +25,15 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp);
 
+unsigned fd_hash(const struct hash_elem *e, void *aux); 
+bool fd_less(const struct hash_elem *a, const struct hash_elem *b);
+
  int argc = 0;
  char *argv[MAX_ARGS];
 
 /* Hash function to generate a hash value from a file descriptor. */
 unsigned 
-fd_hash(const struct hash_elem *e, void *aux) {
+fd_hash(const struct hash_elem *e, void *aux UNUSED) {
   struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
   return hash_int(fd->fd);
 }

@@ -156,6 +156,7 @@ page_fault (struct intr_frame *f)
   //         user ? "user" : "kernel");
   // kill (f);
 
+  // might be: if (!user):
   if (f->cs == SEL_KCSEG) {
     f->eip = (void (*)(void))f->eax;
     f->eax = 0xffffffff;
