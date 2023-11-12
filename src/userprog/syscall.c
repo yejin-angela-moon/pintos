@@ -233,3 +233,41 @@ put_user(uint8_t *udst, uint8_t byte) {
   return error_code != -1;
 }
 
+struct file_descriptor *
+process_get_fd(int fd) {
+  struct thread *t = thread_current();
+  struct file_descriptor fd_temp;
+  struct hash_elem *e;
+
+  fd_temp.fd = fd;
+  e = hash_find(&t->fd_table, &fd_temp.elem);
+
+  return e != NULL ? hash_entry(e, struct file_descriptor, elem) : NULL;
+}
+
+int 
+process_add_fd(struct file *file) {
+  static int next_fd = 2; /* Magic number? after 0 and 1 */
+  struct file_descriptor *fd = malloc(sizeof(struct file_descriptor));
+
+  if (fd == NULL) return -1;
+
+  fd->file = file;
+  fd->fd = next_fd++;
+
+  struct thread *t = thread_current();
+  hash_insert(&t->fd_table, &fd->elem);
+
+  return fd->fd;
+}
+
+void
+process_remove_fd(int fd) {
+  struct file_descriptor *fd_struct = process_get_fd(fd);
+
+  if (fd != NULL) {
+    hash_delete(&thread_current()->fd_table, &fd_struct->elem);
+    file_close(fd_struct->file);
+    free(fd_struct);
+  }
+}
