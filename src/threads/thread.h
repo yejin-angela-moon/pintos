@@ -104,12 +104,16 @@ struct thread {
 
     struct list children;
 
+    struct child child;
+    struct lock children_lock;
+    struct condition children_cond;
+
     struct hash fd_table;               /* File descriptor table. */
 
  /*   struct list_elem child_elem;
     int exit_status;
     bool waited;
-    bool call_exit;
+    bool call_exit; */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
