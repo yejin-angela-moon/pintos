@@ -1,9 +1,8 @@
-#include <stdio.h>
-#include <syscall-nr.h>
-#include <string.h>
 #include "userprog/syscall.h"
 #include "userprog/process.h"
 #include "userprog/exception.h"
+#include <stdio.h>
+#include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
@@ -11,7 +10,9 @@
 #include "filesys/file.h"
 #include "devices/shutdown.h"
 #include "devices/input.h"
-
+#include <string.h>
+#include <stdlib.h>
+#include "threads/malloc.h"
 
 static void syscall_handler(struct intr_frame *);
 
@@ -19,8 +20,13 @@ int get_user(const uint8_t *uaddr);
 
 static bool put_user(uint8_t *udst, uint8_t byte);
 
-void check_user(void * ptr);
+void check_user(struct intr_frame *f, void * ptr);
 
+struct file_descriptor *process_get_fd(int fd);
+
+int process_add_fd(struct file *file);
+
+void process_remove_fd(int fd);
 
 void
 syscall_init(void) {
@@ -58,13 +64,13 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     case SYS_EXIT: { /* Terminate user process*/
-      check_user(f->esp + 4);
+      check_user(f, f->esp + 4);
       int status = get_user(f->esp + 4); // if status = -1 page_fault
       exit(status);
       break;
     }
     case SYS_EXEC: { /**/  // added cast to line below: fixes warning but is it safe?
-      check_user(f->esp + 4);
+      check_user(f, f->esp + 4);
       const char *cmd_line = (char *) get_user(f->esp + 4); // if status...
       f->eax = (uint32_t) exec(cmd_line);
       break;
@@ -178,6 +184,7 @@ wait(pid_t pid) {
 
 bool
 create(const char *file, unsigned initial_size) {
+//	printf("valid addr: %lld", (uint8_t) atoi(file));
   if (file == NULL) {
     exit(-1);
     return false;
@@ -202,13 +209,13 @@ open(const char *file) {
     return -1;
   } else {
     // Add the file to the process's open file list and return the file descriptor
-    return 0; //TODO implement process_add_file(f);
+    return process_add_fd(f);
   }
 }
 
 int 
 filesize(int fd) {
-  struct file *f = process_get_fd(fd);
+  struct file *f = process_get_fd(fd)->file;
   if (f == NULL) {
     return -1; // File not found
   }
@@ -226,7 +233,8 @@ read(int fd, void *buffer, unsigned size) {
     }
     return size;
   }
-  struct file *f = process_get_fd(fd);
+  return -1;
+  struct file *f = process_get_fd(fd)->file;
   if (f == NULL) {
     return -1; // File not found
   }
@@ -254,7 +262,7 @@ write(int fd, const void *buffer, unsigned size) {
 
 void
 seek(int fd , unsigned position) {
-  struct file *f = process_get_fd(fd);
+  struct file *f = process_get_fd(fd)->file;
   if (f != NULL) {
     file_seek(f, position);
   }
@@ -262,16 +270,16 @@ seek(int fd , unsigned position) {
 
 unsigned
 tell(int fd) {
-  struct file *f = process_get_fd(fd);
+  struct file *f = process_get_fd(fd)->file;
   if (f == NULL) {
     return -1; // File not found
   }
-  return file_tell(f);
+ return file_tell(f);
 }
 
 void
 close(int fd) {
-  struct file *f = process_get_fd(fd);
+  struct file *f = process_get_fd(fd)->file;
   if (f != NULL) {
     process_remove_fd(fd);
   }
@@ -279,7 +287,7 @@ close(int fd) {
 
 
 void
-check_user (void *ptr)
+check_user (struct intr_frame *f UNUSED, void *ptr)
 {
 // don't need to worry about code running after as it kills the process
   if (!is_user_vaddr((void *) ptr))
@@ -311,6 +319,7 @@ put_user (uint8_t *udst, uint8_t byte)
   return error_code != -1;
 }
 
+
 struct file_descriptor *
 process_get_fd(int fd) {
   struct thread *t = thread_current();
@@ -323,7 +332,7 @@ process_get_fd(int fd) {
   return e != NULL ? hash_entry(e, struct file_descriptor, elem) : NULL;
 }
 
-int 
+int
 process_add_fd(struct file *file) {
   static int next_fd = 2; /* Magic number? after 0 and 1 */
   struct file_descriptor *fd = malloc(sizeof(struct file_descriptor));
@@ -343,9 +352,10 @@ void
 process_remove_fd(int fd) {
   struct file_descriptor *fd_struct = process_get_fd(fd);
 
-  if (fd != NULL) {
+  if (fd != -1) {
     hash_delete(&thread_current()->fd_table, &fd_struct->elem);
     file_close(fd_struct->file);
     free(fd_struct);
   }
 }
+
