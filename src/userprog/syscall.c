@@ -67,23 +67,23 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     case SYS_WAIT: {
-      pid_t pid = *((pid_t *)(f->esp +4));
+      pid_t pid = *((pid_t * )(f->esp + 4));
       f->eax = (uint32_t) wait(pid);
       break;
     }
     case SYS_CREATE: { /* Create a file. */
-      const char *file = *((const char **)(f->esp + 4));
-      unsigned initial_size = *((unsigned *)(f->esp + 8));
+      const char *file = *((const char **) (f->esp + 4));
+      unsigned initial_size = *((unsigned *) (f->esp + 8));
       f->eax = (uint32_t) create(file, initial_size);
       break;
     }
     case SYS_REMOVE: { /* Delete a file. */
-      const char *file = *((const char **)(f->esp + 4));
+      const char *file = *((const char **) (f->esp + 4));
       f->eax = (uint32_t) remove(file);
       break;
     }
     case SYS_OPEN: {  /* Open a file. */
-      const char *file = *((const char **)(f->esp + 4));
+      const char *file = *((const char **) (f->esp + 4));
       f->eax = (uint32_t) open(file);
       break;
     }
@@ -94,8 +94,8 @@ syscall_handler(struct intr_frame *f) {
     }
     case SYS_READ: {  /* Read from a file. */
       int fd = *((int *) (f->esp + 4));
-      void *buffer = *((void **)(f->esp + 8));
-      unsigned size = *((unsigned *)(f->esp + 12));
+      void *buffer = *((void **) (f->esp + 8));
+      unsigned size = *((unsigned *) (f->esp + 12));
       f->eax = (uint32_t) read(fd, buffer, size);
       break;
     }
@@ -110,7 +110,7 @@ syscall_handler(struct intr_frame *f) {
     }
     case SYS_SEEK: { /* Change position in a file. */
       int fd = *((int *) (f->esp + 4));
-      unsigned position = *((unsigned *)(f->esp + 8));
+      unsigned position = *((unsigned *) (f->esp + 8));
       seek(fd, position);
       break;
     }

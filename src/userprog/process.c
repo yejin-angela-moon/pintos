@@ -19,13 +19,30 @@
 #include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-//#include <stdlib.h>
+#include "lib/kernel/hash.h"
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp);
 
  int argc = 0;
  char *argv[MAX_ARGS];
+
+/* Hash function to generate a hash value from a file descriptor. */
+unsigned 
+fd_hash(const struct hash_elem *e, void *aux) {
+  struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
+  return hash_int(fd->fd);
+}
+
+/* Hash less function to compare two file descriptors for ordering in 
+   the hash table. */
+bool fd_less(const struct hash_elem *a, const struct hash_elem *b) {
+  struct file_descriptor *fd_a = hash_entry(a, struct file_descriptor, elem);
+  struct file_descriptor *fd_b = hash_entry(b, struct file_descriptor, elem);
+  return fd_a->fd < fd_b->fd;
+}
+
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -336,10 +353,17 @@ process_exit (void)
     struct child *child = list_entry (e, struct child, child_elem);
     free(child);
   }
-  // lock_acquire(&cur->children_lock);
-  //cond_signal (&cur->children_cond, &cur->children_lock);
-  //lock_release(&cur->children_lock);
-//  printf("exited\n");
+
+  struct hash_iterator i;
+  
+  hash_first(&i, &t->fd_table);
+  while (hash_next(&i)) {
+    struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
+    file_close(fd->file);
+    hash_delete(&t->fd_table, &fd->elem);
+    free(fd);
+  }
+  hash_destroy(&t->fd_table, NULL);
 }
 
 /* Sets up the CPU for running user code in the current
