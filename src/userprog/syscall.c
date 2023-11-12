@@ -152,10 +152,20 @@ exit(int status) {
 }
 
 pid_t
-exec(const char *cmd_line UNUSED){
-  //TODO
-  return 0;
+exec(const char *cmd_line) {
+  // Check if the command line pointer is valid
+  if (cmd_line == NULL || !is_user_vaddr(cmd_line)) {
+    return -1;
+  }
+
+  // Load and execute the new process
+  pid_t pid = process_execute(cmd_line);
+  if (pid == TID_ERROR) {
+    return -1;
+  }
+  return pid;
 }
+
 
 int
 wait(pid_t pid) {
@@ -193,16 +203,32 @@ open(const char *file) {
   }
 }
 
-int
-filesize(int fd UNUSED) {
-  //TODO
-  return 0;
+int 
+filesize(int fd) {
+  struct file *f = process_get_fd(fd);
+  if (f == NULL) {
+    return -1; // File not found
+  }
+  return file_length(f);
 }
 
+
 int
-read(int fd UNUSED, void *buffer UNUSED, unsigned size UNUSED) {
-  //TODO
-  return 0;
+read(int fd, void *buffer, unsigned size) {
+  if (fd == 0) {
+    // Reading from the keyboard
+    unsigned i;
+    for (i = 0; i < size; i++) {
+      ((uint8_t *) buffer)[i] = input_getc();
+    }
+    return size;
+  }
+
+  struct file *f = process_get_fd(fd);
+  if (f == NULL) {
+    return -1; // File not found
+  }
+  return file_read(f, buffer, size);
 }
 
 int
@@ -225,19 +251,28 @@ write(int fd, const void *buffer, unsigned size) {
 }
 
 void
-seek(int fd UNUSED, unsigned position UNUSED) {
-  //TODO
+seek(int fd , unsigned position) {
+  struct file *f = process_get_fd(fd);
+  if (f != NULL) {
+    file_seek(f, position);
+  }
 }
 
 unsigned
-tell(int fd UNUSED) {
-  //TODO
-  return 0;
+tell(int fd) {
+  struct file *f = process_get_fd(fd);
+  if (f == NULL) {
+    return -1; // File not found
+  }
+  return file_tell(f);
 }
 
 void
-close(int fd UNUSED) {
-  //TODO
+close(int fd) {
+  struct file *f = process_get_fd(fd);
+  if (f != NULL) {
+    process_remove_fd(fd);
+  }
 }
 
 
