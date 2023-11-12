@@ -223,7 +223,6 @@ read(int fd, void *buffer, unsigned size) {
     }
     return size;
   }
-
   struct file *f = process_get_fd(fd);
   if (f == NULL) {
     return -1; // File not found
