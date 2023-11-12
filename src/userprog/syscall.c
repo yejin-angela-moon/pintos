@@ -8,6 +8,7 @@
 #include "threads/vaddr.h"
 #include "filesys/filesys.h"
 #include "devices/shutdown.h"
+#include <string.h>
 
 static void syscall_handler(struct intr_frame *);
 
@@ -164,6 +165,10 @@ wait(pid_t pid) {
 
 bool
 create(const char *file, unsigned initial_size) {
+  if (file == NULL) {
+    exit(-1);
+    return false;
+  }
   return filesys_create(file, initial_size);
 }
 
@@ -174,6 +179,10 @@ remove(const char *file) {
 
 int
 open(const char *file) {
+  if (file == NULL) {
+    exit(-1);
+    return -1;
+  }
   struct file *f = filesys_open(file);
   if (f == NULL) {
     // File could not be opened

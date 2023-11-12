@@ -274,7 +274,7 @@ process_wait (tid_t child_tid)
  	 child = list_entry(e, struct child, child_elem);
 //	   printf("in pw, tid %d call_exit now is %d\n", child_tid, list_entry(e, struct child, child_elem)->call_exit);
   //  while (true) {
-      
+       
          //     printf("dead\n");
          if (child->call_exit) {
                 printf("status\n");
