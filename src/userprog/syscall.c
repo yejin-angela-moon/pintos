@@ -67,23 +67,23 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     case SYS_WAIT: {
-      pid_t pid = *((pid_t *)(f->esp +4));
+      pid_t pid = *((pid_t * )(f->esp + 4));
       f->eax = (uint32_t) wait(pid);
       break;
     }
     case SYS_CREATE: { /* Create a file. */
-      const char *file = *((const char **)(f->esp + 4));
-      unsigned initial_size = *((unsigned *)(f->esp + 8));
+      const char *file = *((const char **) (f->esp + 4));
+      unsigned initial_size = *((unsigned *) (f->esp + 8));
       f->eax = (uint32_t) create(file, initial_size);
       break;
     }
     case SYS_REMOVE: { /* Delete a file. */
-      const char *file = *((const char **)(f->esp + 4));
+      const char *file = *((const char **) (f->esp + 4));
       f->eax = (uint32_t) remove(file);
       break;
     }
     case SYS_OPEN: {  /* Open a file. */
-      const char *file = *((const char **)(f->esp + 4));
+      const char *file = *((const char **) (f->esp + 4));
       f->eax = (uint32_t) open(file);
       break;
     }
@@ -94,8 +94,8 @@ syscall_handler(struct intr_frame *f) {
     }
     case SYS_READ: {  /* Read from a file. */
       int fd = *((int *) (f->esp + 4));
-      void *buffer = *((void **)(f->esp + 8));
-      unsigned size = *((unsigned *)(f->esp + 12));
+      void *buffer = *((void **) (f->esp + 8));
+      unsigned size = *((unsigned *) (f->esp + 12));
       f->eax = (uint32_t) read(fd, buffer, size);
       break;
     }
@@ -110,7 +110,7 @@ syscall_handler(struct intr_frame *f) {
     }
     case SYS_SEEK: { /* Change position in a file. */
       int fd = *((int *) (f->esp + 4));
-      unsigned position = *((unsigned *)(f->esp + 8));
+      unsigned position = *((unsigned *) (f->esp + 8));
       seek(fd, position);
       break;
     }
@@ -152,10 +152,20 @@ exit(int status) {
 }
 
 pid_t
-exec(const char *cmd_line UNUSED){
-  //TODO
-  return 0;
+exec(const char *cmd_line) {
+  // Check if the command line pointer is valid
+  if (cmd_line == NULL || !is_user_vaddr(cmd_line)) {
+    return -1;
+  }
+
+  // Load and execute the new process
+  pid_t pid = process_execute(cmd_line);
+  if (pid == TID_ERROR) {
+    return -1;
+  }
+  return pid;
 }
+
 
 int
 wait(pid_t pid) {
@@ -193,16 +203,32 @@ open(const char *file) {
   }
 }
 
-int
-filesize(int fd UNUSED) {
-  //TODO
-  return 0;
+int 
+filesize(int fd) {
+  struct file *f = process_get_fd(fd);
+  if (f == NULL) {
+    return -1; // File not found
+  }
+  return file_length(f);
 }
 
+
 int
-read(int fd UNUSED, void *buffer UNUSED, unsigned size UNUSED) {
-  //TODO
-  return 0;
+read(int fd, void *buffer, unsigned size) {
+  if (fd == 0) {
+    // Reading from the keyboard
+    unsigned i;
+    for (i = 0; i < size; i++) {
+      ((uint8_t *) buffer)[i] = input_getc();
+    }
+    return size;
+  }
+
+  struct file *f = process_get_fd(fd);
+  if (f == NULL) {
+    return -1; // File not found
+  }
+  return file_read(f, buffer, size);
 }
 
 int
@@ -225,19 +251,28 @@ write(int fd, const void *buffer, unsigned size) {
 }
 
 void
-seek(int fd UNUSED, unsigned position UNUSED) {
-  //TODO
+seek(int fd , unsigned position) {
+  struct file *f = process_get_fd(fd);
+  if (f != NULL) {
+    file_seek(f, position);
+  }
 }
 
 unsigned
-tell(int fd UNUSED) {
-  //TODO
-  return 0;
+tell(int fd) {
+  struct file *f = process_get_fd(fd);
+  if (f == NULL) {
+    return -1; // File not found
+  }
+  return file_tell(f);
 }
 
 void
-close(int fd UNUSED) {
-  //TODO
+close(int fd) {
+  struct file *f = process_get_fd(fd);
+  if (f != NULL) {
+    process_remove_fd(fd);
+  }
 }
 
 

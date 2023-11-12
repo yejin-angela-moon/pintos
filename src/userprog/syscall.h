@@ -33,5 +33,7 @@ unsigned tell(int fd);
 
 void close(int fd); 
 
+bool hash_less(int a, int b);
+
 
 #endif /* userprog/syscall.h */
