@@ -2,8 +2,9 @@
 #define USERPROG_PROCESS_H
 
 #include "threads/thread.h"
+#include <stdlib.h>
 
-#define MAX_ARGS 4
+#define MAX_ARGS 40
 #define WORD_ALIGN_MASK 0xfffffffc
 
 tid_t process_execute (const char *file_name);

@@ -8,6 +8,7 @@
 #include "threads/vaddr.h"
 #include "filesys/filesys.h"
 #include "devices/shutdown.h"
+#include <string.h>
 
 static void syscall_handler(struct intr_frame *);
 
@@ -15,7 +16,7 @@ int get_user(const uint8_t *uaddr);
 
 static bool put_user(uint8_t *udst, uint8_t byte);
 
-void check_user(struct intr_frame *f, void *ptr);
+void check_user(struct intr_frame *f, void * ptr);
 
 
 void
@@ -53,7 +54,7 @@ syscall_handler(struct intr_frame *f) {
       halt();
       break;
     }
-    case SYS_EXIT: { /* Terminate user process */
+    case SYS_EXIT: { /* Terminate user process*/
       check_user(f, f->esp + 4);
       int status = get_user(f->esp + 4); // if status = -1 page_fault
       exit(status);
@@ -103,6 +104,7 @@ syscall_handler(struct intr_frame *f) {
       // maybe should be: int fd = get_user(f->esp + 4);
       const void *buffer = *((const void **)(f->esp + 8));
       unsigned size = *((unsigned *)(f->esp + 12));
+    //  printf("fd %d and size %d\n", fd, size);
       f->eax = (uint32_t) write(fd, buffer, size);
       break;
     }
@@ -123,11 +125,11 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     default: {
-      exit(-1);
+      //exit(-1);
       break;
     }
   }
-  thread_exit();
+  //thread_exit();
 }
 
 void
@@ -137,9 +139,15 @@ halt(void) {
 
 void
 exit(int status) {
+  //printf("exit syscall\n");
+  //lock_acquire(&cur->lock_children);
   struct thread *cur = thread_current();
-  cur->exit_status = status;
-  cur->call_exit = true;
+  printf ("%s: exit(%d)\n", cur->name, status);
+   lock_acquire(&cur->children_lock);
+  cur->child.exit_status = status;
+  //printf("bwforw tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
+  cur->child.call_exit = true;
+   lock_release(&cur->children_lock);
   thread_exit();
 }
 
@@ -157,6 +165,10 @@ wait(pid_t pid) {
 
 bool
 create(const char *file, unsigned initial_size) {
+  if (file == NULL) {
+    exit(-1);
+    return false;
+  }
   return filesys_create(file, initial_size);
 }
 
@@ -167,6 +179,10 @@ remove(const char *file) {
 
 int
 open(const char *file) {
+  if (file == NULL) {
+    exit(-1);
+    return -1;
+  }
   struct file *f = filesys_open(file);
   if (f == NULL) {
     // File could not be opened
@@ -191,6 +207,7 @@ read(int fd UNUSED, void *buffer UNUSED, unsigned size UNUSED) {
 
 int
 write(int fd, const void *buffer, unsigned size) {
+  //printf("write \n");
   if (fd == 1) {  // writes to conole
     int linesToPut;
     for (uint32_t j = 0; j < size; j += 200) {  // max 200B at a time, j US so can compare with size
@@ -201,7 +218,7 @@ write(int fd, const void *buffer, unsigned size) {
   }
   uint32_t i;  // TODO check fd+i in handler for writing
   for (i = 0; i < size; i++) {
-    if (!put_user( (uint8_t *) fd+i, *((uint8_t *) (buffer+i)))) // added cast not sure if thats cool
+    if (!put_user((uint8_t*)(fd+i), size)) // added cast not sure if thats cool
       break;
   }
   return i;
@@ -230,9 +247,10 @@ check_user (struct intr_frame *f, void *ptr)
 // don't need to worry about code running after as it kills the process
   if (!is_user_vaddr((void *) ptr))
     exit(-1);
+  
 }
 
- // credit to pintos manual:
+// credit to pintos manual:
 /* Reads a byte at user virtual address UADDR.
  * Returns the byte value if successful, -1 if a segfault
  * occurred. */

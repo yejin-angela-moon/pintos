@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include <threads/synch.h>
 #include <threads/fixed-point.h>
+//#include <userprog/process.h>
+//#include <userprog/syscall.h>
 
 /* States in a thread's life cycle. */
 enum thread_status {
@@ -24,6 +26,14 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+struct child {
+    tid_t tid;
+    struct list_elem child_elem;
+    int exit_status;
+    bool waited;
+    bool call_exit;
+};
 
 /* A kernel thread or user process.
 
@@ -94,10 +104,13 @@ struct thread {
     struct lock wait_lock;              /* Lock that the thread is attempting to acquire, but still waiting for. */
 
     struct list children;
-    struct list_elem child_elem;
+ /*   struct list_elem child_elem;
     int exit_status;
     bool waited;
-    bool call_exit;
+    bool call_exit;*/
+    struct child child;
+    struct lock children_lock;
+    struct condition children_cond;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -107,16 +120,13 @@ struct thread {
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-    /*struct list children;
-    struct list_elem child_elem;
-    int exit_status;
-    bool waited;
-    bool kernel_terminate;*/
+    
 #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 };
+
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

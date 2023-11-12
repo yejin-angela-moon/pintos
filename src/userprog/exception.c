@@ -157,7 +157,7 @@ page_fault (struct intr_frame *f)
   // kill (f);
 
   if (f->cs == SEL_KCSEG) {
-    f->eip = f->eax;
+    f->eip = (void (*)(void))f->eax;
     f->eax = 0xffffffff;
   } else {
     kill(f);
