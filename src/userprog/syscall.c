@@ -175,6 +175,7 @@ wait(pid_t pid) {
 
 bool
 create(const char *file, unsigned initial_size) {
+//	printf("valid addr: %lld", (uint8_t) atoi(file));
   if (file == NULL) {
     exit(-1);
     return false;
@@ -205,11 +206,11 @@ open(const char *file) {
 
 int 
 filesize(int fd) {
-  struct file *f = process_get_fd(fd);
-  if (f == NULL) {
+  //struct file *f = process_get_fd(fd);
+  //if (f == NULL) {
     return -1; // File not found
-  }
-  return file_length(f);
+  //}
+  //return file_length(f);
 }
 
 
@@ -219,16 +220,16 @@ read(int fd, void *buffer, unsigned size) {
     // Reading from the keyboard
     unsigned i;
     for (i = 0; i < size; i++) {
-      ((uint8_t *) buffer)[i] = input_getc();
+//      ((uint8_t *) buffer)[i] = input_getc();
     }
     return size;
   }
-
-  struct file *f = process_get_fd(fd);
-  if (f == NULL) {
-    return -1; // File not found
-  }
-  return file_read(f, buffer, size);
+  return -1;
+  //struct file *f = process_get_fd(fd);
+ // if (f == NULL) {
+  //  return -1; // File not found
+  //}
+ // return file_read(f, buffer, size);
 }
 
 int
@@ -252,32 +253,32 @@ write(int fd, const void *buffer, unsigned size) {
 
 void
 seek(int fd , unsigned position) {
-  struct file *f = process_get_fd(fd);
-  if (f != NULL) {
-    file_seek(f, position);
-  }
+ // struct file *f = process_get_fd(fd);
+  //if (f != NULL) {
+    //file_seek(f, position);
+  //}
 }
 
 unsigned
 tell(int fd) {
-  struct file *f = process_get_fd(fd);
-  if (f == NULL) {
+  //struct file *f = process_get_fd(fd);
+  //if (f == NULL) {
     return -1; // File not found
-  }
-  return file_tell(f);
+  //}
+  //return file_tell(f);
 }
 
 void
 close(int fd) {
-  struct file *f = process_get_fd(fd);
-  if (f != NULL) {
-    process_remove_fd(fd);
-  }
+//  struct file *f = process_get_fd(fd);
+  //if (f != NULL) {
+  //  process_remove_fd(fd);
+ // }
 }
 
 
 void
-check_user (struct intr_frame *f, void *ptr)
+check_user (struct intr_frame *f UNUSED, void *ptr)
 {
 // don't need to worry about code running after as it kills the process
   if (!is_user_vaddr((void *) ptr))

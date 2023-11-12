@@ -328,14 +328,6 @@ process_exit (void)
   }
   // TODO maybe free all user program mallocs?
 
-  struct list_elem *e;
-  for (e = list_begin(&cur->locks); e != list_end(&cur->locks);
-          e = list_next(e))
-  {
-    lock_release(list_entry(e, struct lock, lock_elem));
-  }
-  // TODO maybe free all user program mallocs?
-
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -362,15 +354,15 @@ process_exit (void)
   }
 
   struct hash_iterator i;
-  
-  hash_first(&i, &t->fd_table);
+ /* 
+ // hash_first(&i, &t->fd_table);
   while (hash_next(&i)) {
     struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
     file_close(fd->file);
-    hash_delete(&t->fd_table, &fd->elem);
+  //  hash_delete(&t->fd_table, &fd->elem);
     free(fd);
   }
-  hash_destroy(&t->fd_table, NULL);
+  //hash_destroy(&t->fd_table, NULL);*/
 }
 
 /* Sets up the CPU for running user code in the current
