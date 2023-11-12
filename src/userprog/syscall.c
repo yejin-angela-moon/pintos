@@ -16,7 +16,7 @@ int get_user(const uint8_t *uaddr);
 
 static bool put_user(uint8_t *udst, uint8_t byte);
 
-void check_user(struct intr_frame *f, void * ptr);
+void check_user(void * ptr);
 
 
 void
@@ -55,13 +55,13 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     case SYS_EXIT: { /* Terminate user process*/
-      check_user(f, f->esp + 4);
+      check_user(f->esp + 4);
       int status = get_user(f->esp + 4); // if status = -1 page_fault
       exit(status);
       break;
     }
     case SYS_EXEC: { /**/  // added cast to line below: fixes warning but is it safe?
-      check_user(f, f->esp + 4);
+      check_user(f->esp + 4);
       const char *cmd_line = (char *) get_user(f->esp + 4); // if status...
       f->eax = (uint32_t) exec(cmd_line);
       break;
@@ -276,7 +276,7 @@ close(int fd) {
 
 
 void
-check_user (struct intr_frame *f, void *ptr)
+check_user (void *ptr)
 {
 // don't need to worry about code running after as it kills the process
   if (!is_user_vaddr((void *) ptr))
