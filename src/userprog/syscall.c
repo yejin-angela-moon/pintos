@@ -7,8 +7,12 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "filesys/filesys.h"
+#include "filesys/file.h"
 #include "devices/shutdown.h"
+#include "devices/input.h"
 #include <string.h>
+#include <stdlib.h>
+#include "threads/malloc.h"
 
 static void syscall_handler(struct intr_frame *);
 
@@ -18,6 +22,7 @@ static bool put_user(uint8_t *udst, uint8_t byte);
 
 void check_user(struct intr_frame *f, void * ptr);
 
+int process_add_fd(struct file *file);
 
 void
 syscall_init(void) {
@@ -200,17 +205,17 @@ open(const char *file) {
     return -1;
   } else {
     // Add the file to the process's open file list and return the file descriptor
-    return 0; //TODO implement process_add_file(f);
+    return process_add_fd(f);
   }
 }
 
 int 
 filesize(int fd) {
-  //struct file *f = process_get_fd(fd);
-  //if (f == NULL) {
+  struct file *f = process_get_fd(fd)->file;
+  if (f == NULL) {
     return -1; // File not found
-  //}
-  //return file_length(f);
+  }
+  return file_length(f);
 }
 
 
@@ -220,16 +225,16 @@ read(int fd, void *buffer, unsigned size) {
     // Reading from the keyboard
     unsigned i;
     for (i = 0; i < size; i++) {
-//      ((uint8_t *) buffer)[i] = input_getc();
+      ((uint8_t *) buffer)[i] = input_getc();
     }
     return size;
   }
   return -1;
-  //struct file *f = process_get_fd(fd);
- // if (f == NULL) {
-  //  return -1; // File not found
-  //}
- // return file_read(f, buffer, size);
+  struct file *f = process_get_fd(fd)->file;
+  if (f == NULL) {
+    return -1; // File not found
+  }
+  return file_read(f, buffer, size);
 }
 
 int
@@ -253,27 +258,27 @@ write(int fd, const void *buffer, unsigned size) {
 
 void
 seek(int fd , unsigned position) {
- // struct file *f = process_get_fd(fd);
-  //if (f != NULL) {
-    //file_seek(f, position);
-  //}
+  struct file *f = process_get_fd(fd)->file;
+  if (f != NULL) {
+    file_seek(f, position);
+  }
 }
 
 unsigned
 tell(int fd) {
-  //struct file *f = process_get_fd(fd);
-  //if (f == NULL) {
+  struct file *f = process_get_fd(fd)->file;
+  if (f == NULL) {
     return -1; // File not found
-  //}
-  //return file_tell(f);
+  }
+ return file_tell(f);
 }
 
 void
 close(int fd) {
-//  struct file *f = process_get_fd(fd);
-  //if (f != NULL) {
-  //  process_remove_fd(fd);
- // }
+  struct file *f = process_get_fd(fd)->file;
+  if (f != NULL) {
+    process_remove_fd(fd);
+  }
 }
 
 
@@ -308,5 +313,45 @@ put_user (uint8_t *udst, uint8_t byte)
   asm ("movl $1f, %0; movb %b2, %1; 1:"
           : "=&a" (error_code), "=m" (*udst) : "q" (byte));
   return error_code != -1;
+}
+
+
+struct file_descriptor *
+process_get_fd(int fd) {
+  struct thread *t = thread_current();
+  struct file_descriptor fd_temp;
+  struct hash_elem *e;
+
+  fd_temp.fd = fd;
+  e = hash_find(&t->fd_table, &fd_temp.elem);
+
+  return e != NULL ? hash_entry(e, struct file_descriptor, elem) : NULL;
+}
+
+int
+process_add_fd(struct file *file) {
+  static int next_fd = 2; /* Magic number? after 0 and 1 */
+  struct file_descriptor *fd = malloc(sizeof(struct file_descriptor));
+
+  if (fd == NULL) return -1;
+
+  fd->file = file;
+  fd->fd = next_fd++;
+
+  struct thread *t = thread_current();
+  hash_insert(&t->fd_table, &fd->elem);
+
+  return fd->fd;
+}
+
+void
+process_remove_fd(int fd) {
+  struct file_descriptor *fd_struct = process_get_fd(fd);
+
+  if (fd != -1) {
+    hash_delete(&thread_current()->fd_table, &fd_struct->elem);
+    file_close(fd_struct->file);
+    free(fd_struct);
+  }
 }
 

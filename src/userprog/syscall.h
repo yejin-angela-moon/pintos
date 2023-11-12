@@ -35,5 +35,10 @@ void close(int fd);
 
 bool hash_less(int a, int b);
 
+struct file_descriptor *process_get_fd(int fd);
+
+//int process_add_fd(struct file *file);
+
+void process_remove_fd(int fd);
 
 #endif /* userprog/syscall.h */

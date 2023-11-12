@@ -6,8 +6,7 @@
 #include <stdint.h>
 #include <threads/synch.h>
 #include <threads/fixed-point.h>
-//#include <userprog/process.h>
-//#include <userprog/syscall.h>
+#include <lib/kernel/hash.h>
 
 /* States in a thread's life cycle. */
 enum thread_status {
@@ -104,13 +103,17 @@ struct thread {
     struct lock wait_lock;              /* Lock that the thread is attempting to acquire, but still waiting for. */
 
     struct list children;
- /*   struct list_elem child_elem;
-    int exit_status;
-    bool waited;
-    bool call_exit;*/
+
     struct child child;
     struct lock children_lock;
     struct condition children_cond;
+
+     struct hash fd_table;               /* File descriptor table. */
+
+ /*   struct list_elem child_elem;
+    int exit_status;
+    bool waited;
+    bool call_exit; */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
