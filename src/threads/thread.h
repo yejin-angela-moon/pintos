@@ -26,6 +26,14 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+struct child {
+    tid_t tid;
+    struct list_elem child_elem;
+    int exit_status;
+    bool waited;
+    bool call_exit;
+};
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -95,12 +103,13 @@ struct thread {
     struct lock wait_lock;              /* Lock that the thread is attempting to acquire, but still waiting for. */
 
     struct list children;
-    struct list_elem child_elem;
+
+    struct hash fd_table;               /* File descriptor table. */
+
+ /*   struct list_elem child_elem;
     int exit_status;
     bool waited;
     bool call_exit;
-
-    struct hash fd_table;               /* File descriptor table. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -110,16 +119,13 @@ struct thread {
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-    /*struct list children;
-    struct list_elem child_elem;
-    int exit_status;
-    bool waited;
-    bool kernel_terminate;*/
+    
 #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 };
+
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
