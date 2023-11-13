@@ -630,6 +630,7 @@ init_thread(struct thread *t, const char *name, int priority) {
   //t->call_exit = false;
   lock_init (&t->children_lock);
   cond_init (&t->children_cond);
+  t->init_fd = false;
 
   if (thread_mlfqs) {
     if (t != initial_thread) {

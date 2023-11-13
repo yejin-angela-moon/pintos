@@ -108,7 +108,8 @@ struct thread {
     struct lock children_lock;
     struct condition children_cond;
 
-     struct hash fd_table;               /* File descriptor table. */
+    struct hash fd_table;               /* File descriptor table. */
+    bool init_fd;
 
  /*   struct list_elem child_elem;
     int exit_status;
