@@ -232,7 +232,7 @@ open(const char *file) {
     return process_add_fd(f);
   }
 }
-
+ 
 int 
 filesize(int fd) {
   struct file *f = process_get_fd(fd)->file;
@@ -247,18 +247,21 @@ int
 read(int fd, void *buffer, unsigned size) {
   if (fd == 0) {
     // Reading from the keyboard
+    printf("fd = 0\n");
     unsigned i;
     for (i = 0; i < size; i++) {
       ((uint8_t *) buffer)[i] = input_getc();
     }
     return size;
   }
-  return -1;
-  struct file *f = process_get_fd(fd)->file;
-  if (f == NULL) {
+  if (size == 0) {
+    return size;
+  }
+  struct file_descriptor *filed = process_get_fd(fd);
+  if (filed == NULL){
     return -1; // File not found
   }
-  return file_read(f, buffer, size);
+  return file_read(filed->file, buffer, size);
 }
 
 int
