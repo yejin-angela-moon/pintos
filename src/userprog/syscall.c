@@ -299,10 +299,17 @@ tell(int fd) {
 
 void
 close(int fd) {
-  struct file *f = process_get_fd(fd)->file;
-  if (f != NULL) {
-    process_remove_fd(fd);
+  struct file_descriptor *filed = process_get_fd(fd);
+  if (filed == NULL) {
+    exit(-1);
   }
+
+  //struct file *f = filed->file;
+  //if (f != NULL) {
+  process_remove_fd(fd);
+  //} else {
+  //  exit(-1);
+//  }
 }
 
 
