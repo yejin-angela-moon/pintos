@@ -24,13 +24,37 @@ void check_user(struct intr_frame *f, void * ptr);
 
 int process_add_fd(struct file *file);
 
+unsigned fd_hash(const struct hash_elem *e, void *aux);
+bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
+
+/* Hash function to generate a hash value from a file descriptor. */
+unsigned
+fd_hash(const struct hash_elem *e, void *aux UNUSED) {
+  struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
+  return hash_int(fd->fd);
+}
+
+/* Hash less function to compare two file descriptors for ordering in
+   the hash table. */
+bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
+  struct file_descriptor *fd_a = hash_entry(a, struct file_descriptor, elem);
+  struct file_descriptor *fd_b = hash_entry(b, struct file_descriptor, elem);
+  return fd_a->fd < fd_b->fd;
+}  
+
 void
 syscall_init(void) {
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
+bool first_time = true;
+
 static void
 syscall_handler(struct intr_frame *f) {
+	if (first_time) {
+          hash_init(&thread_current()->fd_table, fd_hash, fd_less, NULL);
+          first_time = false;	  
+	}
 
 //   check_user_pointer(f, f->esp);  // check the frame's stack ptr is valid
 //   				  // whoever is dealing with arguments, call the above func on each one
