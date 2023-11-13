@@ -25,26 +25,23 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp);
 
-unsigned fd_hash(const struct hash_elem *e, void *aux); 
-bool fd_less(const struct hash_elem *a, const struct hash_elem *b);
-
  int argc = 0;
  char *argv[MAX_ARGS];
 
 /* Hash function to generate a hash value from a file descriptor. */
-unsigned 
-fd_hash(const struct hash_elem *e, void *aux UNUSED) {
+/*unsigned 
+fd_hash(const struct hash_elem *e, void *aux) {
   struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
   return hash_int(fd->fd);
-}
+}*/
 
 /* Hash less function to compare two file descriptors for ordering in 
    the hash table. */
-bool fd_less(const struct hash_elem *a, const struct hash_elem *b) {
+/*bool fd_less(const struct hash_elem *a, const struct hash_elem *b) {
   struct file_descriptor *fd_a = hash_entry(a, struct file_descriptor, elem);
   struct file_descriptor *fd_b = hash_entry(b, struct file_descriptor, elem);
   return fd_a->fd < fd_b->fd;
-}
+}*/
 
 
 /* Starts a new thread running a user program loaded from
@@ -56,7 +53,7 @@ process_execute (const char *file_name)
 {
   char *fn_copy;
   tid_t tid;
-
+//printf("passing argument\n");
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -83,18 +80,21 @@ process_execute (const char *file_name)
   memcpy (inputs, file_name, strlen(file_name) + 1);
 //  int argc = 1;
   //char *argv[MAX_ARGS];
- 
+  
+ //  printf("the input is %s\n", inputs);
+  //  printf("the input size is %d\n", strlen(inputs));
   /* Parse file_name and save arguments in argv */
   for (token = strtok_r (inputs, " ", &save_ptr2); token != NULL; token = strtok_r(NULL, " ", &save_ptr2)) {
     //printf("token: %s\n", token);
     argv[argc++] = token;
   }
 
+ //printf("pn: %s and argc: %d\n", argv[0], argc);
   /* Terminate argv */
   argv[argc] = NULL;
 //  free(inputs);
 //    setup_stack_populate(argv, argc, &if_.esp);
-
+//printf("filename: %s\n", process_name);
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy);
    //tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
@@ -110,51 +110,77 @@ process_execute (const char *file_name)
       get_thread_by_tid(tid)->child = *child;
       list_push_back(&thread_current()->children, &child->child_elem);
       
-    }
+    }//printf("create a new thread\n");
     lock_release(&thread_current()->children_lock);
   }
+  //printf("tid: %d\n", tid);
   return tid;
 }
 
 /* Set up the stack. Push arguments from right to left. */
 void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
   uint32_t argv_addresses[argc];
+//  strlcat(argv[0], "\0", 1);
+//  printf("num: %d, argv: %s\n", argc, argv[0]);
   *esp = PHYS_BASE;
  
   int length = 0;
   for (int i = argc - 1; i >= 0; i--) {
     *esp = *esp - strlen(argv[i]) - 1;
     memcpy(*esp, argv[i], strlen(argv[i]) + 1);
+    //printf("pn in esp: %s\n", (char *) *esp);
+   
     length += strlen(argv[i]) + 1;
     argv_addresses[i] = (uint32_t) *esp;
+  //  printf("addr: %x\n",  argv_addresses[i]);
   }
-
+//printf("end for\n");
   /* Word-align the stack pointer */
   *esp -= 4 - length % 4;
+//  *esp = (void *) (((unsigned int) *esp) & WORD_ALIGN_MASK);
+
+//printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push a null pointer sentinel */
   *esp -= 4;
   *(uint32_t *) *esp = (uint32_t) NULL;
+//printf("null ptr in esp: %x\n", (uint32_t) *esp);
+//printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push the addresses of arguments */
   for (int i = argc - 1; i >= 0; i--) {
+    //*esp -= sizeof(char *);
+    //*(void **) *esp = (char *) argv_addresses[i];
+    //printf("i = %d\n", i);
     *esp -= 4;
     * (uint32_t *) *esp = argv_addresses[i];
+    //printf("addr of [] in esp: %x\n", *(uint32_t*) *esp);
+    //printf("addr: %x\n", (uint32_t) *esp);
   }
+
+//printf("end sec for\n");
 //  free(argv_addresses);
 
   /* Push address of argv */
   void *argv0_addr = *esp;
   *esp -= 4;
   *(void **) *esp = argv0_addr;
+  //printf("argv in esp: %x\n", *(uint32_t*) *esp);
+  //printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push argc */
   *esp -= sizeof(int);
   *(int *) *esp = argc;
+  //printf("size in esp: %x\n", *(int *) *esp);
+  //printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push fake return address */
   *esp -= 4;
   * (uint32_t *) *esp = 0x0;
+
+  //printf("false addr in esp: %d\n",  *(uint32_t *) *esp);
+  //printf("addr: %x\n",  (uint32_t) *esp);  
+ 
 }
 
 /* A thread function that loads a user process and starts it
@@ -165,13 +191,13 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
- 
+ //printf("start process\n");
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-
+//printf("before load, file name = %s", file_name);
   /* Parse file name into arguments */
 /*  char *token, *save_ptr;
   int argc = 0;
@@ -198,9 +224,10 @@ start_process (void *file_name_)
 	  printf("not success");
     thread_exit ();
   }
+//printf("before setup stack %s\n", argv[0]);
   /* Set up the stack. Push arguments from right to left. */
   setup_stack_populate(argv, argc, &if_.esp);
-
+//printf("after setup stack\n");
   palloc_free_page (file_name);  
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -249,21 +276,34 @@ process_wait (tid_t child_tid)
       return TID_ERROR;
     }
     child->waited = true;
+    // printf("waited\n");
      int status;
      //TODO call_exit is now wrong with unknown reason
     lock_acquire(&cur->children_lock);
+    //while (get_thread_by_tid (child_tid) != NULL) {
      while (true) {
+     //cond_wait (&cur->children_cond, &cur->children_lock);
+    //}    // child = list_entry(e, struct child, child_elem);
+ //lock_release(&cur->children_lock);   
     if (get_thread_by_tid (child_tid) == NULL) {
+//         printf("it dead\n");
  	 child = list_entry(e, struct child, child_elem);
+//	   printf("in pw, tid %d call_exit now is %d\n", child_tid, list_entry(e, struct child, child_elem)->call_exit);
+  //  while (true) {
+       
+         //     printf("dead\n");
          if (child->call_exit) {
+                printf("status\n");
            status = child->exit_status;
          } else {
+     //           printf("terminate\n");
            status =  TID_ERROR;
          }
-	
+	  //status = child->exit_status;
          break;
        } 
-    
+    //   cond_wait (&cur->children_cond, &cur->children_lock);
+     //sema_up(&cur->children);
     }
        
     lock_release(&cur->children_lock);
@@ -277,7 +317,10 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+//printf("exit process\n");
 
+//  cond_signal (&cur->children_cond, &cur->children_lock);
+ // struct list_elem *e;
   for (struct list_elem *e = list_begin(&cur->locks); e != list_end(&cur->locks);
           e = list_next(e))
   {
@@ -285,7 +328,6 @@ process_exit (void)
   }
   // TODO maybe free all user program mallocs?
 
-  
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -302,22 +344,29 @@ process_exit (void)
     pagedir_activate (NULL);
     pagedir_destroy (pd);
   }
+  //struct list_elem *e = list_begin(&cur->children);
+//printf("child list empty? %d\n", list_empty(&cur->children));
   for (struct list_elem *e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
+  //  printf("hi i am in loop");
     list_pop_front(&cur->children);
     struct child *child = list_entry (e, struct child, child_elem);
     free(child);
   }
 
+  lock_acquire(&cur->children_lock);
+
   struct hash_iterator i;
-  
-  //hash_first(&i, &cur->fd_table);
+ 
+  hash_first(&i, &cur->fd_table);
   while (hash_next(&i)) {
     struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
-    file_close(fd->file);
-   // hash_delete(&t->fd_table, &fd->elem);
+    // file_close(fd->file);
+    hash_delete(&cur->fd_table, &fd->elem);
     free(fd);
   }
-  //hash_destroy(&t->fd_table, NULL);
+  hash_destroy(&cur->fd_table, NULL);
+  lock_release(&cur->children_lock);
+
 }
 
 /* Sets up the CPU for running user code in the current
@@ -424,16 +473,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (t->pagedir == NULL)
     goto done;
   process_activate ();
-
+//printf("file name: %s, try open it", file_name);
   /* Open executable file. */
   file = filesys_open (file_name);
-  
+  //printf("end the file open line");
   if (file == NULL)
   {
     printf ("load: %s: open failed\n", file_name);
     goto done;
   }
 
+  //printf("open file ");
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -446,7 +496,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     printf ("load: %s: error loading executable\n", file_name);
     goto done;
   }
-
+//printf("read program");
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++)
@@ -505,9 +555,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
         break;
     }
   }
+
+  //printf("before setup stack");
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
+ // printf("after setup stack\n");
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
@@ -650,7 +703,7 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
-
+//printf("only setup\n");
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL)
   {

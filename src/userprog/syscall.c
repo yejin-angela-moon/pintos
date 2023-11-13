@@ -1,9 +1,8 @@
-#include <stdio.h>
-#include <syscall-nr.h>
-#include <string.h>
 #include "userprog/syscall.h"
 #include "userprog/process.h"
 #include "userprog/exception.h"
+#include <stdio.h>
+#include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
@@ -11,7 +10,9 @@
 #include "filesys/file.h"
 #include "devices/shutdown.h"
 #include "devices/input.h"
+#include <string.h>
 #include <stdlib.h>
+#include "threads/malloc.h"
 
 static void syscall_handler(struct intr_frame *);
 
@@ -19,16 +20,41 @@ int get_user(const uint8_t *uaddr);
 
 static bool put_user(uint8_t *udst, uint8_t byte);
 
-void check_user(void * ptr);
+void check_user(struct intr_frame *f, void * ptr);
 
+int process_add_fd(struct file *file);
+
+unsigned fd_hash(const struct hash_elem *e, void *aux);
+bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
+
+/* Hash function to generate a hash value from a file descriptor. */
+unsigned
+fd_hash(const struct hash_elem *e, void *aux UNUSED) {
+  struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
+  return hash_int(fd->fd);
+}
+
+/* Hash less function to compare two file descriptors for ordering in
+   the hash table. */
+bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
+  struct file_descriptor *fd_a = hash_entry(a, struct file_descriptor, elem);
+  struct file_descriptor *fd_b = hash_entry(b, struct file_descriptor, elem);
+  return fd_a->fd < fd_b->fd;
+}  
 
 void
 syscall_init(void) {
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
+bool first_time = true;
+
 static void
 syscall_handler(struct intr_frame *f) {
+	if (first_time) {
+          hash_init(&thread_current()->fd_table, fd_hash, fd_less, NULL);
+          first_time = false;	  
+	}
 
 //   check_user_pointer(f, f->esp);  // check the frame's stack ptr is valid
 //   				  // whoever is dealing with arguments, call the above func on each one
@@ -58,13 +84,13 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     case SYS_EXIT: { /* Terminate user process*/
-      check_user(f->esp + 4);
+      check_user(f, f->esp + 4);
       int status = get_user(f->esp + 4); // if status = -1 page_fault
       exit(status);
       break;
     }
     case SYS_EXEC: { /**/  // added cast to line below: fixes warning but is it safe?
-      check_user(f->esp + 4);
+      check_user(f, f->esp + 4);
       const char *cmd_line = (char *) get_user(f->esp + 4); // if status...
       f->eax = (uint32_t) exec(cmd_line);
       break;
@@ -178,6 +204,7 @@ wait(pid_t pid) {
 
 bool
 create(const char *file, unsigned initial_size) {
+//	printf("valid addr: %lld", (uint8_t) atoi(file));
   if (file == NULL) {
     exit(-1);
     return false;
@@ -202,7 +229,7 @@ open(const char *file) {
     return -1;
   } else {
     // Add the file to the process's open file list and return the file descriptor
-    return 0; //TODO implement process_add_file(f);
+    return process_add_fd(f);
   }
 }
 
@@ -226,6 +253,7 @@ read(int fd, void *buffer, unsigned size) {
     }
     return size;
   }
+  return -1;
   struct file *f = process_get_fd(fd)->file;
   if (f == NULL) {
     return -1; // File not found
@@ -266,20 +294,27 @@ tell(int fd) {
   if (f == NULL) {
     return -1; // File not found
   }
-  return file_tell(f);
+ return file_tell(f);
 }
 
 void
 close(int fd) {
-  struct file *f = process_get_fd(fd);
-  if (f != NULL) {
-    process_remove_fd(fd);
+  struct file_descriptor *filed = process_get_fd(fd);
+  if (filed == NULL) {
+    exit(-1);
   }
+
+  //struct file *f = filed->file;
+  //if (f != NULL) {
+  process_remove_fd(fd);
+  //} else {
+  //  exit(-1);
+//  }
 }
 
 
 void
-check_user (void *ptr)
+check_user (struct intr_frame *f UNUSED, void *ptr)
 {
 // don't need to worry about code running after as it kills the process
   if (!is_user_vaddr((void *) ptr))
@@ -311,6 +346,7 @@ put_user (uint8_t *udst, uint8_t byte)
   return error_code != -1;
 }
 
+
 struct file_descriptor *
 process_get_fd(int fd) {
   struct thread *t = thread_current();
@@ -323,7 +359,7 @@ process_get_fd(int fd) {
   return e != NULL ? hash_entry(e, struct file_descriptor, elem) : NULL;
 }
 
-int 
+int
 process_add_fd(struct file *file) {
   static int next_fd = 2; /* Magic number? after 0 and 1 */
   struct file_descriptor *fd = malloc(sizeof(struct file_descriptor));
@@ -343,9 +379,10 @@ void
 process_remove_fd(int fd) {
   struct file_descriptor *fd_struct = process_get_fd(fd);
 
-  if (fd_struct != NULL) {
+  if (fd != -1) {
     hash_delete(&thread_current()->fd_table, &fd_struct->elem);
     file_close(fd_struct->file);
     free(fd_struct);
   }
 }
+

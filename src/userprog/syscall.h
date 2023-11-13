@@ -2,8 +2,6 @@
 #define USERPROG_SYSCALL_H
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdlib.h>
-#include "filesys/file.h"
 
 typedef int pid_t;
 
@@ -35,17 +33,12 @@ unsigned tell(int fd);
 
 void close(int fd); 
 
-void check_user (void *ptr);
+bool hash_less(int a, int b);
 
-int get_user (const uint8_t *uaddr);
+struct file_descriptor *process_get_fd(int fd);
 
-struct file_descriptor* process_get_fd(int fd);
-
-int process_add_fd(struct file *file);
+//int process_add_fd(struct file *file);
 
 void process_remove_fd(int fd);
-
-
-
 
 #endif /* userprog/syscall.h */

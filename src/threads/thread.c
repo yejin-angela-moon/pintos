@@ -17,9 +17,9 @@
 #include <inttypes.h>
 /////////
 
-#ifdef USERPROG
+//#ifdef USERPROG
 #include "userprog/process.h"
-#endif
+//#endif
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -588,6 +588,24 @@ is_thread(struct thread *t) {
   return t != NULL && t->magic == THREAD_MAGIC;
 }
 
+//unsigned fd_hash(const struct hash_elem *e, void *aux);
+//bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
+
+/* Hash function to generate a hash value from a file descriptor. */
+/*unsigned
+fd_hash(const struct hash_elem *e, void *aux UNUSED) {
+  struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
+  return hash_int(fd->fd);
+}*/
+
+/* Hash less function to compare two file descriptors for ordering in
+   the hash table. */
+/*bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
+  struct file_descriptor *fd_a = hash_entry(a, struct file_descriptor, elem);
+  struct file_descriptor *fd_b = hash_entry(b, struct file_descriptor, elem);
+  return fd_a->fd < fd_b->fd;
+}*/
+
 /* Does basic initialization of T as a blocked thread named
    NAME. */
 static void
@@ -612,7 +630,6 @@ init_thread(struct thread *t, const char *name, int priority) {
   //t->call_exit = false;
   lock_init (&t->children_lock);
   cond_init (&t->children_cond);
-
 
   if (thread_mlfqs) {
     if (t != initial_thread) {
