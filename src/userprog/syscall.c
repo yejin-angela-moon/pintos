@@ -47,13 +47,13 @@ syscall_init(void) {
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
-bool first_time = true;
+//bool first_time = true;
 
 static void
 syscall_handler(struct intr_frame *f) {
-	if (first_time) {
+	if (!thread_current()->init_fd) {
           hash_init(&thread_current()->fd_table, fd_hash, fd_less, NULL);
-          first_time = false;	  
+          thread_current()->init_fd = true;	  
 	}
 
 //   check_user_pointer(f, f->esp);  // check the frame's stack ptr is valid
@@ -84,14 +84,15 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     case SYS_EXIT: { /* Terminate user process*/
-      check_user(f, f->esp + 4);
-      int status = get_user(f->esp + 4); // if status = -1 page_fault
+   //   check_user(f, f->esp + 4);
+      int status = *((unsigned *) (f->esp + 4)); // if status = -1 page_fault
       exit(status);
       break;
     }
     case SYS_EXEC: { /**/  // added cast to line below: fixes warning but is it safe?
-      check_user(f, f->esp + 4);
-      const char *cmd_line = (char *) get_user(f->esp + 4); // if status...
+  //    check_user(f, f->esp + 4);
+    //  const char *cmd_line = (char *) get_user(f->esp + 4); // if status...
+      const char *cmd_line = *((const char **) (f->esp + 4));
       f->eax = (uint32_t) exec(cmd_line);
       break;
     }
@@ -172,11 +173,11 @@ exit(int status) {
   //lock_acquire(&cur->lock_children);
   struct thread *cur = thread_current();
   printf ("%s: exit(%d)\n", cur->name, status);
-   lock_acquire(&cur->children_lock);
+  lock_acquire(&cur->children_lock);
   cur->child.exit_status = status;
   //printf("bwforw tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
   cur->child.call_exit = true;
-   lock_release(&cur->children_lock);
+  lock_release(&cur->children_lock);
   thread_exit();
 }
 
@@ -186,9 +187,11 @@ exec(const char *cmd_line) {
   if (cmd_line == NULL || !is_user_vaddr(cmd_line)) {
     return -1;
   }
-
+//  printf("cmd line is %s\n", cmd_line);
   // Load and execute the new process
+  //lock_acquire(&thread_current()->children_lock);
   pid_t pid = process_execute(cmd_line);
+  //lock_release(&thread_current()->children_lock);
   if (pid == TID_ERROR) {
     return -1;
   }
@@ -247,7 +250,7 @@ int
 read(int fd, void *buffer, unsigned size) {
   if (fd == 0) {
     // Reading from the keyboard
-    printf("fd = 0\n");
+ //   printf("fd = 0\n");
     unsigned i;
     for (i = 0; i < size; i++) {
       ((uint8_t *) buffer)[i] = input_getc();
