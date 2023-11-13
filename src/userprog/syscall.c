@@ -275,12 +275,20 @@ write(int fd, const void *buffer, unsigned size) {
     }
     return size;
   }
-  uint32_t i;  // TODO check fd+i in handler for writing
+ /* uint32_t i;  // TODO check fd+i in handler for writing
   for (i = 0; i < size; i++) {
     if (!put_user((uint8_t*)(fd+i), size)) // added cast not sure if thats cool
       break;
   }
-  return i;
+  return i;*/
+  if (size == 0) {
+    return size;
+  }
+  struct file_descriptor *filed = process_get_fd(fd);
+  if (filed == NULL){
+    return -1; // File not found
+  }
+  return file_write(filed->file, buffer, size);
 }
 
 void
