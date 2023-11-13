@@ -353,20 +353,16 @@ process_exit (void)
     free(child);
   }
 
-  lock_acquire(&cur->children_lock);
-
   struct hash_iterator i;
- 
-  hash_first(&i, &cur->fd_table);
+ /* 
+ // hash_first(&i, &t->fd_table);
   while (hash_next(&i)) {
     struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
-    // file_close(fd->file);
-    hash_delete(&cur->fd_table, &fd->elem);
+    file_close(fd->file);
+  //  hash_delete(&t->fd_table, &fd->elem);
     free(fd);
   }
-  hash_destroy(&cur->fd_table, NULL);
-  lock_release(&cur->children_lock);
-
+  //hash_destroy(&t->fd_table, NULL);*/
 }
 
 /* Sets up the CPU for running user code in the current

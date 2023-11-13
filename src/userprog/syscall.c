@@ -192,6 +192,24 @@ exec(const char *cmd_line) {
   if (pid == TID_ERROR) {
     return -1;
   }
+
+  /* Check if the status of the child process is loaded.
+     Exit with error code -1 if not loaded. */
+  struct thread *t = get_thread_by_tid(pid);
+  struct child *child = &(&t->manager)->child;
+  // lock_acquire(&t->children_lock);
+  if (child != NULL) {
+    return -1;
+  } else if (child->load_status == LOAD_FAILED) {
+    t->child = NULL;
+    free(child);
+    return -1;
+  } else if (child->load_status == NOT_LOADED) {
+    /* waiting on the child until loaded */
+    sema_down(child->load_sema);
+  }
+  // lock_release(&t->children_lock);
+
   return pid;
 }
 
@@ -201,6 +219,7 @@ wait(pid_t pid) {
   /*since each process has one thread, pid == tid*/
   return process_wait(pid);
 }
+
 
 bool
 create(const char *file, unsigned initial_size) {
