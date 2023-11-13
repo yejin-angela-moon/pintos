@@ -11,7 +11,7 @@
 #include "filesys/file.h"
 #include "devices/shutdown.h"
 #include "devices/input.h"
-
+#include <stdlib.h>
 
 static void syscall_handler(struct intr_frame *);
 
@@ -208,7 +208,7 @@ open(const char *file) {
 
 int 
 filesize(int fd) {
-  struct file *f = process_get_fd(fd);
+  struct file *f = process_get_fd(fd)->file;
   if (f == NULL) {
     return -1; // File not found
   }
@@ -226,7 +226,7 @@ read(int fd, void *buffer, unsigned size) {
     }
     return size;
   }
-  struct file *f = process_get_fd(fd);
+  struct file *f = process_get_fd(fd)->file;
   if (f == NULL) {
     return -1; // File not found
   }
@@ -254,7 +254,7 @@ write(int fd, const void *buffer, unsigned size) {
 
 void
 seek(int fd , unsigned position) {
-  struct file *f = process_get_fd(fd);
+  struct file *f = process_get_fd(fd)->file;
   if (f != NULL) {
     file_seek(f, position);
   }
@@ -262,7 +262,7 @@ seek(int fd , unsigned position) {
 
 unsigned
 tell(int fd) {
-  struct file *f = process_get_fd(fd);
+  struct file *f = process_get_fd(fd)->file;
   if (f == NULL) {
     return -1; // File not found
   }
@@ -343,7 +343,7 @@ void
 process_remove_fd(int fd) {
   struct file_descriptor *fd_struct = process_get_fd(fd);
 
-  if (fd != NULL) {
+  if (fd_struct != NULL) {
     hash_delete(&thread_current()->fd_table, &fd_struct->elem);
     file_close(fd_struct->file);
     free(fd_struct);
