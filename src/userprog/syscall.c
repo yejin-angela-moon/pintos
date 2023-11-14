@@ -13,6 +13,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "threads/malloc.h"
+#include "userprog/pagedir.h"
 
 static void syscall_handler(struct intr_frame *);
 
@@ -20,7 +21,7 @@ int get_user(const uint8_t *uaddr);
 
 static bool put_user(uint8_t *udst, uint8_t byte);
 
-void check_user(struct intr_frame *f, void * ptr);
+void check_user(void * ptr);
 
 int process_add_fd(struct file *file);
 
@@ -71,58 +72,65 @@ syscall_handler(struct intr_frame *f) {
 
 
 //  printf("system call!\n");
-  int syscall_num = *(int *) (f->esp);
-
   if (!is_user_vaddr(f->esp) || f->esp < (void *) 0x08048000) {
     exit(-1);
-    return;
   }
 
+  int syscall_num = *(int *) (f->esp);
   switch (syscall_num) {
     case SYS_HALT: { /* Halts Pintos */
       halt();
       break;
     }
     case SYS_EXIT: { /* Terminate user process*/
-   //   check_user(f, f->esp + 4);
+      check_user(f->esp + 4);
       int status = *((unsigned *) (f->esp + 4)); // if status = -1 page_fault
       exit(status);
       break;
     }
     case SYS_EXEC: { /**/  // added cast to line below: fixes warning but is it safe?
-  //    check_user(f, f->esp + 4);
+      check_user(f->esp + 4);
     //  const char *cmd_line = (char *) get_user(f->esp + 4); // if status...
       const char *cmd_line = *((const char **) (f->esp + 4));
       f->eax = (uint32_t) exec(cmd_line);
       break;
     }
     case SYS_WAIT: {
+      check_user(f->esp + 4);
       pid_t pid = *((pid_t * )(f->esp + 4));
       f->eax = (uint32_t) wait(pid);
       break;
     }
     case SYS_CREATE: { /* Create a file. */
+      check_user(f->esp + 4);
+      check_user(f->esp + 8);
       const char *file = *((const char **) (f->esp + 4));
       unsigned initial_size = *((unsigned *) (f->esp + 8));
       f->eax = (uint32_t) create(file, initial_size);
       break;
     }
     case SYS_REMOVE: { /* Delete a file. */
+      check_user(f->esp + 4);
       const char *file = *((const char **) (f->esp + 4));
       f->eax = (uint32_t) remove(file);
       break;
     }
     case SYS_OPEN: {  /* Open a file. */
+      check_user(f->esp + 4);
       const char *file = *((const char **) (f->esp + 4));
       f->eax = (uint32_t) open(file);
       break;
     }
     case SYS_FILESIZE: { /* Obtain a file's size. */
+      check_user(f->esp + 4);
       int fd = *((int *) (f->esp + 4));
       f->eax = (uint32_t) filesize(fd);
       break;
     }
     case SYS_READ: {  /* Read from a file. */
+      check_user(f->esp + 4);
+      check_user(f->esp + 8);
+      check_user(f->esp + 12);
       int fd = *((int *) (f->esp + 4));
       void *buffer = *((void **) (f->esp + 8));
       unsigned size = *((unsigned *) (f->esp + 12));
@@ -130,6 +138,8 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     case SYS_WRITE: { /* Write to a file. */
+      check_user(f->esp + 4);
+      check_user(f->esp + 8);
       int fd = *((int *) (f->esp + 4));
       // maybe should be: int fd = get_user(f->esp + 4);
       const void *buffer = *((const void **)(f->esp + 8));
@@ -139,23 +149,27 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     case SYS_SEEK: { /* Change position in a file. */
+      check_user(f->esp + 4);
+      check_user(f->esp + 8);
       int fd = *((int *) (f->esp + 4));
       unsigned position = *((unsigned *) (f->esp + 8));
       seek(fd, position);
       break;
     }
     case SYS_TELL: { /* Report current position in a file. */
+      check_user(f->esp + 4);
       int fd = *((int *) (f->esp + 4));
       f->eax = (uint32_t) tell(fd);
       break;
     }
     case SYS_CLOSE: {
+      check_user(f->esp + 4);
       int fd = *((int *) (f->esp + 4));
       close(fd);
       break;
     }
     default: {
-      //exit(-1);
+      exit(-1);
       break;
     }
   }
@@ -184,6 +198,7 @@ exit(int status) {
 pid_t
 exec(const char *cmd_line) {
   // Check if the command line pointer is valid
+  check_user(cmd_line);
   if (cmd_line == NULL || !is_user_vaddr(cmd_line)) {
     return -1;
   }
@@ -208,6 +223,7 @@ wait(pid_t pid) {
 bool
 create(const char *file, unsigned initial_size) {
 //	printf("valid addr: %lld", (uint8_t) atoi(file));
+    check_user(file);
   if (file == NULL) {
     exit(-1);
     return false;
@@ -222,6 +238,7 @@ remove(const char *file) {
 
 int
 open(const char *file) {
+    check_user(file);
   if (file == NULL) {
     exit(-1);
     return -1;
@@ -248,6 +265,7 @@ filesize(int fd) {
 
 int
 read(int fd, void *buffer, unsigned size) {
+  check_user(buffer);
   if (fd == 0) {
     // Reading from the keyboard
  //   printf("fd = 0\n");
@@ -270,6 +288,7 @@ read(int fd, void *buffer, unsigned size) {
 int
 write(int fd, const void *buffer, unsigned size) {
   //printf("write \n");
+  check_user(buffer);
   if (fd == 1) {  // writes to conole
     int linesToPut;
     for (uint32_t j = 0; j < size; j += 200) {  // max 200B at a time, j US so can compare with size
@@ -328,14 +347,14 @@ close(int fd) {
 
 
 void
-check_user (struct intr_frame *f UNUSED, void *ptr)
-{
+check_user (void *ptr) {
 // don't need to worry about code running after as it kills the process
-  if (!is_user_vaddr((void *) ptr))
-    exit(-1);
-  
+    struct thread *t = thread_current();
+    uint8_t *uaddr = ptr;
+    if (!is_user_vaddr((void *) ptr) || (pagedir_get_page(t->pagedir, uaddr) == NULL)) {
+        exit(-1);
+    }
 }
-
 // credit to pintos manual:
 /* Reads a byte at user virtual address UADDR.
  * Returns the byte value if successful, -1 if a segfault
