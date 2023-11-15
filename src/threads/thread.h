@@ -16,6 +16,12 @@ enum thread_status {
     THREAD_DYING        /* About to be destroyed. */
 };
 
+enum load_status {
+   NOT_LOADED,
+   LOAD_FAILED,
+   LOADED
+};
+
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
@@ -25,14 +31,6 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
-
-struct child {
-    tid_t tid;
-    struct list_elem child_elem;
-    int exit_status;
-    bool waited;
-    bool call_exit;
-};
 
 /* A kernel thread or user process.
 
@@ -108,11 +106,11 @@ struct thread {
     struct lock children_lock;
     struct condition children_cond;
 
+    struct child_parent_manager cp_manager;
+
     struct hash fd_table;               /* File descriptor table. */
-<<<<<<< HEAD
-=======
+    struct hash fd_table;               /* File descriptor table. */
     bool init_fd;
->>>>>>> 6cb67b4b346ceafbcea04ef921c5c8f54d5f3e01
 
  /*   struct list_elem child_elem;
     int exit_status;
@@ -134,6 +132,21 @@ struct thread {
     unsigned magic;                     /* Detects stack overflow. */
 };
 
+struct child {
+    tid_t tid;
+    struct list_elem child_elem;
+    int exit_status;
+    bool waited;
+    bool call_exit;
+    struct semaphore load_sema;         /* Semaphore for child loading. */
+    struct semaphore exit_sema;
+};
+
+struct child_parent_manager {
+   struct lock manager_lock;
+   struct list children_list;
+   struct condition children_cond;
+}
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

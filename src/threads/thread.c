@@ -107,6 +107,11 @@ thread_init(void)
   list_init(&ready_list);
   list_init(&all_list);
 
+  struct thread *t = thread_current();
+  lock_init(&t->cp_manager.manager_lock);
+  list_init(&t->cp_manager.children_list);
+  cond_init(&t->cp_manager.children_cond);
+
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread();
   init_thread(initial_thread, "main", PRI_DEFAULT);

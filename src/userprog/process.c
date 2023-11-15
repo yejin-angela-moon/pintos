@@ -255,11 +255,9 @@ process_wait (tid_t child_tid)
 	  printf("tid error\n");
     return TID_ERROR;
   }
-
   struct thread *cur = thread_current();
   struct child *child = NULL;
   int exit_status = -1;
-
   lock_acquire(&cur->children_lock);
   struct list_elem *e;
   for (e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
@@ -272,6 +270,7 @@ process_wait (tid_t child_tid)
 
   if (child == NULL || child->waited) {
     lock_release(&cur->children_lock);
+	  // printf("not child\n");
     return TID_ERROR;
   } 
 
@@ -281,9 +280,8 @@ process_wait (tid_t child_tid)
   }
 
   exit_status = child->exit_status;
-  
+
   lock_release(&cur->children_lock);
-  
   return exit_status;  
 
 }
