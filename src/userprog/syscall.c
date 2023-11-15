@@ -176,7 +176,8 @@ exit(int status) {
   cur->child.exit_status = status;
   //printf("bwforw tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
   cur->child.call_exit = true;
-   lock_release(&cur->children_lock);
+  sema_up(&cur->child.exit_sema);
+  lock_release(&cur->children_lock);
   thread_exit();
 }
 

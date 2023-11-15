@@ -251,64 +251,41 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid)
 {
-  //printf("process wait\n");
-  //return -1;
   if (child_tid == TID_ERROR) {
 	  printf("tid error\n");
     return TID_ERROR;
   }
-  bool isChild = false;
+
   struct thread *cur = thread_current();
+  struct child *child = NULL;
+  int exit_status = -1;
+
+  lock_acquire(&cur->children_lock);
   struct list_elem *e;
-//  printf("see if it a child\n");
   for (e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
-    if (list_entry(e, struct child, child_elem)->tid == child_tid) {
-      isChild = true;
+    struct child *c = list_entry(e, struct child, child_elem);
+    if (c->tid == child_tid) {
+      child = c;
       break;
     }
   }
-  if (!isChild) {
-	  printf("not child\n");
-    return TID_ERROR;
-  } else {
-    struct child *child = list_entry(e, struct child, child_elem);
-    if (child->waited) {
-      return TID_ERROR;
-    }
-    child->waited = true;
-    // printf("waited\n");
-     int status;
-     //TODO call_exit is now wrong with unknown reason
-    lock_acquire(&cur->children_lock);
-    //while (get_thread_by_tid (child_tid) != NULL) {
-     while (true) {
-     //cond_wait (&cur->children_cond, &cur->children_lock);
-    //}    // child = list_entry(e, struct child, child_elem);
- //lock_release(&cur->children_lock);   
-    if (get_thread_by_tid (child_tid) == NULL) {
-//         printf("it dead\n");
- 	 child = list_entry(e, struct child, child_elem);
-//	   printf("in pw, tid %d call_exit now is %d\n", child_tid, list_entry(e, struct child, child_elem)->call_exit);
-  //  while (true) {
-       
-         //     printf("dead\n");
-         if (child->call_exit) {
-                printf("status\n");
-           status = child->exit_status;
-         } else {
-     //           printf("terminate\n");
-           status =  TID_ERROR;
-         }
-	  //status = child->exit_status;
-         break;
-       } 
-    //   cond_wait (&cur->children_cond, &cur->children_lock);
-     //sema_up(&cur->children);
-    }
-       
+
+  if (child == NULL || child->waited) {
     lock_release(&cur->children_lock);
-    return status;  
+    return TID_ERROR;
+  } 
+
+  child->waited = true;
+  if (!child->call_exit) {
+    sema_down(&child->exit_sema);
   }
+
+  exit_status = child->exit_status;
+  
+  lock_release(&cur->children_lock);
+  
+  return exit_status;  
+
 }
 
 /* Free the current process's resources. */
