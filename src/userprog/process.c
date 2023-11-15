@@ -348,21 +348,23 @@ process_exit (void)
 //printf("child list empty? %d\n", list_empty(&cur->children));
   for (struct list_elem *e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
   //  printf("hi i am in loop");
-    list_pop_front(&cur->children);
-    struct child *child = list_entry (e, struct child, child_elem);
-    free(child);
+    if (!list_empty(&cur->children)) {
+      list_pop_front(&cur->children);
+      struct child *child = list_entry (e, struct child, child_elem);
+      free(child);
+    }
   }
 
   struct hash_iterator i;
- /* 
- // hash_first(&i, &t->fd_table);
+  
+ /* hash_first(&i, &cur->fd_table);
   while (hash_next(&i)) {
     struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
     file_close(fd->file);
-  //  hash_delete(&t->fd_table, &fd->elem);
+    hash_delete(&cur->fd_table, &fd->elem);
     free(fd);
   }
-  //hash_destroy(&t->fd_table, NULL);*/
+  hash_destroy(&cur->fd_table, NULL);*/
 }
 
 /* Sets up the CPU for running user code in the current
@@ -454,7 +456,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    Stores the executable's entry point into *EIP
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
-bool
+bool 
 load (const char *file_name, void (**eip) (void), void **esp)
 {
   struct thread *t = thread_current ();
@@ -565,6 +567,14 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   done:
   /* We arrive here whether the load is successful or not. */
+
+  /* Signal the parent process about the load status. */
+  if (&t->child != NULL) {
+    t->child->exit_status = success ? 0 : -1; 
+    sema_up(&t->child->load_sema);
+  }
+
+
   file_close (file);
   return success;
 }

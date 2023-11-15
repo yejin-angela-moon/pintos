@@ -187,28 +187,34 @@ exec(const char *cmd_line) {
     return -1;
   }
 
-  // Load and execute the new process
+  /* Create a new process and check if failed */
   pid_t pid = process_execute(cmd_line);
   if (pid == TID_ERROR) {
     return -1;
   }
 
-  /* Check if the status of the child process is loaded.
-     Exit with error code -1 if not loaded. */
-  struct thread *t = get_thread_by_tid(pid);
-  struct child *child = &(&t->manager)->child;
-  // lock_acquire(&t->children_lock);
-  if (child != NULL) {
-    return -1;
-  } else if (child->load_status == LOAD_FAILED) {
-    t->child = NULL;
-    free(child);
-    return -1;
-  } else if (child->load_status == NOT_LOADED) {
-    /* waiting on the child until loaded */
-    sema_down(child->load_sema);
+  /* Allocate memory for a new child process. */
+  struct child *new_child = malloc(sizeof(struct child));
+  if (new_child == NULL) { 
+    return -1; 
   }
-  // lock_release(&t->children_lock);
+
+  /* Initilise the child structure. */
+  new_child->tid = pid;
+  new_child->exit_status = -1; /* default value */
+  new_child->waited = false;
+  new_child->call_exit = false;
+  sema_init(&new_child->load_sema, 0);
+
+  /* Add the child to the parent's list.
+     The cp_manager in each parent thread contains a list of all its children. */
+  struct thread *cur = thread_current();
+  lock_acquire(&cur->cp_manager.manager_lock);
+  list_push_back(&cur->cp_manager.children_list, &new_child->child_elem);
+  lock_release(&cur->cp_manager.manager_lock);
+
+  /* Wait for the child to finish loading. */
+  sema_down(&new_child->load_sema);
 
   return pid;
 }

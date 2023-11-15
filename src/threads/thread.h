@@ -109,6 +109,10 @@ struct thread {
     struct condition children_cond;
 
     struct hash fd_table;               /* File descriptor table. */
+<<<<<<< HEAD
+=======
+    bool init_fd;
+>>>>>>> 6cb67b4b346ceafbcea04ef921c5c8f54d5f3e01
 
  /*   struct list_elem child_elem;
     int exit_status;
