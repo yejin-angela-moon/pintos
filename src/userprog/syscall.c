@@ -23,6 +23,8 @@ static bool put_user(uint8_t *udst, uint8_t byte);
 
 void check_user(void * ptr);
 
+//struct child* get_child_by_thread(struct thread *thread);
+
 int process_add_fd(struct file *file);
 
 unsigned fd_hash(const struct hash_elem *e, void *aux);
@@ -187,11 +189,25 @@ exit(int status) {
   //lock_acquire(&cur->lock_children);
   struct thread *cur = thread_current();
   printf ("%s: exit(%d)\n", cur->name, status);
-  lock_acquire(&cur->children_lock);
-  cur->child.exit_status = status;
+  struct thread *parent = get_thread_by_tid (cur->parent_tid);
+  if (parent != NULL  && parent->tid != 1) {
+  /*struct child *child;
+  for (struct list_elem *e = list_begin(&parent_children); e != list_end(&parent_children); e = list_next(e)) {
+    child = list_entry(e, struct child, child_elem);
+    if (child->tid == cur->tid){
+      break;
+    }
+  }*/
+    
+    struct child *child = get_child_by_thread(cur);
+    lock_acquire(&parent->children_lock);
+
+    child->exit_status = status;
   //printf("bwforw tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
-  cur->child.call_exit = true;
-  lock_release(&cur->children_lock);
+    child->call_exit = true;
+
+    lock_release(&parent->children_lock);
+  }
   thread_exit();
 }
 
@@ -202,15 +218,38 @@ exec(const char *cmd_line) {
   if (cmd_line == NULL || !is_user_vaddr(cmd_line)) {
     return -1;
   }
-//  printf("cmd line is %s\n", cmd_line);
+    printf("cmd line is %s\n", cmd_line);
   // Load and execute the new process
   //lock_acquire(&thread_current()->children_lock);
   pid_t pid = process_execute(cmd_line);
-  //lock_release(&thread_current()->children_lock);
-  if (pid == TID_ERROR) {
+  struct thread *cur = thread_current();
+  printf("the current thread in exec with tid %d\n", cur->tid);
+  lock_acquire(&cur->children_lock);
+ // printf("acquired lock in exec\n");
+//  while(true) {
+  struct child *child = get_child_by_thread(cur);
+  cur->load_result = 0;
+  printf("cur load %d\n", cur->load_result);
+  while(cur->load_result == 0) {
+  //   if (cur->child.exit_status == -1) {
+   //    return -1;
+   //  } else if (cur->child.exit_status != 0) {
+   //    break;
+    // }
+     cond_wait(&cur->children_cond, &cur->children_lock);
+  
+  //printf("cur load after cond wait %d\n", cur->load_result);
+  if (cur->load_result == -1) {
     return -1;
   }
+  }
+  lock_release(&cur->children_lock);
+  //lock_release(&thread_current()->children_lock);
+//  if (pid == TID_ERROR) {
+ //   return -1;
+  //}
   return pid;
+
 }
 
 
@@ -345,7 +384,21 @@ close(int fd) {
 //  }
 }
 
-
+/*struct child *
+get_child_by_thread(struct thread *thread) {
+  struct thread *parent = get_thread_by_tid (thread->parent_tid);
+  struct child *child;
+  if (parent != NULL  && parent->tid != 1) {
+    for (struct list_elem *e = list_begin(&parent->children); e != list_end(&parent->children); e = list_next(e)) {
+      child = list_entry(e, struct child, child_elem);
+      if (child->tid == thread->tid){
+        break;
+      }
+    }
+  }
+  return child;
+}
+*/
 void
 check_user (void *ptr) {
 // don't need to worry about code running after as it kills the process

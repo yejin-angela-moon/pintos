@@ -112,6 +112,7 @@ thread_init(void)
   init_thread(initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid();
+  //printf("tid for thread just init %d\n", initial_thread->tid);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -276,6 +277,10 @@ thread_create(const char *name, int priority,
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
+  //printf("the thread just init with tid %d\n", tid);
+//  t->parent_tid = thread_current()->tid;
+
+  //printf("the thread just init with parent tid %d\n", thread_current()->tid);
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack'
@@ -631,6 +636,7 @@ init_thread(struct thread *t, const char *name, int priority) {
   lock_init (&t->children_lock);
   cond_init (&t->children_cond);
   t->init_fd = false;
+//  printf("init thread\n");
 
   if (thread_mlfqs) {
     if (t != initial_thread) {

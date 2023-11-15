@@ -104,12 +104,14 @@ struct thread {
 
     struct list children;
 
-    struct child child;
+    ///struct child child;
     struct lock children_lock;
     struct condition children_cond;
 
     struct hash fd_table;               /* File descriptor table. */
     bool init_fd;
+    tid_t parent_tid;
+    int load_result;
 
  /*   struct list_elem child_elem;
     int exit_status;
