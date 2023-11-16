@@ -78,7 +78,7 @@ process_execute (const char *file_name)
   char *token, *save_ptr2;
   //inputs = *file_name;
   memcpy (inputs, file_name, strlen(file_name) + 1);
-//  int argc = 1;
+  argc = 0;
   //char *argv[MAX_ARGS];
   
  //  printf("the input is %s\n", inputs);
@@ -87,9 +87,14 @@ process_execute (const char *file_name)
   for (token = strtok_r (inputs, " ", &save_ptr2); token != NULL; token = strtok_r(NULL, " ", &save_ptr2)) {
     //printf("token: %s\n", token);
     argv[argc++] = token;
+    if (argc == 500) {
+	 printf("stop addin new token case too large\n");
+      break;
+    }
+    //printf("the sting in argv is %s\n", argv[argc-1]);
   }
 
- //printf("pn: %s and argc: %d\n", argv[0], argc);
+  printf("pn: %s and argc: %d\n", argv[0], argc);
   /* Terminate argv */
   argv[argc] = NULL;
 //  free(inputs);
@@ -120,36 +125,43 @@ process_execute (const char *file_name)
   //printf("tid: %d\n", tid);
   return tid;
 }
-
+//*esp = PHYS_BASE;
 /* Set up the stack. Push arguments from right to left. */
 void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
   uint32_t argv_addresses[argc];
 //  strlcat(argv[0], "\0", 1);
-//  printf("num: %d, argv: %s\n", argc, argv[0]);
+  printf("num: %d, argv: %s\n", argc, argv[0]);
   *esp = PHYS_BASE;
- 
+
   int length = 0;
   for (int i = argc - 1; i >= 0; i--) {
-    *esp = *esp - strlen(argv[i]) - 1;
-    memcpy(*esp, argv[i], strlen(argv[i]) + 1);
-    //printf("pn in esp: %s\n", (char *) *esp);
+    int strlength = 0;
+    if (strlen(argv[i]) >= 1023) {
+      strlength = 1023;
+    } else {
+      strlength = strlen(argv[i]);
+    }
+    *esp = *esp - strlength - 1;
+    memcpy(*esp, argv[i], strlength + 1);
+//    printf("pn in esp: %s\n", (char *) *esp);
    
     length += strlen(argv[i]) + 1;
     argv_addresses[i] = (uint32_t) *esp;
   //  printf("addr: %x\n",  argv_addresses[i]);
   }
-//printf("end for\n");
+printf("end for after putting all args\n");
   /* Word-align the stack pointer */
   *esp -= 4 - length % 4;
 //  *esp = (void *) (((unsigned int) *esp) & WORD_ALIGN_MASK);
 
-//printf("addr: %x\n",  (uint32_t) *esp);
+printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push a null pointer sentinel */
   *esp -= 4;
-  *(uint32_t *) *esp = (uint32_t) NULL;
-//printf("null ptr in esp: %x\n", (uint32_t) *esp);
-//printf("addr: %x\n",  (uint32_t) *esp);
+  printf("what happenin\n\n\ng");
+  *(uint32_t *) *esp = 0x0;
+printf("null ptr in esp\n");
+printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push the addresses of arguments */
   for (int i = argc - 1; i >= 0; i--) {
@@ -175,14 +187,14 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
   /* Push argc */
   *esp -= sizeof(int);
   *(int *) *esp = argc;
-  //printf("size in esp: %x\n", *(int *) *esp);
+  printf("size in esp: %x\n", *(int *) *esp);
   //printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push fake return address */
   *esp -= 4;
   * (uint32_t *) *esp = 0x0;
 
-  //printf("false addr in esp: %d\n",  *(uint32_t *) *esp);
+  printf("false addr in esp: %d\n",  *(uint32_t *) *esp);
   //printf("addr: %x\n",  (uint32_t) *esp);  
  
 }
@@ -242,7 +254,7 @@ start_process (void *file_name_)
       lock_init(&parent->children_lock);
       lock_acquire(&parent->children_lock);
 
-      printf("modifing the exit status of tid %d to %d\n" ,cur->tid, status);
+   //   printf("modifing the exit status of tid %d to %d\n" ,cur->tid, status);
       //cur->tid = TID_ERROR;
       parent->load_result = status;
       cond_signal(&parent->children_cond, &parent->children_lock);
@@ -258,7 +270,7 @@ start_process (void *file_name_)
 //printf("before setup stack %s\n", argv[0]);
   /* Set up the stack. Push arguments from right to left. */
   setup_stack_populate(argv, argc, &if_.esp);
-//printf("after setup stack\n");
+printf("after setup stack\n");
   palloc_free_page (file_name);  
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -300,6 +312,7 @@ process_wait (tid_t child_tid)
 {
   printf("process wait\n");
   //return -1;
+
   if (child_tid == TID_ERROR) {
 	  printf("tid error\n");
     return TID_ERROR;
@@ -315,7 +328,7 @@ process_wait (tid_t child_tid)
     }
   }
   if (!isChild) {
-	  printf("not child\n");
+//	  printf("not child\n");
     return TID_ERROR;
   } else {
     struct child *child = list_entry(e, struct child, child_elem);
@@ -323,25 +336,27 @@ process_wait (tid_t child_tid)
       return TID_ERROR;
     }
     child->waited = true;
-    // printf("waited\n");
+    printf("waited\n");
      int status = -100;
      //TODO call_exit is now wrong with unknown reason
     lock_acquire(&cur->children_lock);
-    //while (get_thread_by_tid (child_tid) != NULL) {
-     while (get_thread_by_tid (child_tid) != NULL) {
-       cond_wait (&cur->children_cond, &cur->children_lock); }
-     printf("end cond wait\n");
+    printf("ready for while loop with cur %d and child %d\n", cur->tid, child->tid);
+    while (get_thread_by_tid (child_tid) != NULL) {
+   //  while (true) {
+       cond_wait (&cur->children_cond, &cur->children_lock); 
+    }
+   //  printf("end cond wait\n");
     //}    // child = list_entry(e, struct child, child_elem);
  //lock_release(&cur->children_lock);   
     if (get_thread_by_tid (child_tid) == NULL) {
-//         printf("it dead\n");
+    //     printf("it dead\n");
  	 child = list_entry(e, struct child, child_elem);
 //	   printf("in pw, tid %d call_exit now is %d\n", child_tid, list_entry(e, struct child, child_elem)->call_exit);
   //  while (true) {
        
          //     printf("dead\n");
          if (child->call_exit) {
-           printf("status\n");
+      //     printf("status\n");
            status = child->exit_status;
          } else {
      //           printf("terminate\n");
@@ -349,10 +364,10 @@ process_wait (tid_t child_tid)
          }
 	  //status = child->exit_status;
         // break;
-       } 
+     //  } 
     //   cond_wait (&cur->children_cond, &cur->children_lock);
      //sema_up(&cur->children);
- //   }
+    }
        
     lock_release(&cur->children_lock);
     printf("process wait end\n");
@@ -420,7 +435,7 @@ printf("exit process\n");
       lock_acquire (&parent->children_lock);
       if (parent->load_result == 0)
 	parent->load_result = -1;
-      printf("cond sign here");
+      printf("cond sign with parent %d and child %d\n", parent->tid, cur->tid);
       cond_signal (&parent->children_cond, &parent->children_lock);
       lock_release (&parent->children_lock);
     }

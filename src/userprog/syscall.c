@@ -237,17 +237,18 @@ exec(const char *cmd_line) {
    //    break;
     // }
      cond_wait(&cur->children_cond, &cur->children_lock);
-  
-  //printf("cur load after cond wait %d\n", cur->load_result);
+  } 
+  printf("cur load after cond wait %d\n", cur->load_result);
   if (cur->load_result == -1) {
     return -1;
   }
-  }
+  
   lock_release(&cur->children_lock);
   //lock_release(&thread_current()->children_lock);
 //  if (pid == TID_ERROR) {
  //   return -1;
   //}
+  printf("the return pid is %d\n", pid);
   return pid;
 
 }
