@@ -6,6 +6,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/syscall.h"
+#include "threads/vaddr.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -157,12 +158,19 @@ page_fault (struct intr_frame *f)
   //         user ? "user" : "kernel");
   // kill (f);
 
-  if (f->cs == SEL_KCSEG) {
+//printf("fault addr %x\n", (uint32_t) fault_addr);
+  if (fault_addr == NULL || !is_user_vaddr(fault_addr) || (uint32_t) fault_addr >= LOADER_PHYS_BASE || (uint32_t) fault_addr < 0x08048000){
+    printf("Exit\n");
+          exit(-1);
+  } else if (f->cs == SEL_KCSEG) {
+	  printf("haha i left alr\n");
     f->eip = (void (*)(void))f->eax;
     f->eax = 0xffffffff;
-  } else if (fault_addr == NULL || fault_addr >= LOADER_PHYS_BASE || fault_addr < 0x08048000){
-    exit(-1);
+  //} else if (fault_addr == NULL || (uint32_t) fault_addr == 20101234 || (uint32_t) fault_addr >= LOADER_PHYS_BASE || (uint32_t) fault_addr < 0x08048000){
+    //printf("Exit\n");
+//	  exit(-1);
   } else {
+	  printf("else kill\n");
     kill(f);
   }
 

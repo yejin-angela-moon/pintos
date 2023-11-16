@@ -462,7 +462,7 @@ process_add_fd(struct file *file, bool executing) {
   struct file_descriptor *fd = malloc(sizeof(struct file_descriptor));
  
   if (fd == NULL) return -1;
-printf("executing is %d\n", executing);
+//printf("executing is %d\n", executing);
   fd->file = file;
   fd->fd = next_fd++;
   fd->executing = executing;

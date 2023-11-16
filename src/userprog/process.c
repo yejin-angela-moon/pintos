@@ -428,19 +428,19 @@ printf("exit process\n");
   printf("cur tid %d with parent tid %d\n", cur->tid, cur->parent_tid);
   //struct list_elem *e = list_begin(&cur->children);
  // list_remove(&cur->child.child_elem);
-  /*for (struct list_elem *e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
+  for (struct list_elem *e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
   //  printf("hi i am in loop");
   //  while (!list_empty(&cur->children)) {
-	    e = list_next(e);
+//	    e = list_next(e);
       //list_remove(e);
       struct child *child = list_entry (e, struct child, child_elem);
       printf("child tid %d\n", child->tid);
-//      list_remove(e);
+      list_remove(e);
      // free(child);
   //  }
     printf("end if in one for loop\n");
   }
-  printf("freed all child");*/
+  printf("freed all child");
   struct thread *parent = get_thread_by_tid (cur->parent_tid);
   if (parent != NULL)
     {
@@ -453,6 +453,17 @@ printf("exit process\n");
     }
 
   struct hash_iterator i;
+  if (!hash_empty(&cur->fd_table)) {  
+  hash_first(&i, &cur->fd_table);
+  while (hash_next(&i)) {
+//	  struct hash_elem *e = hash_cur(&i);
+    struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
+    file_close(fd->file);
+    hash_delete(&cur->fd_table, &fd->elem);
+//    free(fd); //TODO using free, the rox test fail
+    } 
+  }
+  hash_destroy(&cur->fd_table, NULL);
   
  /* hash_first(&i, &cur->fd_table);
   while (hash_next(&i)) {
