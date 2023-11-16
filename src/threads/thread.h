@@ -124,11 +124,11 @@ struct thread {
     struct list locks;                  /* List of locks held by the thread. */
     struct lock wait_lock;              /* Lock that the thread is attempting to acquire, but still waiting for. */
 
-    struct list children;
+    //struct list children;
 
     ///struct child child;
     struct lock children_lock;
-    struct condition children_cond;
+    //struct condition children_cond;
 
     struct child_parent_manager cp_manager;
     struct file *executable;

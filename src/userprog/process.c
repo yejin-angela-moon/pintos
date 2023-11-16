@@ -197,9 +197,11 @@ struct child *
 get_child_by_thread(struct thread *thread) {
   struct thread *parent = get_thread_by_tid (thread->parent_tid);
   struct child *child = NULL;
+  struct child_parent_manager *cp_manager = &parent->cp_manager;
   lock_acquire(&parent->children_lock);
+  struct list *children = &cp_manager->children_list;
   if (parent != NULL  && parent->tid != 1) {
-    for (struct list_elem *e = list_begin(&parent->children); e != list_end(&parent->children); e = list_next(e)) {
+    for (struct list_elem *e = list_begin(children); e != list_end(children); e = list_next(e)) {
       child = list_entry(e, struct child, child_elem);
       if (child->tid == thread->tid){
         break;
@@ -232,7 +234,7 @@ process_wait (tid_t child_tid)
   int exit_status = -1;
   lock_acquire(&cur->children_lock);
   struct list_elem *e;
-  for (e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
+  for (e = list_begin(&cur->cp_manager.children_list); e != list_end(&cur->cp_manager.children_list); e = list_next(e)) {
     struct child *c = list_entry(e, struct child, child_elem);
     if (c->tid == child_tid) {
       child = c;
@@ -288,8 +290,8 @@ process_exit (void)
     pagedir_destroy (pd);
   }
 
-  while (!list_empty(&cur->children)) {  
-    struct list_elem *e = list_pop_front(&cur->children);
+  while (!list_empty(&cur->cp_manager.children_list)) {  
+    struct list_elem *e = list_pop_front(&cur->cp_manager.children_list);
     struct child *c = list_entry(e, struct child, child_elem);
     free(c);
   }

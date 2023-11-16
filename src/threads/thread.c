@@ -633,11 +633,11 @@ init_thread(struct thread *t, const char *name, int priority) {
   t->magic = THREAD_MAGIC;
   lock_init(&t->wait_lock);
   list_init(&t->locks);
-  list_init(&t->children);
+  list_init(&t->cp_manager.children_list);
   //t->waited = false; 
   //t->call_exit = false;
   lock_init (&t->children_lock);
-  cond_init (&t->children_cond);
+  cond_init (&t->cp_manager.children_cond);
   lock_init (&t->cp_manager.manager_lock);
   list_init (&t->cp_manager.children_list);
   t->init_fd = false;
