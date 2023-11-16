@@ -25,7 +25,7 @@ static bool put_user(uint8_t *udst, uint8_t byte);
 
 void check_user(void * ptr);
 
-//struct child* get_child_by_thread(struct thread *thread);
+struct child* get_child_by_thread(struct thread *thread);
 
 int process_add_fd(struct file *file, bool executing);
 
@@ -233,7 +233,7 @@ exec(const char *cmd_line) {
   lock_acquire(&cur->children_lock);
  // printf("acquired lock in exec\n");
 //  while(true) {
-  struct child *child = get_child_by_thread(cur);
+  //struct child *child = get_child_by_thread(cur);
   cur->load_result = 0;
   //printf("cur load %d\n", cur->load_result);
   while(cur->load_result == 0) {
@@ -362,10 +362,10 @@ write(int fd, const void *buffer, unsigned size) {
   check_user(buffer);
   int write_size;
   lock_acquire(&syscall_lock);
-  if (fd == 1) {  // writes to conole
+  if (fd == 1) {  // writes to console
     int linesToPut;
-    for (uint32_t j = 0; j < size; j += 200) {  // max 200B at a time, j US so can compare with size
-      linesToPut = (size < j + 200) ? (size % 200) : (j + 200);
+    for (uint32_t j = 0; j < size; j += MAX_CONSOLE_WRITE) {  // max 200B at a time, j US so can compare with size
+      linesToPut = (size < j + MAX_CONSOLE_WRITE) ? (size % MAX_CONSOLE_WRITE) : (j + MAX_CONSOLE_WRITE);
      // printf("line to put %d", linesToPut);
       putbuf(buffer + j, linesToPut);
     }
@@ -439,10 +439,11 @@ close(int fd) {
 //  }
 }
 
-/*struct child *
+struct child *
 get_child_by_thread(struct thread *thread) {
   struct thread *parent = get_thread_by_tid (thread->parent_tid);
-  struct child *child;
+  struct child *child = NULL;
+  lock_acquire(&parent->children_lock);
   if (parent != NULL  && parent->tid != 1) {
     for (struct list_elem *e = list_begin(&parent->children); e != list_end(&parent->children); e = list_next(e)) {
       child = list_entry(e, struct child, child_elem);
@@ -451,9 +452,10 @@ get_child_by_thread(struct thread *thread) {
       }
     }
   }
+  lock_release(&parent->children_lock);
   return child;
 }
-*/
+
 void
 check_user (void *ptr) {
 // don't need to worry about code running after as it kills the process
@@ -502,7 +504,7 @@ process_get_fd(int fd) {
 
 int
 process_add_fd(struct file *file, bool executing) {
-  static int next_fd = 2; /* Magic number? after 0 and 1 */
+  static int next_fd = FIRST_FD_NUMBER; /* Magic number? after 0 and 1 */
   struct file_descriptor *fd = malloc(sizeof(struct file_descriptor));
  
   if (fd == NULL) return -1;

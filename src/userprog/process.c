@@ -26,8 +26,8 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp);
 
- int argc = 0;
- char *argv[MAX_ARGS];
+int argc = 0;
+char *argv[MAX_ARGS];
 
 /* Hash function to generate a hash value from a file descriptor. */
 /*unsigned 
@@ -81,7 +81,7 @@ process_execute (const char *file_name)
     /* Parse file name into arguments */
   //TODO free inputs in somewhere
   //char *inputs = malloc(strlen(file_name) + 1);
-  char *token, *save_ptr2;
+  char *token; //, *save_ptr2;
   //inputs = *file_name;
   //memcpy (inputs, file_name, strlen(file_name) + 1);
   argc = 0;
@@ -296,7 +296,7 @@ start_process (void *file_name_)
 }
 
 
-struct child *
+/*struct child *
 get_child_by_thread(struct thread *thread) {
   struct thread *parent = get_thread_by_tid (thread->parent_tid);
   struct child *child;
@@ -312,7 +312,7 @@ get_child_by_thread(struct thread *thread) {
   lock_release(&parent->children_lock);
   return child;
 }
-
+*/
 /* Waits for thread TID to die and returns its exit status.
  * If it was terminated by the kernel (i.e. killed due to an exception),
  * returns -1.
