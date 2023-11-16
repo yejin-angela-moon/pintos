@@ -25,7 +25,7 @@ void check_user(void * ptr);
 
 //struct child* get_child_by_thread(struct thread *thread);
 
-int process_add_fd(struct file *file);
+int process_add_fd(struct file *file, bool executing);
 
 unsigned fd_hash(const struct hash_elem *e, void *aux);
 bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
@@ -296,7 +296,7 @@ open(const char *file) {
     return -1;
   } else {
     // Add the file to the process's open file list and return the file descriptor
-    return process_add_fd(f);
+    return process_add_fd(f, !strcmp(file, thread_current()->name));
   }
 }
  
@@ -355,9 +355,9 @@ write(int fd, const void *buffer, unsigned size) {
   }
   struct file_descriptor *filed = process_get_fd(fd);
   if (filed == NULL){
-    return -1; // File not found
+    return -1;     
   } 
-  if (filed->opened) {
+  if (filed->executing) {
     return 0;
   }
   return file_write(filed->file, buffer, size);
@@ -386,7 +386,7 @@ close(int fd) {
   if (filed == NULL) {
     exit(-1);
   }
-  filed->opened = false;
+  //filed->opened = false;
   //struct file *f = filed->file;
   //if (f != NULL) {
   process_remove_fd(fd);
@@ -457,15 +457,15 @@ process_get_fd(int fd) {
 }
 
 int
-process_add_fd(struct file *file) {
+process_add_fd(struct file *file, bool executing) {
   static int next_fd = 2; /* Magic number? after 0 and 1 */
   struct file_descriptor *fd = malloc(sizeof(struct file_descriptor));
-
+ 
   if (fd == NULL) return -1;
-
+printf("executing is %d\n", executing);
   fd->file = file;
   fd->fd = next_fd++;
-  fd->opened = true;
+  fd->executing = executing;
 
   struct thread *t = thread_current();
   hash_insert(&t->fd_table, &fd->elem);
