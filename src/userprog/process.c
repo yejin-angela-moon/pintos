@@ -426,7 +426,7 @@ process_exit (void)
     cur->pagedir = NULL;
     pagedir_activate (NULL);
     pagedir_destroy (pd);
-  }
+  } 
   //struct list_elem *e = list_begin(&cur->children);
   //printf("child list size %d\n", list_size(&cur->children));
   //printf("cur tid %d with parent tid %d\n", cur->tid, cur->parent_tid);

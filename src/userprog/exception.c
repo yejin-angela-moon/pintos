@@ -156,12 +156,13 @@ page_fault (struct intr_frame *f)
   //         write ? "writing" : "reading",
   //         user ? "user" : "kernel");
   // kill (f);
-
-  if (f->cs == SEL_KCSEG) {
+  if (fault_addr == NULL || fault_addr >= LOADER_PHYS_BASE || fault_addr < 0x08048000){
+    exit(-1);
+  } else if (f->cs == SEL_KCSEG) {
     f->eip = (void (*)(void))f->eax;
     f->eax = 0xffffffff;
-  } else if (fault_addr == NULL || fault_addr >= LOADER_PHYS_BASE || fault_addr < 0x08048000){
-    exit(-1);
+  //} else if (fault_addr == NULL || fault_addr >= LOADER_PHYS_BASE || fault_addr < 0x08048000){
+  //  exit(-1);
   } else {
     kill(f);
   }
