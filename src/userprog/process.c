@@ -75,7 +75,7 @@ process_execute (const char *file_name)
   }
 
  if (strlen(file_name) - strlen(process_name) > 512) {
-   return -1;
+   return TID_ERROR;
  }
 
     /* Parse file name into arguments */
@@ -264,9 +264,9 @@ start_process (void *file_name_)
  //   printf("get parent thread");
     if (parent != NULL && parent->tid != 1) {
     //  printf("parnet no null and try acquire lock\n");
-      lock_init(&parent->children_lock);
+//       lock_init(&parent->children_lock);
       lock_acquire(&parent->children_lock);
-
+  
    //   printf("modifing the exit status of tid %d to %d\n" ,cur->tid, status);
       //cur->tid = TID_ERROR;
       parent->load_result = status;
@@ -468,7 +468,6 @@ process_exit (void)
     } 
   }
   hash_destroy(&cur->fd_table, NULL);
-  
   
 }
 
