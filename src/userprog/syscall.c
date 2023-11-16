@@ -222,6 +222,9 @@ exec(const char *cmd_line) {
   // Load and execute the new process
   //lock_acquire(&thread_current()->children_lock);
   pid_t pid = process_execute(cmd_line);
+  if (pid == -1) {
+    return pid;
+  }
   struct thread *cur = thread_current();
   printf("the current thread in exec with tid %d\n", cur->tid);
   lock_acquire(&cur->children_lock);
@@ -257,6 +260,10 @@ exec(const char *cmd_line) {
 int
 wait(pid_t pid) {
   /*since each process has one thread, pid == tid*/
+  /*int status = process_wait(pid);
+  if (status == -1) {
+    exit(-1);
+  }*/
   return process_wait(pid);
 }
 

@@ -53,6 +53,8 @@ process_execute (const char *file_name)
 {
   char *fn_copy;
   tid_t tid;
+
+ 
 //printf("passing argument\n");
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -71,7 +73,10 @@ process_execute (const char *file_name)
     return TID_ERROR;
   }
 
-   
+ if (strlen(file_name) - strlen(process_name) > 512) {
+   return -1;
+ }
+
     /* Parse file name into arguments */
   //TODO free inputs in somewhere
   char *inputs = malloc(strlen(file_name) + 1);
@@ -87,8 +92,9 @@ process_execute (const char *file_name)
   for (token = strtok_r (inputs, " ", &save_ptr2); token != NULL; token = strtok_r(NULL, " ", &save_ptr2)) {
     //printf("token: %s\n", token);
     argv[argc++] = token;
-    if (argc == 500) {
+    if (argc == 570) { //TODO should not be an arb. no.
 	 printf("stop addin new token case too large\n");
+      //return TID_ERROR;
       break;
     }
     //printf("the sting in argv is %s\n", argv[argc-1]);
@@ -122,6 +128,7 @@ process_execute (const char *file_name)
     }//printf("create a new thread\n");
     lock_release(&thread_current()->children_lock);
   }
+  
   //printf("tid: %d\n", tid);
   return tid;
 }
@@ -132,36 +139,41 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
 //  strlcat(argv[0], "\0", 1);
   printf("num: %d, argv: %s\n", argc, argv[0]);
   *esp = PHYS_BASE;
-
+ 
   int length = 0;
   for (int i = argc - 1; i >= 0; i--) {
     int strlength = 0;
-    if (strlen(argv[i]) >= 1023) {
-      strlength = 1023;
+    if (strlen(argv[i]) >= 1005) {
+      strlength = 1005;
+      argv[i][1005] = '\0';
     } else {
       strlength = strlen(argv[i]);
     }
+    length += strlength + 1;
+    //if (length >= 2048) {
+     // break;
+    //}
     *esp = *esp - strlength - 1;
     memcpy(*esp, argv[i], strlength + 1);
 //    printf("pn in esp: %s\n", (char *) *esp);
    
-    length += strlen(argv[i]) + 1;
+    //length += strlength + 1;
     argv_addresses[i] = (uint32_t) *esp;
   //  printf("addr: %x\n",  argv_addresses[i]);
   }
-printf("end for after putting all args\n");
+//printf("end for after putting all args\n");
   /* Word-align the stack pointer */
   *esp -= 4 - length % 4;
 //  *esp = (void *) (((unsigned int) *esp) & WORD_ALIGN_MASK);
 
-printf("addr: %x\n",  (uint32_t) *esp);
+//printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push a null pointer sentinel */
   *esp -= 4;
-  printf("what happenin\n\n\ng");
+  //printf("what happenin\n\n\ng");
   *(uint32_t *) *esp = 0x0;
-printf("null ptr in esp\n");
-printf("addr: %x\n",  (uint32_t) *esp);
+//printf("null ptr in esp\n");
+//printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push the addresses of arguments */
   for (int i = argc - 1; i >= 0; i--) {
@@ -312,7 +324,7 @@ process_wait (tid_t child_tid)
 {
   printf("process wait\n");
   //return -1;
-
+printf("input pid is %d\n", child_tid);
   if (child_tid == TID_ERROR) {
 	  printf("tid error\n");
     return TID_ERROR;
@@ -328,7 +340,7 @@ process_wait (tid_t child_tid)
     }
   }
   if (!isChild) {
-//	  printf("not child\n");
+	  printf("not child\n");
     return TID_ERROR;
   } else {
     struct child *child = list_entry(e, struct child, child_elem);
