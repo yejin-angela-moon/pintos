@@ -334,12 +334,12 @@ read(int fd, void *buffer, unsigned size) {
 
 int
 write(int fd, const void *buffer, unsigned size) {
-  //printf("write \n");
+  printf("write with fd %d\n", fd);
   check_user(buffer);
   if (fd == 1) {  // writes to conole
     int linesToPut;
     for (uint32_t j = 0; j < size; j += 200) {  // max 200B at a time, j US so can compare with size
-      linesToPut = (size < j + 200) ? size : j + 200;
+      linesToPut = (size < j + 200) ? size : (j + 200);
       putbuf(buffer + j, linesToPut);
     }
     return size;
