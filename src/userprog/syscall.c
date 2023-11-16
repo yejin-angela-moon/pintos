@@ -17,6 +17,8 @@
 
 struct lock syscall_lock;
 
+struct lock syscall_lock;
+
 static void syscall_handler(struct intr_frame *);
 
 int get_user(const uint8_t *uaddr);
@@ -47,6 +49,7 @@ bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNU
 
 void
 syscall_init(void) {
+  lock_init(&syscall_lock);
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -171,17 +174,23 @@ halt(void) {
 
 void
 exit(int status) {
-  //printf("exit syscall\n");
-  //lock_acquire(&cur->lock_children);
+
   struct thread *cur = thread_current();
   printf ("%s: exit(%d)\n", cur->name, status);
-   lock_acquire(&cur->children_lock);
-  cur->child.exit_status = status;
-  //printf("bwforw tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
-  cur->child.call_exit = true;
-  sema_up(&cur->child.exit_sema);
-  lock_release(&cur->children_lock);
-  // free(&cur->cp_manager.children_list);
+
+  struct thread *parent_thread = get_thread_by_tid(cur->parent_tid);
+  if (parent_thread != NULL) {
+    struct child_parent_manager *cp_manager = &parent_thread->cp_manager;
+    lock_acquire(&cp_manager->manager_lock);
+
+    struct child *child = find_child_in_cp_manager(cur->tid, cp_manager);
+    if (child != NULL) {
+      child->exit_status = status;
+      child->call_exit = true;
+      sema_up(&child->exit_sema);
+    }
+    lock_release(&cp_manager->manager_lock);
+  }
   thread_exit();
 }
 
@@ -215,7 +224,14 @@ exec(const char *cmd_line) {
   /* Add the child to the parent's list.
      The cp_manager in each parent thread contains a list of all its children. */
   struct thread *cur = thread_current();
-  cur->child.load_result = 0;
+  struct thread *parent_thread = get_thread_by_tid(cur->parent_tid);
+  if (parent_thread != NULL) {
+    struct child_parent_manager *cp_manager = &parent_thread->cp_manager;
+    lock_acquire(&cp_manager->manager_lock);
+    cp_manager->load_result = 0;
+    lock_release(&cp_manager->manager_lock);
+  }
+  //cur->child.load_result = 0;
   lock_acquire(&cur->cp_manager.manager_lock);
   list_push_back(&cur->cp_manager.children_list, &new_child->child_elem);
   lock_release(&cur->cp_manager.manager_lock);
@@ -224,12 +240,17 @@ exec(const char *cmd_line) {
   sema_down(&new_child->load_sema);
 
   return pid;
+
 }
 
 
 int
 wait(pid_t pid) {
   /*since each process has one thread, pid == tid*/
+  /*int status = process_wait(pid);
+  if (status == -1) {
+    exit(-1);
+  }*/
   return process_wait(pid);
 }
 
@@ -240,12 +261,19 @@ create(const char *file, unsigned initial_size) {
     exit(-1);
     return false;
   }
-  return filesys_create(file, initial_size);
+  lock_acquire(&syscall_lock);
+  bool success = filesys_create(file, initial_size);
+  lock_release(&syscall_lock);
+  return success;
 }
 
 bool
 remove(const char *file) {
-  return filesys_remove(file);
+  lock_acquire(&syscall_lock);
+  bool success = filesys_remove(file);
+  lock_release(&syscall_lock);
+  return success;
+  //return filesys_remove(file);
 }
 
 int
@@ -399,8 +427,6 @@ close(int fd) {
 //  }
 }
 
-
-
 void
 check_user (const void *ptr)
 {
@@ -456,6 +482,7 @@ process_add_fd(struct file *file, bool executing) {
   struct file_descriptor *fd = malloc(sizeof(struct file_descriptor));
  
   if (fd == NULL) return -1;
+
   fd->file = file;
   fd->fd = next_fd++;
   fd->executing = executing;

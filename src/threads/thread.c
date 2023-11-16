@@ -116,6 +116,7 @@ thread_init(void)
   lock_init(&initial_thread->cp_manager.manager_lock);
   list_init(&initial_thread->cp_manager.children_list);
   cond_init(&initial_thread->cp_manager.children_cond);
+
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -280,6 +281,10 @@ thread_create(const char *name, int priority,
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
+  //printf("the thread just init with tid %d\n", tid);
+//  t->parent_tid = thread_current()->tid;
+
+  //printf("the thread just init with parent tid %d\n", thread_current()->tid);
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack'
@@ -398,19 +403,13 @@ thread_exit(void) {
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
-  //printf("after the process_exit function\n");
   intr_disable();
-//  list_remove(&thread_current()->child_elem);
   list_remove(&thread_current()->allelem);
-  //printf("remove elem from allelem\n");
-  //struct list_elem *e = &thread_current()->child.child_elem;
-  //printf("in te tid %d call_exit now is %d\n", thread_current()->tid, list_entry(e, struct child, child_elem)->call_exit);;
+
   thread_current()->status = THREAD_DYING;
-  //printf("ready to schedule\n");
   schedule();
   printf("finish schedule\n");
   NOT_REACHED();
-  //printf("thread exited\n");
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and
@@ -642,6 +641,7 @@ init_thread(struct thread *t, const char *name, int priority) {
   lock_init (&t->cp_manager.manager_lock);
   list_init (&t->cp_manager.children_list);
   t->init_fd = false;
+//  printf("init thread\n");
 
   if (thread_mlfqs) {
     if (t != initial_thread) {

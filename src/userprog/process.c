@@ -9,6 +9,7 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
+
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -503,9 +504,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* We arrive here whether the load is successful or not. */
 
   /* Signal the parent process about the load status. */
-  if (&t->child != NULL) {
-    t->child.exit_status = success ? 0 : -1; 
-    sema_up(&t->child.load_sema);
+  struct thread *parent_thread = get_thread_by_tid(t->parent_tid);
+  if (parent_thread != NULL) {
+    struct child_parent_manager *cp_manager = &parent_thread->cp_manager;
+    lock_acquire(&cp_manager->manager_lock);
+
+    struct child *child = find_child_in_cp_manager(t->tid, cp_manager);
+    if (child != NULL) {
+      child->load_result = success ? 0 : -1;
+      sema_up(&child->load_sema);
+    }
+    lock_release(&cp_manager->manager_lock);
   }
 
 
