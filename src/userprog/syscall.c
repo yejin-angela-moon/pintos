@@ -15,6 +15,8 @@
 #include "threads/malloc.h"
 #include "userprog/pagedir.h"
 
+struct lock syscall_lock;
+
 static void syscall_handler(struct intr_frame *);
 
 int get_user(const uint8_t *uaddr);
@@ -47,6 +49,7 @@ bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNU
 
 void
 syscall_init(void) {
+  lock_init(&syscall_lock);
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -275,12 +278,19 @@ create(const char *file, unsigned initial_size) {
     exit(-1);
     return false;
   }
-  return filesys_create(file, initial_size);
+  lock_acquire(&syscall_lock);
+  bool success = filesys_create(file, initial_size);
+  lock_release(&syscall_lock);
+  return success;
 }
 
 bool
 remove(const char *file) {
-  return filesys_remove(file);
+  lock_acquire(&syscall_lock);
+  bool success = filesys_remove(file);
+  lock_release(&syscall_lock);
+  return success;
+  //return filesys_remove(file);
 }
 
 int
@@ -290,29 +300,40 @@ open(const char *file) {
     exit(-1);
     return -1;
   }
+  lock_acquire(&syscall_lock);
+  int status;
   struct file *f = filesys_open(file);
   if (f == NULL) {
     // File could not be opened
-    return -1;
+    status = -1;
   } else {
     // Add the file to the process's open file list and return the file descriptor
-    return process_add_fd(f, !strcmp(file, thread_current()->name));
+    status = process_add_fd(f, !strcmp(file, thread_current()->name));
   }
+  lock_release(&syscall_lock);
+  return status;
 }
  
 int 
 filesize(int fd) {
-  struct file *f = process_get_fd(fd)->file;
-  if (f == NULL) {
+  lock_acquire(&syscall_lock);
+  struct file_descriptor *filed = process_get_fd(fd);
+  if (filed == NULL) {
     return -1; // File not found
   }
-  return file_length(f);
+  int size;
+  //lock_acquire(&syscall_lock);
+  size = file_length(filed->file);
+  lock_release(&syscall_lock);
+  return size;
 }
 
 
 int
 read(int fd, void *buffer, unsigned size) {
   check_user(buffer);
+  int read_size;
+  lock_acquire(&syscall_lock);
   if (fd == 0) {
     // Reading from the keyboard
  //   printf("fd = 0\n");
@@ -320,68 +341,88 @@ read(int fd, void *buffer, unsigned size) {
     for (i = 0; i < size; i++) {
       ((uint8_t *) buffer)[i] = input_getc();
     }
-    return size;
+    read_size = size;
+  } else if (size == 0) {
+    read_size = size;
+  } else {
+    struct file_descriptor *filed = process_get_fd(fd);
+    if (filed == NULL){
+      read_size = -1; // File not found
+    } else {
+      read_size = file_read(filed->file, buffer, size);
+    }
   }
-  if (size == 0) {
-    return size;
-  }
-  struct file_descriptor *filed = process_get_fd(fd);
-  if (filed == NULL){
-    return -1; // File not found
-  }
-  return file_read(filed->file, buffer, size);
+  lock_release(&syscall_lock);
+  return read_size;
 }
 
 int
 write(int fd, const void *buffer, unsigned size) {
   //printf("write \n");
   check_user(buffer);
+  int write_size;
+  lock_acquire(&syscall_lock);
   if (fd == 1) {  // writes to conole
     int linesToPut;
     for (uint32_t j = 0; j < size; j += 200) {  // max 200B at a time, j US so can compare with size
       linesToPut = (size < j + 200) ? size : j + 200;
       putbuf(buffer + j, linesToPut);
     }
-    return size;
-  }
+    write_size = size;
+  
  /* uint32_t i;  // TODO check fd+i in handler for writing
   for (i = 0; i < size; i++) {
     if (!put_user((uint8_t*)(fd+i), size)) // added cast not sure if thats cool
       break;
   }
   return i;*/
-  if (size == 0) {
-    return size;
+  } else if (size == 0) {
+    write_size = size;
+  } else {
+    struct file_descriptor *filed = process_get_fd(fd);
+    if (filed == NULL){
+      write_size = -1;     
+    } else if (filed->executing) {
+      write_size = 0;
+    } else { 
+      write_size = file_write(filed->file, buffer, size);
+    }
   }
-  struct file_descriptor *filed = process_get_fd(fd);
-  if (filed == NULL){
-    return -1;     
-  } 
-  if (filed->executing) {
-    return 0;
-  }
-  return file_write(filed->file, buffer, size);
+  lock_release(&syscall_lock);
+  return write_size;
 }
 
 void
 seek(int fd , unsigned position) {
-  struct file *f = process_get_fd(fd)->file;
-  if (f != NULL) {
-    file_seek(f, position);
+  lock_acquire(&syscall_lock);
+  struct file_descriptor *filed = process_get_fd(fd);
+  if (filed != NULL) {
+    //lock_acquire(&syscall_lock);
+    file_seek(filed->file, position);
   }
+  lock_release(&syscall_lock);
+  //}
 }
 
 unsigned
 tell(int fd) {
-  struct file *f = process_get_fd(fd)->file;
-  if (f == NULL) {
-    return -1; // File not found
+  unsigned position;
+  lock_acquire(&syscall_lock);
+  struct file_descriptor *filed = process_get_fd(fd);
+  if (filed == NULL) {
+    position = -1; // File not found
+  } else {
+    //lock_acquire(&syscall_lock);
+    position = file_tell(filed->file);
+    //lock_release(&syscall_lock);
   }
- return file_tell(f);
+  lock_release(&syscall_lock);
+  return position;
 }
 
 void
 close(int fd) {
+  lock_acquire(&syscall_lock);
   struct file_descriptor *filed = process_get_fd(fd);
   if (filed == NULL) {
     exit(-1);
@@ -389,7 +430,9 @@ close(int fd) {
   //filed->opened = false;
   //struct file *f = filed->file;
   //if (f != NULL) {
+//  lock_acquire(&syscall_lock);
   process_remove_fd(fd);
+  lock_release(&syscall_lock);
   //} else {
   //  exit(-1);
 //  }

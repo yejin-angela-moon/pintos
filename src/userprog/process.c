@@ -9,6 +9,7 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
+
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -275,7 +276,7 @@ start_process (void *file_name_)
     //lock_release(&cur->children_lock);
    //     printf("not success");
   if (!success) {
-   printf("not sucess so exit\n");
+//   printf("not sucess so exit\n");
     thread_exit ();
   }
 
@@ -299,6 +300,7 @@ struct child *
 get_child_by_thread(struct thread *thread) {
   struct thread *parent = get_thread_by_tid (thread->parent_tid);
   struct child *child;
+  lock_acquire(&parent->children_lock);
   if (parent != NULL  && parent->tid != 1) {
     for (struct list_elem *e = list_begin(&parent->children); e != list_end(&parent->children); e = list_next(e)) {
       child = list_entry(e, struct child, child_elem);
@@ -307,6 +309,7 @@ get_child_by_thread(struct thread *thread) {
       }
     }
   }
+  lock_release(&parent->children_lock);
   return child;
 }
 
@@ -332,12 +335,14 @@ process_wait (tid_t child_tid)
   struct thread *cur = thread_current();
   struct list_elem *e;
 //  printf("see if it a child\n");
+  lock_acquire(&cur->children_lock);
   for (e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
     if (list_entry(e, struct child, child_elem)->tid == child_tid) {
       isChild = true;
       break;
     }
   }
+  lock_release(&cur->children_lock);
   if (!isChild) {
 	 // printf("not child\n");
     return TID_ERROR;
@@ -427,19 +432,19 @@ process_exit (void)
   //printf("cur tid %d with parent tid %d\n", cur->tid, cur->parent_tid);
   //struct list_elem *e = list_begin(&cur->children);
  // list_remove(&cur->child.child_elem);
-  /*for (struct list_elem *e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
+  for (struct list_elem *e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
   //  printf("hi i am in loop");
   //  while (!list_empty(&cur->children)) {
-	    e = list_next(e);
+//	    e = list_next(e);
       //list_remove(e);
       struct child *child = list_entry (e, struct child, child_elem);
-      printf("child tid %d\n", child->tid);
-//      list_remove(e);
-     // free(child);
+    //  printf("child tid %d\n", child->tid);
+      list_remove(e);
+//      free(child); //TODO i still dont know why we cannot free it
   //  }
-    printf("end if in one for loop\n");
+  //  printf("end if in one for loop\n");
   }
-  printf("freed all child");*/
+  //printf("freed all child");
   struct thread *parent = get_thread_by_tid (cur->parent_tid);
   if (parent != NULL)
     {
@@ -450,17 +455,21 @@ process_exit (void)
       cond_signal (&parent->children_cond, &parent->children_lock);
       lock_release (&parent->children_lock);
     }
-
+ 
   struct hash_iterator i;
-  
- /* hash_first(&i, &cur->fd_table);
+  if (!hash_empty(&cur->fd_table)) {  
+  hash_first(&i, &cur->fd_table);
   while (hash_next(&i)) {
+//	  struct hash_elem *e = hash_cur(&i);
     struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
     file_close(fd->file);
     hash_delete(&cur->fd_table, &fd->elem);
-    free(fd);
+//    free(fd); //TODO using free, the rox test fail
+    } 
   }
-  hash_destroy(&cur->fd_table, NULL);*/
+  hash_destroy(&cur->fd_table, NULL);
+  
+  
 }
 
 /* Sets up the CPU for running user code in the current
