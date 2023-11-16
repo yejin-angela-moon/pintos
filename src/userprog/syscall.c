@@ -285,7 +285,7 @@ remove(const char *file) {
 
 int
 open(const char *file) {
-    check_user(file);
+  check_user(file);
   if (file == NULL) {
     exit(-1);
     return -1;
@@ -356,6 +356,9 @@ write(int fd, const void *buffer, unsigned size) {
   struct file_descriptor *filed = process_get_fd(fd);
   if (filed == NULL){
     return -1; // File not found
+  } 
+  if (filed->opened) {
+    return 0;
   }
   return file_write(filed->file, buffer, size);
 }
@@ -383,7 +386,7 @@ close(int fd) {
   if (filed == NULL) {
     exit(-1);
   }
-
+  filed->opened = false;
   //struct file *f = filed->file;
   //if (f != NULL) {
   process_remove_fd(fd);
@@ -462,6 +465,7 @@ process_add_fd(struct file *file) {
 
   fd->file = file;
   fd->fd = next_fd++;
+  fd->opened = true;
 
   struct thread *t = thread_current();
   hash_insert(&t->fd_table, &fd->elem);

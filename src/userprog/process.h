@@ -11,7 +11,8 @@
 struct file_descriptor {
   int fd;                   
   struct file *file;         
-  struct hash_elem elem;    
+  struct hash_elem elem;
+  bool opened;  
 };
 
 tid_t process_execute (const char *file_name);
