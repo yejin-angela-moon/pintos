@@ -218,7 +218,7 @@ exec(const char *cmd_line) {
   if (cmd_line == NULL || !is_user_vaddr(cmd_line)) {
     return -1;
   }
-    printf("cmd line is %s\n", cmd_line);
+  //  printf("cmd line is %s\n", cmd_line);
   // Load and execute the new process
   //lock_acquire(&thread_current()->children_lock);
   pid_t pid = process_execute(cmd_line);
@@ -226,13 +226,13 @@ exec(const char *cmd_line) {
     return pid;
   }
   struct thread *cur = thread_current();
-  printf("the current thread in exec with tid %d\n", cur->tid);
+  //printf("the current thread in exec with tid %d\n", cur->tid);
   lock_acquire(&cur->children_lock);
  // printf("acquired lock in exec\n");
 //  while(true) {
   struct child *child = get_child_by_thread(cur);
   cur->load_result = 0;
-  printf("cur load %d\n", cur->load_result);
+  //printf("cur load %d\n", cur->load_result);
   while(cur->load_result == 0) {
   //   if (cur->child.exit_status == -1) {
    //    return -1;
@@ -241,7 +241,7 @@ exec(const char *cmd_line) {
     // }
      cond_wait(&cur->children_cond, &cur->children_lock);
   } 
-  printf("cur load after cond wait %d\n", cur->load_result);
+  //printf("cur load after cond wait %d\n", cur->load_result);
   if (cur->load_result == -1) {
     return -1;
   }
@@ -251,7 +251,7 @@ exec(const char *cmd_line) {
 //  if (pid == TID_ERROR) {
  //   return -1;
   //}
-  printf("the return pid is %d\n", pid);
+  //printf("the return pid is %d\n", pid);
   return pid;
 
 }
@@ -462,7 +462,7 @@ process_add_fd(struct file *file, bool executing) {
   struct file_descriptor *fd = malloc(sizeof(struct file_descriptor));
  
   if (fd == NULL) return -1;
-printf("executing is %d\n", executing);
+//printf("executing is %d\n", executing);
   fd->file = file;
   fd->fd = next_fd++;
   fd->executing = executing;
