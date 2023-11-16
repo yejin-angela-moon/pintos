@@ -80,17 +80,17 @@ process_execute (const char *file_name)
 
     /* Parse file name into arguments */
   //TODO free inputs in somewhere
-  char *inputs = malloc(strlen(file_name) + 1);
+  //char *inputs = malloc(strlen(file_name) + 1);
   char *token, *save_ptr2;
   //inputs = *file_name;
-  memcpy (inputs, file_name, strlen(file_name) + 1);
+  //memcpy (inputs, file_name, strlen(file_name) + 1);
   argc = 0;
-  //char *argv[MAX_ARGS];
+  argv[argc++] = process_name;
   
  //  printf("the input is %s\n", inputs);
   //  printf("the input size is %d\n", strlen(inputs));
   /* Parse file_name and save arguments in argv */
-  for (token = strtok_r (inputs, " ", &save_ptr2); token != NULL; token = strtok_r(NULL, " ", &save_ptr2)) {
+  for (token = strtok_r (NULL, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
     //printf("token: %s\n", token);
     argv[argc++] = token;
     if (argc == 570) { //TODO should not be an arb. no.
