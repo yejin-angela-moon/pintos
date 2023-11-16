@@ -49,186 +49,138 @@ fd_hash(const struct hash_elem *e, void *aux) {
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
-process_execute (const char *file_name)
-{
-  char *fn_copy;
-  tid_t tid;
-//printf("passing argument\n");
-  /* Make a copy of FILE_NAME.
-     Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
-    return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
+process_execute (const char *file_name) {
+    char *fn_copy;
+    tid_t tid;
 
-  /* Parse the argement strings */
-  char *save_ptr;
-  char *process_name = strtok_r(fn_copy, " ", &save_ptr);
+    /* Make a copy of FILE_NAME. */
+    fn_copy = palloc_get_page (0);
+    if (fn_copy == NULL)
+        return TID_ERROR;
+    strlcpy (fn_copy, file_name, PGSIZE);
 
-  /* Check for strtok_r failure (could be ASSUME)*/
-  if (process_name == NULL) {
-    palloc_free_page(fn_copy);
-    return TID_ERROR;
-  }
+    /* Parse the argument strings */
+    char *save_ptr;
+    char *process_name = strtok_r(fn_copy, " ", &save_ptr);
 
-   
-    /* Parse file name into arguments */
-  //TODO free inputs in somewhere
-  char *inputs = malloc(strlen(file_name) + 1);
-  char *token, *save_ptr2;
-  //inputs = *file_name;
-  memcpy (inputs, file_name, strlen(file_name) + 1);
-//  int argc = 1;
-  //char *argv[MAX_ARGS];
-  
- //  printf("the input is %s\n", inputs);
-  //  printf("the input size is %d\n", strlen(inputs));
-  /* Parse file_name and save arguments in argv */
-  for (token = strtok_r (inputs, " ", &save_ptr2); token != NULL; token = strtok_r(NULL, " ", &save_ptr2)) {
-    //printf("token: %s\n", token);
-    argv[argc++] = token;
-  }
+    if (process_name == NULL) {
+        palloc_free_page(fn_copy);
+        return TID_ERROR;
+    }
 
- //printf("pn: %s and argc: %d\n", argv[0], argc);
-  /* Terminate argv */
-  argv[argc] = NULL;
-//  free(inputs);
-//    setup_stack_populate(argv, argc, &if_.esp);
-//printf("filename: %s\n", process_name);
-  /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy);
-   //tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
-    palloc_free_page (fn_copy);
-  else {
- lock_acquire(&thread_current()->children_lock);
-    struct child *child = malloc (sizeof(*child));
-    if (child != NULL) {
-      child->tid = tid;  
-      child->waited = false;
-      child->call_exit = false;
-      get_thread_by_tid(tid)->child = *child;
-      list_push_back(&thread_current()->children, &child->child_elem);
-      
-    }//printf("create a new thread\n");
-    lock_release(&thread_current()->children_lock);
-  }
-  //printf("tid: %d\n", tid);
-  return tid;
+    if (strlen(file_name) - strlen(process_name) > 512) {
+        return TID_ERROR;
+    }
+
+    /* Create a new thread to execute FILE_NAME. */
+    tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy);
+    if (tid == TID_ERROR) {
+        palloc_free_page(fn_copy);
+        return tid;
+    }
+
+    struct thread *cur = thread_current();
+    struct child_parent_manager *cp_manager = &cur->cp_manager;
+
+    lock_acquire(&cp_manager->manager_lock);
+
+    struct child *child = find_or_create_child(tid, cp_manager);
+    if (child == NULL) {
+        lock_release(&cp_manager->manager_lock);
+        return TID_ERROR;
+    }
+
+    child->waited = false;
+    child->call_exit = false;
+    child->exit_status = 0;
+    child->load_result = 0; 
+    sema_init(&child->load_sema, 0);  
+
+    lock_release(&cp_manager->manager_lock);
+
+    return tid;
 }
+
 
 /* Set up the stack. Push arguments from right to left. */
 void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
   uint32_t argv_addresses[argc];
-//  strlcat(argv[0], "\0", 1);
-//  printf("num: %d, argv: %s\n", argc, argv[0]);
   *esp = PHYS_BASE;
  
   int length = 0;
   for (int i = argc - 1; i >= 0; i--) {
     *esp = *esp - strlen(argv[i]) - 1;
     memcpy(*esp, argv[i], strlen(argv[i]) + 1);
-    //printf("pn in esp: %s\n", (char *) *esp);
    
     length += strlen(argv[i]) + 1;
     argv_addresses[i] = (uint32_t) *esp;
-  //  printf("addr: %x\n",  argv_addresses[i]);
   }
-//printf("end for\n");
   /* Word-align the stack pointer */
   *esp -= 4 - length % 4;
-//  *esp = (void *) (((unsigned int) *esp) & WORD_ALIGN_MASK);
-
-//printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push a null pointer sentinel */
   *esp -= 4;
   *(uint32_t *) *esp = (uint32_t) NULL;
-//printf("null ptr in esp: %x\n", (uint32_t) *esp);
-//printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push the addresses of arguments */
   for (int i = argc - 1; i >= 0; i--) {
-    //*esp -= sizeof(char *);
-    //*(void **) *esp = (char *) argv_addresses[i];
-    //printf("i = %d\n", i);
     *esp -= 4;
     * (uint32_t *) *esp = argv_addresses[i];
-    //printf("addr of [] in esp: %x\n", *(uint32_t*) *esp);
-    //printf("addr: %x\n", (uint32_t) *esp);
   }
-
-//printf("end sec for\n");
-//  free(argv_addresses);
 
   /* Push address of argv */
   void *argv0_addr = *esp;
   *esp -= 4;
   *(void **) *esp = argv0_addr;
-  //printf("argv in esp: %x\n", *(uint32_t*) *esp);
-  //printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push argc */
   *esp -= sizeof(int);
   *(int *) *esp = argc;
-  //printf("size in esp: %x\n", *(int *) *esp);
-  //printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push fake return address */
   *esp -= 4;
   * (uint32_t *) *esp = 0x0;
 
-  //printf("false addr in esp: %d\n",  *(uint32_t *) *esp);
-  //printf("addr: %x\n",  (uint32_t) *esp);  
- 
 }
 
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
-{
+start_process (void *file_name_) {
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
- //printf("start process\n");
+
   /* Initialize interrupt frame and load executable. */
-  memset (&if_, 0, sizeof if_);
+  memset(&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-//printf("before load, file name = %s", file_name);
-  /* Parse file name into arguments */
-/*  char *token, *save_ptr;
-  int argc = 0;
-  char *argv[MAX_ARGS];
-   printf("the input is %s\n", file_name);
-    printf("the input size is %d\n", strlen(file_name));
-  *//* Parse file_name and save arguments in argv */
- /* for (token = strtok_r (file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
-    printf("token: %s\n", token);
-   // strlcat(token, "\0", 1);
-    argv[argc++] = token;
+
+  success = load(file_name, &if_.eip, &if_.esp);
+
+  struct thread *cur = thread_current();
+  struct thread *parent = get_thread_by_tid(cur->parent_tid);
+  if (parent != NULL) {
+    struct child_parent_manager *cp_manager = &parent->cp_manager;
+    lock_acquire(&cp_manager->manager_lock);
+
+    struct child *child = find_child_in_cp_manager(cur->tid, cp_manager);
+    if (child != NULL) {
+      child->load_result = success ? 1 : -1;  // Set load result
+      cond_signal(&cp_manager->children_cond, &cp_manager->manager_lock);  // Signal the parent
+    }
+
+    lock_release(&cp_manager->manager_lock);
   }
- 
- printf("pn: %s and argc: %d\n", argv[0], argc);
- */ /* Terminate argv */
-  //argv[argc] = NULL;
 
-  /* Load the actual process in the the thread */
-  success = load (file_name, &if_.eip, &if_.esp);
-
-  /* If load failed, quit. */
-  //palloc_free_page (file_name);
   if (!success) {
-	  printf("not success");
-    thread_exit ();
+    palloc_free_page(file_name);
+    thread_exit();
   }
-//printf("before setup stack %s\n", argv[0]);
-  /* Set up the stack. Push arguments from right to left. */
+
   setup_stack_populate(argv, argc, &if_.esp);
-//printf("after setup stack\n");
-  palloc_free_page (file_name);  
+  palloc_free_page(file_name);
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -237,7 +189,26 @@ start_process (void *file_name_)
      and jump to it. */
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
+
 }
+
+struct child *
+get_child_by_thread(struct thread *thread) {
+  struct thread *parent = get_thread_by_tid (thread->parent_tid);
+  struct child *child = NULL;
+  lock_acquire(&parent->children_lock);
+  if (parent != NULL  && parent->tid != 1) {
+    for (struct list_elem *e = list_begin(&parent->children); e != list_end(&parent->children); e = list_next(e)) {
+      child = list_entry(e, struct child, child_elem);
+      if (child->tid == thread->tid){
+        break;
+      }
+    }
+  }
+  lock_release(&parent->children_lock);
+  return child;
+}
+
 
 /* Waits for thread TID to die and returns its exit status.
  * If it was terminated by the kernel (i.e. killed due to an exception),
@@ -270,7 +241,6 @@ process_wait (tid_t child_tid)
 
   if (child == NULL || child->waited) {
     lock_release(&cur->children_lock);
-	  // printf("not child\n");
     return TID_ERROR;
   } 
 
@@ -292,14 +262,11 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-//printf("exit process\n");
 
-//  cond_signal (&cur->children_cond, &cur->children_lock);
- // struct list_elem *e;
-  for (struct list_elem *e = list_begin(&cur->locks); e != list_end(&cur->locks);
-          e = list_next(e))
+  while (!list_empty(&cur->locks))
   {
-    lock_release(list_entry(e, struct lock, lock_elem));
+    struct lock *lock = list_entry(list_pop_front(&cur->locks), struct lock, lock_elem);
+    lock_release(lock);
   }
   // TODO maybe free all user program mallocs?
 
@@ -319,27 +286,23 @@ process_exit (void)
     pagedir_activate (NULL);
     pagedir_destroy (pd);
   }
-  //struct list_elem *e = list_begin(&cur->children);
-//printf("child list empty? %d\n", list_empty(&cur->children));
-  for (struct list_elem *e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
-  //  printf("hi i am in loop");
-    if (!list_empty(&cur->children)) {
-      list_pop_front(&cur->children);
-      struct child *child = list_entry (e, struct child, child_elem);
-      free(child);
-    }
+
+  while (!list_empty(&cur->children)) {  
+    struct list_elem *e = list_pop_front(&cur->children);
+    struct child *c = list_entry(e, struct child, child_elem);
+    free(c);
   }
 
   struct hash_iterator i;
   
- /* hash_first(&i, &cur->fd_table);
+  hash_first(&i, &cur->fd_table);
   while (hash_next(&i)) {
     struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
     file_close(fd->file);
     hash_delete(&cur->fd_table, &fd->elem);
     free(fd);
   }
-  hash_destroy(&cur->fd_table, NULL);*/
+  hash_destroy(&cur->fd_table, NULL);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -446,17 +409,16 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (t->pagedir == NULL)
     goto done;
   process_activate ();
-//printf("file name: %s, try open it", file_name);
   /* Open executable file. */
   file = filesys_open (file_name);
-  //printf("end the file open line");
   if (file == NULL)
   {
     printf ("load: %s: open failed\n", file_name);
     goto done;
   }
+  file_deny_write(file);
+  t->executable = file;
 
-  //printf("open file ");
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -469,7 +431,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
     printf ("load: %s: error loading executable\n", file_name);
     goto done;
   }
-//printf("read program");
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++)
@@ -529,11 +490,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
   }
 
-  //printf("before setup stack");
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
- // printf("after setup stack\n");
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
@@ -545,12 +504,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Signal the parent process about the load status. */
   if (&t->child != NULL) {
-    t->child->exit_status = success ? 0 : -1; 
-    sema_up(&t->child->load_sema);
+    t->child.exit_status = success ? 0 : -1; 
+    sema_up(&t->child.load_sema);
   }
 
 
-  file_close (file);
+  //file_close (file);
   return success;
 }
 
@@ -716,3 +675,52 @@ install_page (void *upage, void *kpage, bool writable)
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
+
+struct child *find_child_in_cp_manager(tid_t tid, struct child_parent_manager *cp_manager) {
+    if (cp_manager == NULL) {
+        return NULL;
+    }
+
+    struct list_elem *e;
+    for (e = list_begin(&cp_manager->children_list); e != list_end(&cp_manager->children_list); e = list_next(e)) {
+        struct child *c = list_entry(e, struct child, child_elem);
+        if (c->tid == tid) {
+            return c;          }
+    }
+
+    return NULL;  
+}
+
+struct child *find_or_create_child(tid_t pid, struct child_parent_manager *cp_manager) {
+    if (cp_manager == NULL) {
+        return NULL;
+    }
+
+    // Search for existing child
+    struct list_elem *e;
+    for (e = list_begin(&cp_manager->children_list); e != list_end(&cp_manager->children_list); e = list_next(e)) {
+        struct child *c = list_entry(e, struct child, child_elem);
+        if (c->tid == pid) {
+            return c;  // Child found
+        }
+    }
+
+    // Create a new child if not found
+    struct child *new_child = malloc(sizeof(struct child));
+    if (new_child == NULL) {
+        return NULL;  // Memory allocation failed
+    }
+
+    // Initialize the new child
+    new_child->tid = pid;
+    new_child->exit_status = -1;  // Default exit status
+    new_child->waited = false;
+    new_child->call_exit = false;
+    sema_init(&new_child->load_sema, 0);  // Initialize semaphore
+
+    // Add the new child to the list
+    list_push_back(&cp_manager->children_list, &new_child->child_elem);
+
+    return new_child;
+}
+

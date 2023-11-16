@@ -107,16 +107,15 @@ thread_init(void)
   list_init(&ready_list);
   list_init(&all_list);
 
-  struct thread *t = thread_current();
-  lock_init(&t->cp_manager.manager_lock);
-  list_init(&t->cp_manager.children_list);
-  cond_init(&t->cp_manager.children_cond);
-
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread();
   init_thread(initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid();
+
+  lock_init(&initial_thread->cp_manager.manager_lock);
+  list_init(&initial_thread->cp_manager.children_list);
+  cond_init(&initial_thread->cp_manager.children_cond);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -304,6 +303,12 @@ thread_create(const char *name, int priority,
 
   intr_set_level(old_level);
 
+  /* Add the child process to a child list */
+  //t->parent = thread_tid();
+  //struct child *c = add_child_process(t->tid);
+  //t->cp_manager = c;
+
+
   /* Add to run queue. */
   thread_unblock(t);
   if (thread_current()->donated_priority < t->donated_priority) {
@@ -385,8 +390,7 @@ thread_tid(void) {
 void
 thread_exit(void) {
   ASSERT(!intr_context());
-  //printf("in te tid %d call_exit now is %d\n", thread_current()->tid, thread_current()->child.call_exit);
-//printf("thread exit\n");
+
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -635,6 +639,8 @@ init_thread(struct thread *t, const char *name, int priority) {
   //t->call_exit = false;
   lock_init (&t->children_lock);
   cond_init (&t->children_cond);
+  lock_init (&t->cp_manager.manager_lock);
+  list_init (&t->cp_manager.children_list);
   t->init_fd = false;
 
   if (thread_mlfqs) {

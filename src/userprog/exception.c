@@ -1,9 +1,12 @@
 #include "userprog/exception.h"
+#include "userprog/pagedir.h"
 #include <inttypes.h>
 #include <stdio.h>
+#include "threads/loader.h"
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "userprog/syscall.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -86,7 +89,6 @@ kill (struct intr_frame *f)
       printf ("%s: dying due to interrupt %#04x (%s).\n",
               thread_name (), f->vec_no, intr_name (f->vec_no));
       intr_dump_frame (f);
-      thread_exit ();
 
     case SEL_KCSEG:
       /* Kernel's code segment, which indicates a kernel bug.
@@ -155,15 +157,18 @@ page_fault (struct intr_frame *f)
   //         write ? "writing" : "reading",
   //         user ? "user" : "kernel");
   // kill (f);
-
-  // might be: if (!user):
-  if (f->cs == SEL_KCSEG) {
+  if (fault_addr == NULL || fault_addr >= LOADER_PHYS_BASE || fault_addr < 0x08048000){
+    exit(-1);
+  } else if (f->cs == SEL_KCSEG) {
     f->eip = (void (*)(void))f->eax;
     f->eax = 0xffffffff;
+  //} else if (fault_addr == NULL || fault_addr >= LOADER_PHYS_BASE || fault_addr < 0x08048000){
+  //  exit(-1);
   } else {
     kill(f);
   }
 
 
 }
+
 
