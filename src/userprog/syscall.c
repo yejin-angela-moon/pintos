@@ -25,11 +25,10 @@ static bool put_user(uint8_t *udst, uint8_t byte);
 
 void check_user(void * ptr);
 
-//struct child* get_child_by_thread(struct thread *thread);
-
 int process_add_fd(struct file *file, bool executing);
 
 unsigned fd_hash(const struct hash_elem *e, void *aux);
+
 bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
 /* Hash function to generate a hash value from a file descriptor. */
@@ -41,7 +40,8 @@ fd_hash(const struct hash_elem *e, void *aux UNUSED) {
 
 /* Hash less function to compare two file descriptors for ordering in
    the hash table. */
-bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
+bool 
+fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
   struct file_descriptor *fd_a = hash_entry(a, struct file_descriptor, elem);
   struct file_descriptor *fd_b = hash_entry(b, struct file_descriptor, elem);
   return fd_a->fd < fd_b->fd;
@@ -53,30 +53,13 @@ syscall_init(void) {
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
-//bool first_time = true;
-
 static void
 syscall_handler(struct intr_frame *f) {
-	if (!thread_current()->init_fd) {
-          hash_init(&thread_current()->fd_table, fd_hash, fd_less, NULL);
-          thread_current()->init_fd = true;	  
-	}
+  if (!thread_current()->init_fd) {
+    hash_init(&thread_current()->fd_table, fd_hash, fd_less, NULL);
+    thread_current()->init_fd = true;	  
+  }
 
-//   check_user_pointer(f, f->esp);  // check the frame's stack ptr is valid
-//   				  // whoever is dealing with arguments, call the above func on each one
-//   int val = get_user(f->esp);  // check and put user should be used to dereference
-//   if (val == -1)               // or write to location at any user pointer
-//     page_fault(f)
-
-//   if !(put_user(f->esp, 0))    // for any write
-//     page_fault(f);
-
-//   // these checks should ensure that page_fault is only called when a user program
-//   // makes an invalid memory access: if on happens in the kernel during a system call,
-//   // we detect it and kill the program to stop the kernel exploding
-
-
-//  printf("system call!\n");
   if (!is_user_vaddr(f->esp) || f->esp < (void *) 0x08048000) {
     exit(-1);
   }
@@ -93,14 +76,13 @@ syscall_handler(struct intr_frame *f) {
       exit(status);
       break;
     }
-    case SYS_EXEC: { /**/  // added cast to line below: fixes warning but is it safe?
+    case SYS_EXEC: { /* Execute the command line. */  
       check_user(f->esp + 4);
-    //  const char *cmd_line = (char *) get_user(f->esp + 4); // if status...
       const char *cmd_line = *((const char **) (f->esp + 4));
       f->eax = (uint32_t) exec(cmd_line);
       break;
     }
-    case SYS_WAIT: {
+    case SYS_WAIT: { /* Wait for a child process. */
       check_user(f->esp + 4);
       pid_t pid = *((pid_t * )(f->esp + 4));
       f->eax = (uint32_t) wait(pid);
@@ -146,10 +128,8 @@ syscall_handler(struct intr_frame *f) {
       check_user(f->esp + 4);
       check_user(f->esp + 8);
       int fd = *((int *) (f->esp + 4));
-      // maybe should be: int fd = get_user(f->esp + 4);
       const void *buffer = *((const void **)(f->esp + 8));
       unsigned size = *((unsigned *)(f->esp + 12));
-    //  printf("fd %d and size %d\n", fd, size);
       f->eax = (uint32_t) write(fd, buffer, size);
       break;
     }
@@ -178,7 +158,6 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
   }
-  //thread_exit();
 }
 
 void
@@ -189,9 +168,7 @@ halt(void) {
 static void free_fd(struct hash_elem *e, void *aux UNUSED) {
   struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
   file_close(fd->file);
-  //printf("almost free");
   free(fd);
-  //printf("after free");
 }
 
 
@@ -212,104 +189,47 @@ static struct child *find_child_in_cp_manager(tid_t tid, struct child_parent_man
 
 void
 exit(int status) {
-//  printf("exit syscall with cur tid %d\n", thread_current()->tid);
-  //lock_acquire(&cur->lock_children);
   struct thread *cur = thread_current();
   printf ("%s: exit(%d)\n", cur->name, status);
+
   struct thread *parent = get_thread_by_tid (cur->parent_tid);
   if (parent != NULL  && parent->tid != 1) { 
     struct child *child = find_child_in_cp_manager(cur->tid, &parent->cp_manager);
     lock_acquire(&parent->cp_manager.children_lock);
-
     child->exit_status = status;
-  //printf("bwforw tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
-    child->call_exit = true;
-    
+    child->call_exit = true;    
     lock_release(&parent->cp_manager.children_lock);
   }
-//  printf("before closing file hash size %d\n", hash_size(&cur->fd_table));
-  //struct hash_iterator i;
-  /*if (!hash_empty(&cur->fd_table)) {
-  hash_first(&i, &cur->fd_table);
-  int size = hash_size(&cur->fd_table);
-  int count = 0;
-  while (hash_next(&i)) {
-	  count++;
- // for (int count = 0; count < size; count ++) {
- //    printf("in while loop\n");
-//        struct hash_elem *e = hash_cur(&i);
-    struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
-    printf("getting the fd");
-    //hash_delete(&cur->fd_table, &fd->elem);
-    close(fd->fd);
-    if (count == size)
-      break;
-  } 
-  }
-  printf("after closing file\n");
-  hash_destroy(&cur->fd_table, NULL);*/
- /* if (!hash_empty(&cur->fd_table)) {
-    hash_first(&i, &cur->fd_table);
-    while (hash_next(&i)) {
-      struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
-      close(fd->fd);
-    }
-  }*/
+
   hash_destroy(&cur->fd_table, free_fd);
-  //printf("after closing\n");
+ 
   thread_exit();
-  //printf("after thread exi\nt");
 }
 
 pid_t
 exec(const char *cmd_line) {
-  // Check if the command line pointer is valid
+  /* Check if the command line pointer is valid */
   check_user(cmd_line);
   if (cmd_line == NULL || !is_user_vaddr(cmd_line)) {
     return -1;
   }
-   // printf("cmd line is %s of tid %d\n", cmd_line, thread_current()->tid);
-  // Load and execute the new process
- // lock_acquire(&thread_current()->children_lock);
+   
   pid_t pid = process_execute(cmd_line);
-  //printf("end process execute\n");
-  if (pid == -1) {
-	  //printf("get -1 from process execute\n");
+  if (pid == TID_ERROR) {
     return pid;
   }
+
   struct thread *cur = thread_current();
-  //printf("the current thread in exec with tid %d\n", cur->tid);
   lock_acquire(&cur->cp_manager.children_lock);
- // printf("acquired lock in exec\n");
-//  while(true) {
-  //struct child *child = get_child_by_thread(cur);
   cur->cp_manager.load_result = 0;
-  //printf("cur load %d\n", cur->load_result);
   while(cur->cp_manager.load_result == 0) {
-  //while (true){
-  //   if (cur->child.exit_status == -1) {
-   //    return -1;
-   //  } else if (cur->child.exit_status != 0) {
-   //    break;
-    // }
      cond_wait(&cur->cp_manager.children_cond, &cur->cp_manager.children_lock);
   }
- // printf("cur load after cond wait %d of tid %d\n", cur->load_result, cur->tid);
   if (cur->cp_manager.load_result == -1) {
-  // get_thread_by_tid(cur->parent_tid)->load_result = -1;
-   // exit(-1);
     pid = -1;
-  }/* else if (cur->load_result != 0) {
-	  break;
   }
-  }*/
-  
   lock_release(&cur->cp_manager.children_lock);
-  //lock_release(&thread_current()->children_lock);
-//  if (pid == TID_ERROR) {
- //   return -1;
-  //}
- // printf("the return pid is %d\n", pid);
+  
   return pid;
 
 }
@@ -317,18 +237,13 @@ exec(const char *cmd_line) {
 
 int
 wait(pid_t pid) {
-  /*since each process has one thread, pid == tid*/
-  /*int status = process_wait(pid);
-  if (status == -1) {
-    exit(-1);
-  }*/
+  /* Since each process has one thread, pid == tid */
   return process_wait(pid);
 }
 
 bool
 create(const char *file, unsigned initial_size) {
-//	printf("valid addr: %lld", (uint8_t) atoi(file));
-    check_user(file);
+  check_user(file);
   if (file == NULL) {
     exit(-1);
     return false;
@@ -345,12 +260,10 @@ remove(const char *file) {
   bool success = filesys_remove(file);
   lock_release(&syscall_lock);
   return success;
-  //return filesys_remove(file);
 }
 
 int
 open(const char *file) {
-//	printf("open a file fo tid %d\n", thread_current()->tid);
   check_user(file);
   if (file == NULL) {
     exit(-1);
@@ -363,7 +276,7 @@ open(const char *file) {
     // File could not be opened
     status = -1;
   } else {
-    // Add the file to the process's open file list and return the file descriptor
+    /* Add the file to the process's open file list and return the file descriptor */
     status = process_add_fd(f, !strcmp(file, thread_current()->name));
   }
   lock_release(&syscall_lock);
@@ -378,7 +291,6 @@ filesize(int fd) {
     return -1; // File not found
   }
   int size;
-  //lock_acquire(&syscall_lock);
   size = file_length(filed->file);
   lock_release(&syscall_lock);
   return size;
@@ -391,8 +303,7 @@ read(int fd, void *buffer, unsigned size) {
   int read_size;
   lock_acquire(&syscall_lock);
   if (fd == 0) {
-    // Reading from the keyboard
- //   printf("fd = 0\n");
+    /* Reading from the keyboard */
     unsigned i;
     for (i = 0; i < size; i++) {
       ((uint8_t *) buffer)[i] = input_getc();
@@ -414,25 +325,17 @@ read(int fd, void *buffer, unsigned size) {
 
 int
 write(int fd, const void *buffer, unsigned size) {
- // printf("write \n");
   check_user(buffer);
   int write_size;
   lock_acquire(&syscall_lock);
-  if (fd == 1) {  // writes to console
+  /* Writes to console */
+  if (fd == 1) {  
     int linesToPut;
-    for (uint32_t j = 0; j < size; j += MAX_CONSOLE_WRITE) {  // max 200B at a time, j US so can compare with size
+    for (uint32_t j = 0; j < size; j += MAX_CONSOLE_WRITE) {  // max 200B (MAX_CONSOLE_WRITE) at a time
       linesToPut = (size < j + MAX_CONSOLE_WRITE) ? (size % MAX_CONSOLE_WRITE) : (j + MAX_CONSOLE_WRITE);
-     // printf("line to put %d", linesToPut);
       putbuf(buffer + j, linesToPut);
     }
     write_size = size;
-  
- /* uint32_t i;  // TODO check fd+i in handler for writing
-  for (i = 0; i < size; i++) {
-    if (!put_user((uint8_t*)(fd+i), size)) // added cast not sure if thats cool
-      break;
-  }
-  return i;*/
   } else if (size == 0) {
     write_size = size;
   } else {
@@ -454,11 +357,9 @@ seek(int fd , unsigned position) {
   lock_acquire(&syscall_lock);
   struct file_descriptor *filed = process_get_fd(fd);
   if (filed != NULL) {
-    //lock_acquire(&syscall_lock);
     file_seek(filed->file, position);
   }
   lock_release(&syscall_lock);
-  //}
 }
 
 unsigned
@@ -469,9 +370,7 @@ tell(int fd) {
   if (filed == NULL) {
     position = -1; // File not found
   } else {
-    //lock_acquire(&syscall_lock);
     position = file_tell(filed->file);
-    //lock_release(&syscall_lock);
   }
   lock_release(&syscall_lock);
   return position;
@@ -484,44 +383,21 @@ close(int fd) {
   if (filed == NULL) {
     exit(-1);
   }
-  //filed->opened = false;
-  //struct file *f = filed->file;
-  //if (f != NULL) {
-//  lock_acquire(&syscall_lock);
   process_remove_fd(fd);
   lock_release(&syscall_lock);
-  //} else {
-  //  exit(-1);
-//  }
 }
-/*
-struct child *
-get_child_by_thread(struct thread *thread) {
-  struct thread *parent = get_thread_by_tid (thread->parent_tid);
-  struct child *child = NULL;
-  lock_acquire(&parent->children_lock);
-  if (parent != NULL  && parent->tid != 1) {
-    for (struct list_elem *e = list_begin(&parent->children); e != list_end(&parent->children); e = list_next(e)) {
-      child = list_entry(e, struct child, child_elem);
-      if (child->tid == thread->tid){
-        break;
-      }
-    }
-  }
-  lock_release(&parent->children_lock);
-  return child;
-}
-*/
+
 void
 check_user (void *ptr) {
-// don't need to worry about code running after as it kills the process
+/* Don't need to worry about code running after as it kills the process */
     struct thread *t = thread_current();
     uint8_t *uaddr = ptr;
     if (!is_user_vaddr((void *) ptr) || (pagedir_get_page(t->pagedir, uaddr) == NULL)) {
         exit(-1);
     }
 }
-// credit to pintos manual:
+
+/* Credit to pintos manual: */
 /* Reads a byte at user virtual address UADDR.
  * Returns the byte value if successful, -1 if a segfault
  * occurred. */
@@ -560,11 +436,10 @@ process_get_fd(int fd) {
 
 int
 process_add_fd(struct file *file, bool executing) {
-  static int next_fd = FIRST_FD_NUMBER; /* Magic number? after 0 and 1 */
+  static int next_fd = FIRST_FD_NUMBER; 
   struct file_descriptor *fd = malloc(sizeof(struct file_descriptor));
  
   if (fd == NULL) return -1;
-//printf("executing is %d\n", executing);
   fd->file = file;
   fd->fd = next_fd++;
   fd->executing = executing;
@@ -578,12 +453,10 @@ process_add_fd(struct file *file, bool executing) {
 void
 process_remove_fd(int fd) {
   struct file_descriptor *fd_struct = process_get_fd(fd);
-  //printf("removing fd from tid %d\n", thread_current()->tid);
   if (fd != -1) {
     hash_delete(&thread_current()->fd_table, &fd_struct->elem);
     file_close(fd_struct->file);
-    free(fd_struct);  //TODO must free this
-    //printf("after free\n");
+    free(fd_struct);  
   }
 } 
 
