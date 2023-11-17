@@ -25,6 +25,8 @@ static bool put_user(uint8_t *udst, uint8_t byte);
 
 void check_user(void * ptr);
 
+struct child* get_child_by_thread(struct thread *thread);
+
 int process_add_fd(struct file *file, bool executing);
 
 unsigned fd_hash(const struct hash_elem *e, void *aux);
@@ -193,6 +195,7 @@ exit(int status) {
   //struct hash_iterator i;
   hash_destroy(&cur->fd_table, free_fd);
   thread_exit();
+  //printf("after thread exi\nt");
 }
 
 pid_t
@@ -263,6 +266,7 @@ remove(const char *file) {
 
 int
 open(const char *file) {
+//	printf("open a file fo tid %d\n", thread_current()->tid);
   check_user(file);
   if (file == NULL) {
     exit(-1);
@@ -327,11 +331,11 @@ read(int fd, void *buffer, unsigned size) {
 
 int
 write(int fd, const void *buffer, unsigned size) {
-  //printf("write \n");
+ // printf("write \n");
   check_user(buffer);
   int write_size;
   lock_acquire(&syscall_lock);
-  if (fd == 1) {  // writes to conole
+  if (fd == 1) {  // writes to console
     int linesToPut;
     for (uint32_t j = 0; j < size; j += MAX_CONSOLE_WRITE) {  // max 200B at a time, j US so can compare with size
       linesToPut = (size < j + MAX_CONSOLE_WRITE) ? (size % MAX_CONSOLE_WRITE) : (j + MAX_CONSOLE_WRITE);
@@ -403,6 +407,23 @@ close(int fd) {
 //  }
 }
 
+struct child *
+get_child_by_thread(struct thread *thread) {
+  struct thread *parent = get_thread_by_tid (thread->parent_tid);
+  struct child *child = NULL;
+  lock_acquire(&parent->children_lock);
+  if (parent != NULL  && parent->tid != 1) {
+    for (struct list_elem *e = list_begin(&parent->children); e != list_end(&parent->children); e = list_next(e)) {
+      child = list_entry(e, struct child, child_elem);
+      if (child->tid == thread->tid){
+        break;
+      }
+    }
+  }
+  lock_release(&parent->children_lock);
+  return child;
+}
+
 void
 check_user (void *ptr)
 {
@@ -472,11 +493,12 @@ process_add_fd(struct file *file, bool executing) {
 void
 process_remove_fd(int fd) {
   struct file_descriptor *fd_struct = process_get_fd(fd);
-
+  //printf("removing fd from tid %d\n", thread_current()->tid);
   if (fd != -1) {
     hash_delete(&thread_current()->fd_table, &fd_struct->elem);
     file_close(fd_struct->file);
-    //free(fd_struct);
+    free(fd_struct);  //TODO must free this
+    //printf("after free\n");
   }
-}
+} 
 

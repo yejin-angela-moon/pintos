@@ -182,6 +182,7 @@ start_process (void *file_name_) {
 
   int status;
   if (!success) {
+//	  printf("not success to load\n\n\n");
     status = -1;
   } else {
     status = 1;
