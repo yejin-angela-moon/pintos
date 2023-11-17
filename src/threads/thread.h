@@ -27,10 +27,10 @@ typedef int tid_t;
 #define PRI_MAX 63                      /* Highest priority. */
 
 struct child_parent_manager {
-   struct list children_list;
-   struct lock children_lock;
-   struct condition children_cond;
-   int load_result;
+   struct list children_list;             /* List of struct child owned by the parent thread. */
+   struct lock children_lock;             /* Locked when the children_list is being modified. */
+   struct condition children_cond;        /* Signaled when load_result changes or after thread exits. */
+   int load_result;                       /* The result when its child load the file. */
 };
 
 /* A kernel thread or user process.

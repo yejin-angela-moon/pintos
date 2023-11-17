@@ -25,9 +25,6 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp);
 
-// int argc = 0;
-// char *argv[MAX_ARGS];
-
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -312,11 +309,7 @@ process_exit (void)
   struct thread *parent = get_thread_by_tid (cur->parent_tid);
   if (parent != NULL) {
     lock_acquire (&parent->cp_manager.children_lock);
-    /* if (parent->load_result == 0) {
-	parent->load_result = -1;
-      }*/
     cond_broadcast (&parent->cp_manager.children_cond, &parent->cp_manager.children_lock);
-    //cond_signal (&parent->children_cond, &parent->children_lock);
     lock_release (&parent->cp_manager.children_lock);
   }
   //hash_destroy(&cur->fd_table, NULL);
