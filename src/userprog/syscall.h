@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define ERROR -1
+#define FAIL -1
 #define MAX_CONSOLE_WRITE 200
 #define FIRST_FD_NUMBER 2
 

@@ -9,7 +9,6 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
-
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -56,9 +55,10 @@ process_execute (const char *file_name)
     return TID_ERROR;
   }
 
- if (strlen(file_name) - strlen(process_name) > 512) {
+  /* Prevent stack overflow. */
+  if (strlen(file_name) - strlen(process_name) > 512) {
    return TID_ERROR;
- }
+  }
 
   /* Parse file name into arguments */
   char *token; 
@@ -115,60 +115,34 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
   
     *esp = *esp - strlength - 1;
     memcpy(*esp, argv[i], strlength + 1);
-//    printf("pn in esp: %s\n", (char *) *esp);
-   
-    //length += strlength + 1;
     argv_addresses[i] = (uint32_t) *esp;
-  //  printf("addr: %x\n",  argv_addresses[i]);
   }
-//printf("end for after putting all args\n");
+
   /* Word-align the stack pointer */
   *esp -= ESP_DECREMENT - length % ESP_DECREMENT;
-//  *esp = (void *) (((unsigned int) *esp) & WORD_ALIGN_MASK);
-
-//printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push a null pointer sentinel */
   *esp -= ESP_DECREMENT;
-  //printf("what happenin\n\n\ng");
   *(uint32_t *) *esp = 0x0;
-//printf("null ptr in esp\n");
-//printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push the addresses of arguments */
   for (int i = argc - 1; i >= 0; i--) {
-    //*esp -= sizeof(char *);
-    //*(void **) *esp = (char *) argv_addresses[i];
-    //printf("i = %d\n", i);
     *esp -= ESP_DECREMENT;
     * (uint32_t *) *esp = argv_addresses[i];
-    //printf("addr of [] in esp: %x\n", *(uint32_t*) *esp);
-    //printf("addr: %x\n", (uint32_t) *esp);
   }
-
-//printf("end sec for\n");
-//  free(argv_addresses);
 
   /* Push address of argv */
   void *argv0_addr = *esp;
   *esp -= ESP_DECREMENT;
   *(void **) *esp = argv0_addr;
-  //printf("argv in esp: %x\n", *(uint32_t*) *esp);
-  //printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push argc */
   *esp -= sizeof(int);
   *(int *) *esp = argc;
-  //printf("size in esp: %x\n", *(int *) *esp);
-  //printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push fake return address */
   *esp -= ESP_DECREMENT;
   * (uint32_t *) *esp = 0x0;
-
-  //printf("false addr in esp: %d\n",  *(uint32_t *) *esp);
-  //printf("addr: %x\n",  (uint32_t) *esp);  
- 
 }
 
 /* A thread function that loads a user process and starts it
@@ -260,23 +234,22 @@ process_wait (tid_t child_tid)
     }
     child->waited = true;
    
-
-    /* Wait until the thread exit. */ 
     lock_acquire(&cur->cp_manager.children_lock);
+    
+    /* Wait until the thread exit. */
     while (get_thread_by_tid (child_tid) != NULL) {
        cond_wait (&cur->cp_manager.children_cond, &cur->cp_manager.children_lock);
     }
 
+    /* Return the exit status if the thread was exited by exit(). Othereise, return TID_ERROR if the thread was terminated by the kernel.*/
     int status = 0;
-    if (get_thread_by_tid (child_tid) == NULL) {
-      child = list_entry(e, struct child, child_elem);
-      /* Return the exit status if the thread was exited by exit(). Othereise, return TID_ERROR if the thread was terminated by the kernel.*/ 
-      if (child->call_exit) {
-        status = child->exit_status;
-      } else {
-        status =  TID_ERROR;
-      }
+    child = list_entry(e, struct child, child_elem);
+    if (child->call_exit) {
+      status = child->exit_status;
+    } else {
+      status =  TID_ERROR;
     }
+    
     lock_release(&cur->cp_manager.children_lock);
     
     return status;  
@@ -295,7 +268,6 @@ process_exit (void)
           e = list_next(e)){
     lock_release(list_entry(e, struct lock, lock_elem));
   }
-  // TODO maybe free all user program mallocs?
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

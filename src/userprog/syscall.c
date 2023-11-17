@@ -208,13 +208,13 @@ pid_t
 exec(const char *cmd_line) {
   /* Check if the command line pointer is valid */
   if (cmd_line == NULL || !is_user_vaddr(cmd_line)) {
-    return ERROR;
+    return FAIL;
   }
   
   /* Execute the command line and get the pid. */ 
   pid_t pid = process_execute(cmd_line);
   if (pid == TID_ERROR) {
-    return ERROR;
+    return FAIL;
   }
 
   /* Wait until the load_result is not 0. If load_result is -1, return load_result. */
@@ -224,8 +224,8 @@ exec(const char *cmd_line) {
   while(cur->cp_manager.load_result == 0) {
      cond_wait(&cur->cp_manager.children_cond, &cur->cp_manager.children_lock);
   }
-  if (cur->cp_manager.load_result == ERROR) {
-    pid = ERROR;
+  if (cur->cp_manager.load_result == FAIL) {
+    pid = FAIL;
   }
   lock_release(&cur->cp_manager.children_lock);
   
@@ -275,7 +275,7 @@ open(const char *file) {
   /* Check if file is NULL */
   if (file == NULL) { 
     exit(-1);
-    return ERROR;
+    return FAIL;
   }
 
   /* Open the file by filesys_open. */
@@ -283,7 +283,7 @@ open(const char *file) {
   int status;
   struct file *f = filesys_open(file);
   if (f == NULL) { /* Case when file not found. */
-    status = ERROR;
+    status = FAIL;
   } else {
     /* Add the file to the process's open file list and return the fd of the file descriptor */
     status = process_add_fd(f, !strcmp(file, thread_current()->name));
@@ -299,7 +299,7 @@ filesize(int fd) {
   /* Check whether the file_descriptor exist. */
   struct file_descriptor *filed = process_get_fd(fd);
   if (filed == NULL) { /* Case when file not found. */
-    return ERROR; 
+    return FAIL; 
   }
 
   /* Get the size of the file by file_length. */
@@ -327,7 +327,7 @@ read(int fd, void *buffer, unsigned size) {
   } else {
     struct file_descriptor *filed = process_get_fd(fd);
     if (filed == NULL){ /* Case when file not found. */
-      read_size = ERROR; 
+      read_size = FAIL; 
     } else {      /* Get the size bytes read by file_read. */
       read_size = file_read(filed->file, buffer, size);
     }
@@ -352,7 +352,7 @@ write(int fd, const void *buffer, unsigned size) {
   } else {
     struct file_descriptor *filed = process_get_fd(fd);
     if (filed == NULL){  /* Case when file not found. */
-      write_size = -1;     
+      write_size = FAIL;     
     } else if (filed->executing) { /* If the file is executing, it will not be written. */
       write_size = 0;
     } else {         /* Get the size bytes written by file_write. */
@@ -379,7 +379,7 @@ tell(int fd) {
   lock_acquire(&syscall_lock);
   struct file_descriptor *filed = process_get_fd(fd);
   if (filed == NULL) {  /* Case when file not found. */
-    position = ERROR; 
+    position = FAIL; 
   } else { /* Returns the position of the next byte to be read or written by file_tell. */
     position = file_tell(filed->file);
   }
@@ -452,7 +452,9 @@ process_add_fd(struct file *file, bool executing) {
   static int next_fd = FIRST_FD_NUMBER; 
   struct file_descriptor *fd = malloc(sizeof(struct file_descriptor));
  
-  if (fd == NULL) return -1;
+  if (fd == NULL) {
+   return FAIL;
+  }
   fd->file = file;
   fd->fd = next_fd++;
   fd->executing = executing;
@@ -465,7 +467,7 @@ process_add_fd(struct file *file, bool executing) {
 void
 process_remove_fd(int fd) {
   struct file_descriptor *fd_struct = process_get_fd(fd);
-  if (fd != -1) {
+  if (fd != FAIL) {
     hash_delete(&thread_current()->fd_table, &fd_struct->elem);
     file_close(fd_struct->file);
     free(fd_struct);  
