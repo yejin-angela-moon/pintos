@@ -194,6 +194,8 @@ start_process (void *file_name_) {
     //struct child_parent_manager *cp_manager = &parent->cp_manager;
     lock_acquire(&parent->cp_manager.children_lock);
     parent->cp_manager.load_result = status;
+    //cur->cp_manager.load_result = status;
+    printf("modifing the load status of tid %d to %d\n", cur->tid, status);
     cond_signal(&parent->cp_manager.children_cond, &parent->cp_manager.children_lock);
     lock_release(&parent->cp_manager.children_lock);
   }
@@ -287,6 +289,7 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  printf("thread %d is in process_exit()\n", cur->tid);
   for (struct list_elem *e = list_begin(&cur->locks); e != list_end(&cur->locks); e = list_next(e)) 
   {
     //struct lock *lock = list_entry(list_pop_front(&cur->locks), struct lock, lock_elem);
@@ -323,7 +326,8 @@ process_exit (void)
     /*if (parent->cp_manager.load_result == 0) {
       parent->cp_manager.load_result = -1;
     }*/
-    cond_broadcast(&parent->cp_manager.children_cond, &parent->cp_manager.children_lock);
+    printf("cond sign for parent %d and child %d\n", parent->tid, cur->tid);
+    cond_signal(&parent->cp_manager.children_cond, &parent->cp_manager.children_lock);
     lock_release(&parent->cp_manager.children_lock);
   }
 

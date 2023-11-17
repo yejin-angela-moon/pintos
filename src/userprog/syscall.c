@@ -201,6 +201,7 @@ exit(int status) {
 pid_t
 exec(const char *cmd_line) {
   // Check if the command line pointer is valid
+  printf("the cmd line is %s\n", cmd_line);
   check_user(cmd_line);
   if (cmd_line == NULL || !is_user_vaddr(cmd_line)) {
     return -1;
@@ -219,7 +220,7 @@ exec(const char *cmd_line) {
   while (cur->cp_manager.load_result == 0) {
     cond_wait(&cur->cp_manager.children_cond, &cur->cp_manager.children_lock);
   }
-
+printf("after cond wait load result is %d for tid %d\n", cur->cp_manager.load_result, cur->tid);
   if (&cur->cp_manager.load_result == -1) {
   //get_thread_by_tid(cur->parent_tid)->cp_manager.load_result = -1;
     pid = -1;
