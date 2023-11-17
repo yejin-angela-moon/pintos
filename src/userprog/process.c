@@ -189,8 +189,8 @@ start_process (void *file_name_)
   /* Load the actual process in the the thread */
   success = load (file_name, &if_.eip, &if_.esp);
 
+  /* Communicate whether the load was successful to its parent. */
   int status = success ? 1 : -1;
- // struct thread *cur = thread_current();
   struct thread *parent = get_thread_by_tid(thread_current()->parent_tid);
   if (parent != NULL) {
     lock_acquire(&parent->cp_manager.children_lock);
@@ -229,6 +229,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid)
 {
+  /* Return TID_ERROR if the child_tid is invalid. */
   if (child_tid == TID_ERROR) {
     return TID_ERROR;
   }
@@ -237,6 +238,7 @@ process_wait (tid_t child_tid)
   struct thread *cur = thread_current();
   struct list_elem *e;
 
+  /* Check whether the thread with child_tid is a child of the current thread. */
   lock_acquire(&cur->cp_manager.children_lock);
   for (e = list_begin(&cur->cp_manager.children_list); e != list_end(&cur->cp_manager.children_list); e = list_next(e)) {
     if (list_entry(e, struct child, child_elem)->tid == child_tid) {
@@ -245,22 +247,30 @@ process_wait (tid_t child_tid)
     }
   }
   lock_release(&cur->cp_manager.children_lock);
+
+  /* Return TID_ERROR if it is not a child of the current thread. */
   if (!isChild) {
     return TID_ERROR;
   } else {
     struct child *child = list_entry(e, struct child, child_elem);
+    
+    /* Return TID_ERROR if process_wait has been called on the thread. */
     if (child->waited) {
       return TID_ERROR;
     }
     child->waited = true;
-     int status = 0;
-    
+   
+
+    /* Wait until the thread exit. */ 
     lock_acquire(&cur->cp_manager.children_lock);
     while (get_thread_by_tid (child_tid) != NULL) {
        cond_wait (&cur->cp_manager.children_cond, &cur->cp_manager.children_lock);
     }
+
+    int status = 0;
     if (get_thread_by_tid (child_tid) == NULL) {
       child = list_entry(e, struct child, child_elem);
+      /* Return the exit status if the thread was exited by exit(). Othereise, return TID_ERROR if the thread was terminated by the kernel.*/ 
       if (child->call_exit) {
         status = child->exit_status;
       } else {
@@ -280,9 +290,9 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  /* Free all the locks that current thread hold. */
   for (struct list_elem *e = list_begin(&cur->locks); e != list_end(&cur->locks);
-          e = list_next(e))
-  {
+          e = list_next(e)){
     lock_release(list_entry(e, struct lock, lock_elem));
   }
   // TODO maybe free all user program mallocs?
@@ -304,12 +314,14 @@ process_exit (void)
     pagedir_destroy (pd);
   } 
   
+  /* Remove the child_elem from the children_list and free all the child.  */
   while (!list_empty(&cur->cp_manager.children_list)) {
     struct list_elem *e = list_pop_front(&cur->cp_manager.children_list);
     struct child *child = list_entry (e, struct child, child_elem);
     free(child);
   }
 
+  /* Communicate the thread is about to exit to its parent. */
   struct thread *parent = get_thread_by_tid (cur->parent_tid);
   if (parent != NULL) {
     lock_acquire (&parent->cp_manager.children_lock);
@@ -511,11 +523,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
   }
 
-  //printf("before setup stack");
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
- // printf("after setup stack\n");
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
@@ -658,7 +668,7 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
-//printf("only setup\n");
+
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL)
   {

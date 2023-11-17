@@ -16,8 +16,6 @@ struct child {
   int exit_status;
   bool waited;
   bool call_exit;
-  struct semaphore load_sema;
-  struct semaphore exit_sema;
 };
 
 struct file_descriptor {
@@ -29,9 +27,6 @@ struct file_descriptor {
 
 
 tid_t process_execute (const char *file_name);
-//struct child *get_child_by_thread(struct thread *thread);
-//struct child *find_child_in_cp_manager(tid_t tid, struct child_parent_manager *cp_manager);
-struct child *find_or_create_child(tid_t pid, struct child_parent_manager *cp_manager);
 int process_wait (tid_t);
 void process_exit (void);
 void process_activate (void);
