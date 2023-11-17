@@ -182,7 +182,7 @@ start_process (void *file_name_) {
 
   int status;
   if (!success) {
-//	  printf("not success to load\n\n\n");
+	  printf("not success to load\n\n\n");
     status = -1;
   } else {
     status = 1;
@@ -193,7 +193,6 @@ start_process (void *file_name_) {
   if (parent != NULL) {
     //struct child_parent_manager *cp_manager = &parent->cp_manager;
     lock_acquire(&parent->cp_manager.children_lock);
-
     parent->cp_manager.load_result = status;
     cond_signal(&parent->cp_manager.children_cond, &parent->cp_manager.children_lock);
     lock_release(&parent->cp_manager.children_lock);
@@ -228,6 +227,7 @@ start_process (void *file_name_) {
 int
 process_wait (tid_t child_tid)
 {
+	printf("tid %d now waiting in process wait\n", child_tid);
   if (child_tid == TID_ERROR) {
 	 // printf("tid error\n");
     return TID_ERROR;

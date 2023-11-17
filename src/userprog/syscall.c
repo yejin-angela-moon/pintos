@@ -25,7 +25,7 @@ static bool put_user(uint8_t *udst, uint8_t byte);
 
 void check_user(void * ptr);
 
-struct child* get_child_by_thread(struct thread *thread);
+//struct child* get_child_by_thread(struct thread *thread);
 
 int process_add_fd(struct file *file, bool executing);
 
@@ -180,10 +180,10 @@ static void free_fd(struct hash_elem *e, void *aux UNUSED) {
 
 void
 exit(int status) {
-
+  printf("current tid %d is now exiting\n", thread_current()->tid);
   struct thread *cur = thread_current();
   printf ("%s: exit(%d)\n", cur->name, status);
-
+ 
   struct thread *parent = get_thread_by_tid(cur->parent_tid);
   if (parent != NULL && parent->tid != 1) {
     struct child *child = find_child_in_cp_manager(cur->tid, &parent->cp_manager);
@@ -221,7 +221,7 @@ exec(const char *cmd_line) {
   }
 
   if (&cur->cp_manager.load_result == -1) {
-    get_thread_by_tid(cur->parent_tid)->cp_manager.load_result = -1;
+  //get_thread_by_tid(cur->parent_tid)->cp_manager.load_result = -1;
     pid = -1;
   }
 
@@ -406,7 +406,7 @@ close(int fd) {
   //  exit(-1);
 //  }
 }
-
+/*
 struct child *
 get_child_by_thread(struct thread *thread) {
   struct thread *parent = get_thread_by_tid (thread->parent_tid);
@@ -423,7 +423,7 @@ get_child_by_thread(struct thread *thread) {
   lock_release(&parent->children_lock);
   return child;
 }
-
+*/
 void
 check_user (void *ptr)
 {
