@@ -25,23 +25,13 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
-/*
-struct child {
-    tid_t tid;
-    struct list_elem child_elem;
-    int exit_status;
-    bool waited;
-    bool call_exit;
-};*/
 
 struct child_parent_manager {
- //  struct lock manager_lock;
    struct list children_list;
    struct lock children_lock;
    struct condition children_cond;
    int load_result;
 };
-
 
 /* A kernel thread or user process.
 
@@ -111,23 +101,10 @@ struct thread {
     struct list locks;                  /* List of locks held by the thread. */
     struct lock wait_lock;              /* Lock that the thread is attempting to acquire, but still waiting for. */
 
-    //struct list children;
-
-    ///struct child child;
-   // struct lock children_lock;
-  //  struct condition children_cond;
-
     struct hash fd_table;               /* File descriptor table. */
     bool init_fd;
     tid_t parent_tid;
-   // int load_result;
     struct child_parent_manager cp_manager;
-
-
- /*   struct list_elem child_elem;
-    int exit_status;
-    bool waited;
-    bool call_exit; */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -139,20 +116,14 @@ struct thread {
     uint32_t *pagedir;                  /* Page directory. */
     
 #endif
-
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 };
-
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "mlfqs". */
 extern bool thread_mlfqs;
-
-//static struct thread *idle_thread;
-
-//extern int64_t ticks;
 
 struct list mlfqueues[PRI_MAX];
 

@@ -24,7 +24,7 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-static void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        :w
+static void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp);
 
 int argc = 0;
 char *argv[MAX_ARGS];
@@ -187,7 +187,7 @@ start_process (void *file_name_)
   /* Set up the stack. Push arguments from right to left. */
   setup_stack_populate(argv, argc, &if_.esp);
 
-  psalloc_free_page (file_name);  
+  palloc_free_page (file_name);  
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -209,7 +209,7 @@ start_process (void *file_name_)
  * This function will be implemented in task 2.
  * For now, it does nothing. */
 int
-process_(tid_t child_tid)
+process_wait(tid_t child_tid)
 {
   if (child_tid == TID_ERROR) {
     return TID_ERROR;
@@ -217,8 +217,7 @@ process_(tid_t child_tid)
   bool isChild = false;
   struct thread *cur = thread_current();
   struct list_elem *e;
-  lock_acquire(&cur->cp_ma
-  Wnager.children_lock);
+  lock_acquire(&cur->cp_manager.children_lock);
   for (e = list_begin(&cur->cp_manager.children_list); e != list_end(&cur->cp_manager.children_list); e = list_next(e)) {
     if (list_entry(e, struct child, child_elem)->tid == child_tid) {
       isChild = true;
@@ -702,8 +701,6 @@ struct child *find_or_create_child(tid_t pid, struct child_parent_manager *cp_ma
     new_child->exit_status = -1;  // Default exit status
     new_child->waited = false;
     new_child->call_exit = false;
-    sema_init(&new_child->load_sema, 0);  // Initialize semaphores
-    sema_init(&new_child->exit_sema, 0);
 
     // Add the new child to the list
     list_push_back(&cp_manager->children_list, &new_child->child_elem);

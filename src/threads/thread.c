@@ -593,24 +593,6 @@ is_thread(struct thread *t) {
   return t != NULL && t->magic == THREAD_MAGIC;
 }
 
-//unsigned fd_hash(const struct hash_elem *e, void *aux);
-//bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
-
-/* Hash function to generate a hash value from a file descriptor. */
-/*unsigned
-fd_hash(const struct hash_elem *e, void *aux UNUSED) {
-  struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
-  return hash_int(fd->fd);
-}*/
-
-/* Hash less function to compare two file descriptors for ordering in
-   the hash table. */
-/*bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
-  struct file_descriptor *fd_a = hash_entry(a, struct file_descriptor, elem);
-  struct file_descriptor *fd_b = hash_entry(b, struct file_descriptor, elem);
-  return fd_a->fd < fd_b->fd;
-}*/
-
 /* Does basic initialization of T as a blocked thread named
    NAME. */
 static void
@@ -630,24 +612,11 @@ init_thread(struct thread *t, const char *name, int priority) {
   t->magic = THREAD_MAGIC;
   lock_init(&t->wait_lock);
   list_init(&t->locks);
-  //list_init(&t->children);
-  //t->waited = false; 
-  //t->call_exit = false;
- // lock_init (&t->children_lock);
-  //cond_init (&t->children_cond);
   t->init_fd = false;
   list_init (&t->cp_manager.children_list);
   lock_init (&t->cp_manager.children_lock);
   cond_init (&t->cp_manager.children_cond);
   t->cp_manager.load_result = 0;
-  //lock_init (&t->cp_manager.manager_lock);
- // list_init (&t->cp_manager.children_list);
-
-
-
-
-
-//  printf("init thread\n");
 
   if (thread_mlfqs) {
     if (t != initial_thread) {
@@ -717,7 +686,6 @@ thread_schedule_tail(struct thread *prev) {
   /* Mark us as running. */
   cur->status = THREAD_RUNNING;
 
-  //printf("tst");
   /* Start new time slice. */
   thread_ticks = 0;
 
@@ -725,8 +693,6 @@ thread_schedule_tail(struct thread *prev) {
   /* Activate the new address space. */
   process_activate ();
 #endif
-
-  //printf("process avtivated\n");
 
   /* If the thread we switched from is dying, destroy its struct
      thread.  This must happen late so that thread_exit() doesn't
@@ -736,7 +702,6 @@ thread_schedule_tail(struct thread *prev) {
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) {
     ASSERT(prev != cur);
     palloc_free_page(prev);
-    //printf("one thread left\n");
   }
 }
 

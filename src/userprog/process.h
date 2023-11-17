@@ -6,25 +6,23 @@
 #include "threads/synch.h"
 #include <stdlib.h>
 
-#define MAX_ARGS 1024
+#define MAX_ARGS 570
 #define WORD_ALIGN_MASK 0xfffffffc
 #define ESP_DECREMENT 4
 
 struct child {
-  tid_t tid;
-  struct list_elem child_elem;
-  int exit_status;
-  bool waited;
+  tid_t tid;                   
+  struct list_elem child_elem;  
+  int exit_status;             
+  bool waited;                 
   bool call_exit;
-  struct semaphore load_sema;
-  struct semaphore exit_sema;
 };
 
 struct file_descriptor {
-  int fd;                   
-  struct file *file;         
-  struct hash_elem elem;
-  bool executing; 
+  int fd;                       
+  struct file *file;            
+  struct hash_elem elem;       
+  bool executing;               
 };
 
 
