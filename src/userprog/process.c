@@ -58,8 +58,7 @@ process_execute (const char *file_name) {
     fn_copy = palloc_get_page (0);
     if (fn_copy == NULL) {
       return TID_ERROR;
-    }
-   
+    } 
     strlcpy (fn_copy, file_name, PGSIZE);
 
     /* Parse the argument strings */
@@ -70,6 +69,13 @@ process_execute (const char *file_name) {
         palloc_free_page(fn_copy);
         return TID_ERROR;
     }
+
+    struct file *executable = filesys_open(process_name);
+    if (executable == NULL) {
+      palloc_free_page(fn_copy);
+      return TID_ERROR;
+    }
+    file_close(executable);
 
     if (strlen(file_name) - strlen(process_name) > 512) {
         return TID_ERROR;

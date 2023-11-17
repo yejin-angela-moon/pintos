@@ -64,21 +64,7 @@ syscall_handler(struct intr_frame *f) {
     exit(-1);
   }
 
-//   check_user_pointer(f, f->esp);  // check the frame's stack ptr is valid
-//   				  // whoever is dealing with arguments, call the above func on each one
-//   int val = get_user(f->esp);  // check and put user should be used to dereference
-//   if (val == -1)               // or write to location at any user pointer
-//     page_fault(f)
 
-//   if !(put_user(f->esp, 0))    // for any write
-//     page_fault(f);
-
-//   // these checks should ensure that page_fault is only called when a user program
-//   // makes an invalid memory access: if on happens in the kernel during a system call,
-//   // we detect it and kill the program to stop the kernel exploding
-
-
-//  printf("system call!\n");
   int syscall_num = *(int *) (f->esp);
 
   switch (syscall_num) {
