@@ -6,7 +6,7 @@
 #include "threads/synch.h"
 #include <stdlib.h>
 
-#define MAX_ARGS 570
+#define MAX_ARGS 1024
 #define WORD_ALIGN_MASK 0xfffffffc
 #define ESP_DECREMENT 4
 

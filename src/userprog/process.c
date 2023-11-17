@@ -39,12 +39,20 @@ process_execute (const char *file_name)
   char *fn_copy;
   tid_t tid;
 
-  /* Make a copy of FILE_NAME.
+  /* Make a copy of FILE_NAME to obtain just the process name.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+
+  char *fn_copy2;
+  /* Make a copy of FILE_NAME to pass for the args.
+     Otherwise there's a race between the caller and load(). */
+  fn_copy2 = palloc_get_page (0);
+  if (fn_copy2 == NULL)
+    return TID_ERROR;
+  strlcpy (fn_copy2, file_name, PGSIZE);
 
   /* Parse the argement strings */
   char *save_ptr;
@@ -61,10 +69,10 @@ process_execute (const char *file_name)
  }
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy);
-
+  tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy2);
+  palloc_free_page(fn_copy);
   if (tid == TID_ERROR) {
-    palloc_free_page (fn_copy);
+    palloc_free_page (fn_copy2);
   } else {
     lock_acquire(&thread_current()->cp_manager.children_lock);
     struct child *child = malloc (sizeof(*child));
@@ -146,18 +154,18 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   /* Parse file name into arguments */
-  char *token, *save_ptr; 
+  char *token, *save_ptr;
   int argc = 0;
   char **argv = palloc_get_page(0);
   char *process_name = strtok_r(file_name, " ", &save_ptr);
   argv[argc++] = process_name;
 
   /* Parse file_name and save arguments in argv */
-  for (token = strtok_r (process_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+  for (token = strtok_r (NULL, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
     argv[argc++] = token;
-    // if (argc == 570) {
-    //   break;
-    // }
+     if (argc == MAX_ARGS) {
+       break;
+     }
   }
 
   /* Terminate argv */
@@ -188,7 +196,7 @@ start_process (void *file_name_)
 
   /* Set up the stack. Push arguments from right to left. */
   setup_stack_populate(argv, argc, &if_.esp);
-
+  palloc_free_page (argv);
   palloc_free_page (file_name);  
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
