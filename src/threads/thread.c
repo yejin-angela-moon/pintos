@@ -592,7 +592,6 @@ init_thread(struct thread *t, const char *name, int priority) {
   t->magic = THREAD_MAGIC;
   lock_init(&t->wait_lock);
   list_init(&t->locks);
-  
   t->init_fd = false;
   list_init (&t->cp_manager.children_list);
   lock_init (&t->cp_manager.children_lock);

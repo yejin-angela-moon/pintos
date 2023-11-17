@@ -25,8 +25,8 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp);
 
-int argc = 0;
-char *argv[MAX_ARGS];
+// int argc = 0;
+// char *argv[MAX_ARGS];
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -38,12 +38,20 @@ process_execute (const char *file_name)
   char *fn_copy;
   tid_t tid;
 
-  /* Make a copy of FILE_NAME.
+  /* Make a copy of FILE_NAME to obtain just the process name.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+
+  char *fn_copy2;
+  /* Make a copy of FILE_NAME to pass for the args.
+     Otherwise there's a race between the caller and load(). */
+  fn_copy2 = palloc_get_page (0);
+  if (fn_copy2 == NULL)
+    return TID_ERROR;
+  strlcpy (fn_copy2, file_name, PGSIZE);
 
   /* Parse the argement strings */
   char *save_ptr;
@@ -60,28 +68,13 @@ process_execute (const char *file_name)
    return TID_ERROR;
   }
 
-  /* Parse file name into arguments */
-  char *token; 
-  argc = 0;
-  argv[argc++] = process_name;
-  
-  /* Parse file_name and save arguments in argv */
-  for (token = strtok_r (NULL, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
-    
-    argv[argc++] = token;
-    if (argc == 570) { //TODO should not be an arb. no.
-      break;
-    }
-  }
-  /* Terminate argv */
-  argv[argc] = NULL;
-
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy2);
+  palloc_free_page(fn_copy);
   if (tid == TID_ERROR) {
-    palloc_free_page (fn_copy);
+    palloc_free_page (fn_copy2);
   } else {
- lock_acquire(&thread_current()->cp_manager.children_lock);
+    lock_acquire(&thread_current()->cp_manager.children_lock);
     struct child *child = malloc (sizeof(*child));
     if (child != NULL) {
       child->tid = tid;  
@@ -112,12 +105,10 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
       strlength = strlen(argv[i]);
     }
     length += strlength + 1;
-  
     *esp = *esp - strlength - 1;
-    memcpy(*esp, argv[i], strlength + 1);
+    memcpy(*esp, argv[i], strlength + 1);   
     argv_addresses[i] = (uint32_t) *esp;
   }
-
   /* Word-align the stack pointer */
   *esp -= ESP_DECREMENT - length % ESP_DECREMENT;
 
@@ -145,6 +136,7 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
   * (uint32_t *) *esp = 0x0;
 }
 
+
 /* A thread function that loads a user process and starts it
    running. */
 static void
@@ -153,12 +145,30 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
- 
+
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+
+  /* Parse file name into arguments */
+  char *token, *save_ptr;
+  int argc = 0;
+  char **argv = palloc_get_page(0);
+  char *process_name = strtok_r(file_name, " ", &save_ptr);
+  argv[argc++] = process_name;
+
+  /* Parse file_name and save arguments in argv */
+  for (token = strtok_r (NULL, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+    argv[argc++] = token;
+     if (argc == MAX_ARGS) {
+       break;
+     }
+  }
+
+  /* Terminate argv */
+  argv[argc] = NULL;
 
   /* Load the actual process in the the thread */
   success = load (file_name, &if_.eip, &if_.esp);
@@ -179,14 +189,15 @@ start_process (void *file_name_)
 
   /* Set up the stack. Push arguments from right to left. */
   setup_stack_populate(argv, argc, &if_.esp);
-
+  palloc_free_page (argv);
   palloc_free_page (file_name);  
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
      arguments on the stack in the form of a `struct intr_frame',
      we just point the stack pointer (%esp) to our stack frame
-     and jump to it. */
+     and jump to it. 
+     s*/
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
 }
@@ -201,7 +212,7 @@ start_process (void *file_name_)
  * This function will be implemented in task 2.
  * For now, it does nothing. */
 int
-process_wait (tid_t child_tid)
+process_wait(tid_t child_tid)
 {
   /* Return TID_ERROR if the child_tid is invalid. */
   if (child_tid == TID_ERROR) {
@@ -251,7 +262,6 @@ process_wait (tid_t child_tid)
     }
     
     lock_release(&cur->cp_manager.children_lock);
-    
     return status;  
   }
 }
@@ -412,17 +422,15 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (t->pagedir == NULL)
     goto done;
   process_activate ();
-//printf("file name: %s, try open it", file_name);
+
   /* Open executable file. */
   file = filesys_open (file_name);
-  //printf("end the file open line");
   if (file == NULL)
   {
     printf ("load: %s: open failed\n", file_name);
     goto done;
   }
 
-  //printf("open file ");
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -435,7 +443,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
     printf ("load: %s: error loading executable\n", file_name);
     goto done;
   }
-//printf("read program");
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++)
@@ -640,7 +647,6 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
-
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL)
   {
