@@ -759,7 +759,8 @@ struct child *find_or_create_child(tid_t pid, struct child_parent_manager *cp_ma
     new_child->exit_status = -1;  // Default exit status
     new_child->waited = false;
     new_child->call_exit = false;
-    sema_init(&new_child->load_sema, 0);  // Initialize semaphore
+    sema_init(&new_child->load_sema, 0);  // Initialize semaphores
+    sema_init(&new_child->exit_sema, 0);
 
     // Add the new child to the list
     list_push_back(&cp_manager->children_list, &new_child->child_elem);

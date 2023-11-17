@@ -185,6 +185,7 @@ exit(int status) {
   struct thread *parent = get_thread_by_tid(cur->parent_tid);
   if (parent != NULL && parent->tid != 1) {
     struct child *child = find_child_in_cp_manager(cur->tid, &parent->cp_manager);
+    //sema_up(&child->exit_sema);
     lock_acquire(&parent->cp_manager.children_lock);
     child->exit_status = status;
     child->call_exit = true;
@@ -234,6 +235,10 @@ wait(pid_t pid) {
   /*int status = process_wait(pid);
   if (status == -1) {
     exit(-1);
+  }*/
+  /*struct child *child = find_child_in_cp_manager(pid, &thread_current()->cp_manager);
+  if (child != NULL) {
+    sema_down(&child->exit_sema);
   }*/
   return process_wait(pid);
 }
