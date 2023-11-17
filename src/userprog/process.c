@@ -26,8 +26,8 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp);
 
-int argc = 0;
-char *argv[MAX_ARGS];
+// int argc = 0;
+// char *argv[MAX_ARGS];
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -59,22 +59,6 @@ process_execute (const char *file_name)
  if (strlen(file_name) - strlen(process_name) > 512) {
    return TID_ERROR;
  }
-
-    /* Parse file name into arguments */
-  char *token; 
-  argc = 0;
-  argv[argc++] = process_name;
-
-  /* Parse file_name and save arguments in argv */
-  for (token = strtok_r (NULL, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
-    argv[argc++] = token;
-    if (argc == 570) { //TODO should not be an arb. no.
-      break;
-    }
-  }
-
-  /* Terminate argv */
-  argv[argc] = NULL;
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy);
@@ -160,6 +144,24 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+
+  /* Parse file name into arguments */
+  char *token, *save_ptr; 
+  int argc = 0;
+  char **argv = palloc_get_page(0);
+  char *process_name = strtok_r(file_name, " ", &save_ptr);
+  argv[argc++] = process_name;
+
+  /* Parse file_name and save arguments in argv */
+  for (token = strtok_r (process_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+    argv[argc++] = token;
+    // if (argc == 570) {
+    //   break;
+    // }
+  }
+
+  /* Terminate argv */
+  argv[argc] = NULL;
 
   /* Load the actual process in the the thread */
   success = load (file_name, &if_.eip, &if_.esp);
