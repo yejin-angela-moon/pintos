@@ -164,13 +164,13 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
   }
 //printf("end for after putting all args\n");
   /* Word-align the stack pointer */
-  *esp -= 4 - length % 4;
+  *esp -= ESP_DECREMENT - length % ESP_DECREMENT;
 //  *esp = (void *) (((unsigned int) *esp) & WORD_ALIGN_MASK);
 
 //printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push a null pointer sentinel */
-  *esp -= 4;
+  *esp -= ESP_DECREMENT;
   //printf("what happenin\n\n\ng");
   *(uint32_t *) *esp = 0x0;
 //printf("null ptr in esp\n");
@@ -181,7 +181,7 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
     //*esp -= sizeof(char *);
     //*(void **) *esp = (char *) argv_addresses[i];
     //printf("i = %d\n", i);
-    *esp -= 4;
+    *esp -= ESP_DECREMENT;
     * (uint32_t *) *esp = argv_addresses[i];
     //printf("addr of [] in esp: %x\n", *(uint32_t*) *esp);
     //printf("addr: %x\n", (uint32_t) *esp);
@@ -192,7 +192,7 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
 
   /* Push address of argv */
   void *argv0_addr = *esp;
-  *esp -= 4;
+  *esp -= ESP_DECREMENT;
   *(void **) *esp = argv0_addr;
   //printf("argv in esp: %x\n", *(uint32_t*) *esp);
   //printf("addr: %x\n",  (uint32_t) *esp);
@@ -204,7 +204,7 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
   //printf("addr: %x\n",  (uint32_t) *esp);
 
   /* Push fake return address */
-  *esp -= 4;
+  *esp -= ESP_DECREMENT;
   * (uint32_t *) *esp = 0x0;
 
   //printf("false addr in esp: %d\n",  *(uint32_t *) *esp);
@@ -262,7 +262,7 @@ start_process (void *file_name_)
   //  printf("parent tid is %d\n", cur->parent_tid);
     struct thread *parent = get_thread_by_tid(cur->parent_tid);
  //   printf("get parent thread");
-    if (parent != NULL && parent->tid != 1) {
+    if (parent != NULL) {// && parent->tid != 1) {
     //  printf("parnet no null and try acquire lock\n");
 //       lock_init(&parent->children_lock);
       lock_acquire(&parent->children_lock);
@@ -295,14 +295,14 @@ start_process (void *file_name_)
   NOT_REACHED ();
 }
 
-
-/*struct child *
-get_child_by_thread(struct thread *thread) {
-  struct thread *parent = get_thread_by_tid (thread->parent_tid);
-  struct child *child;
+/*
+struct thread *
+get_thread_by_child(struct child *child) {
+  struct thread *cur = thread_current();
+  struct list 
   lock_acquire(&parent->children_lock);
   if (parent != NULL  && parent->tid != 1) {
-    for (struct list_elem *e = list_begin(&parent->children); e != list_end(&parent->children); e = list_next(e)) {
+    for (struct list_elem *e = list_begin(&allelem); e != list_end(&parent->children); e = list_next(e)) {
       child = list_entry(e, struct child, child_elem);
       if (child->tid == thread->tid){
         break;
@@ -435,6 +435,23 @@ process_exit (void)
   while (!list_empty(&cur->children)) {
     struct list_elem *e = list_pop_front(&cur->children);
     struct child *child = list_entry (e, struct child, child_elem);
+    //free(child);
+  /*  struct thread *thread = get_thread_by_tid(child->tid);
+    struct hash_iterator i;
+ // if (!hash_empty(&thread->fd_table)) {
+  hash_first(&i, &thread->fd_table);
+  while (hash_next(&i)) {
+//        struct hash_elem *e = hash_cur(&i);
+    //struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
+    //file_close(fd->file);
+    struct hash_elem *e = hash_delete(&thread->fd_table, &hash_entry(hash_cur(&i), struct file_descriptor, elem)->elem);
+    struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
+    file_close(fd->file);
+    free(fd); //TODO using free, the rox test fail
+    }
+  //}
+  hash_destroy(&thread->fd_table, NULL);
+  */
     free(child);
   }
   //printf("freed all child");
@@ -442,25 +459,27 @@ process_exit (void)
   if (parent != NULL)
     {
       lock_acquire (&parent->children_lock);
-      if (parent->load_result == 0)
+      if (parent->load_result == 0) {
 	parent->load_result = -1;
+      }
     //  printf("cond sign with parent %d and child %d\n", parent->tid, cur->tid);
-      cond_signal (&parent->children_cond, &parent->children_lock);
+      cond_broadcast (&parent->children_cond, &parent->children_lock);
       lock_release (&parent->children_lock);
     }
- 
+ /*
   struct hash_iterator i;
   if (!hash_empty(&cur->fd_table)) {  
   hash_first(&i, &cur->fd_table);
   while (hash_next(&i)) {
 //	  struct hash_elem *e = hash_cur(&i);
-    struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
-    file_close(fd->file);
-    hash_delete(&cur->fd_table, &fd->elem);
-//    free(fd); //TODO using free, the rox test fail
-    } 
-  }
-  hash_destroy(&cur->fd_table, NULL);
+   struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
+   hash_delete(&cur->fd_table, &fd->elem); 
+   file_close(fd->file);
+    //hash_delete(&cur->fd_table, &fd->elem);
+    free(fd); //TODO using free, the rox test fail
+   
+  }}
+  hash_destroy(&cur->fd_table, NULL);*/
   
 }
 

@@ -193,24 +193,27 @@ exit(int status) {
   struct thread *cur = thread_current();
   printf ("%s: exit(%d)\n", cur->name, status);
   struct thread *parent = get_thread_by_tid (cur->parent_tid);
-  if (parent != NULL  && parent->tid != 1) {
-  /*struct child *child;
-  for (struct list_elem *e = list_begin(&parent_children); e != list_end(&parent_children); e = list_next(e)) {
-    child = list_entry(e, struct child, child_elem);
-    if (child->tid == cur->tid){
-      break;
-    }
-  }*/
-    
+  if (parent != NULL  && parent->tid != 1) { 
     struct child *child = get_child_by_thread(cur);
     lock_acquire(&parent->children_lock);
 
     child->exit_status = status;
   //printf("bwforw tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
     child->call_exit = true;
-
+    
     lock_release(&parent->children_lock);
   }
+  struct hash_iterator i;
+  if (!hash_empty(&cur->fd_table)) {
+  hash_first(&i, &cur->fd_table);
+  while (hash_next(&i)) {
+//        struct hash_elem *e = hash_cur(&i);
+    struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
+    //hash_delete(&cur->fd_table, &fd->elem);
+    close(fd->fd);
+    }
+  }
+  hash_destroy(&cur->fd_table, NULL);
   thread_exit();
 }
 
@@ -526,7 +529,7 @@ process_remove_fd(int fd) {
   if (fd != -1) {
     hash_delete(&thread_current()->fd_table, &fd_struct->elem);
     file_close(fd_struct->file);
-    free(fd_struct);
+//    free(fd_struct);  //TODO must free this
   }
-}
+} 
 
