@@ -186,9 +186,18 @@ halt(void) {
   shutdown_power_off();
 }
 
+static void free_fd(struct hash_elem *e, void *aux UNUSED) {
+  struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
+  file_close(fd->file);
+ // printf("almost free");
+  free(fd);
+  //printf("after free");
+}
+
+
 void
 exit(int status) {
-  //printf("exit syscall\n");
+  //printf("exit syscall with cur tid %d\n", thread_current()->tid);
   //lock_acquire(&cur->lock_children);
   struct thread *cur = thread_current();
   printf ("%s: exit(%d)\n", cur->name, status);
@@ -203,18 +212,37 @@ exit(int status) {
     
     lock_release(&parent->children_lock);
   }
+//  printf("before closing file hash size %d\n", hash_size(&cur->fd_table));
   struct hash_iterator i;
-  if (!hash_empty(&cur->fd_table)) {
+  /*if (!hash_empty(&cur->fd_table)) {
   hash_first(&i, &cur->fd_table);
+  int size = hash_size(&cur->fd_table);
+  int count = 0;
   while (hash_next(&i)) {
+	  count++;
+ // for (int count = 0; count < size; count ++) {
+ //    printf("in while loop\n");
 //        struct hash_elem *e = hash_cur(&i);
     struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
+    printf("getting the fd");
     //hash_delete(&cur->fd_table, &fd->elem);
     close(fd->fd);
-    }
+    if (count == size)
+      break;
+  } 
   }
-  hash_destroy(&cur->fd_table, NULL);
+  printf("after closing file\n");
+  hash_destroy(&cur->fd_table, NULL);*/
+ /* if (!hash_empty(&cur->fd_table)) {
+    hash_first(&i, &cur->fd_table);
+    while (hash_next(&i)) {
+      struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
+      close(fd->fd);
+    }
+  }*/
+  hash_destroy(&cur->fd_table, free_fd);
   thread_exit();
+  //printf("after thread exi\nt");
 }
 
 pid_t
@@ -298,6 +326,7 @@ remove(const char *file) {
 
 int
 open(const char *file) {
+//	printf("open a file fo tid %d\n", thread_current()->tid);
   check_user(file);
   if (file == NULL) {
     exit(-1);
@@ -525,11 +554,12 @@ process_add_fd(struct file *file, bool executing) {
 void
 process_remove_fd(int fd) {
   struct file_descriptor *fd_struct = process_get_fd(fd);
-
+  //printf("removing fd from tid %d\n", thread_current()->tid);
   if (fd != -1) {
     hash_delete(&thread_current()->fd_table, &fd_struct->elem);
     file_close(fd_struct->file);
-//    free(fd_struct);  //TODO must free this
+  //  free(fd_struct);  //TODO must free this
+    //printf("after free\n");
   }
 } 
 
