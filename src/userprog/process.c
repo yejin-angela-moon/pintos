@@ -432,17 +432,10 @@ process_exit (void)
   //printf("cur tid %d with parent tid %d\n", cur->tid, cur->parent_tid);
   //struct list_elem *e = list_begin(&cur->children);
  // list_remove(&cur->child.child_elem);
-  for (struct list_elem *e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
-  //  printf("hi i am in loop");
-  //  while (!list_empty(&cur->children)) {
-//	    e = list_next(e);
-      //list_remove(e);
-      struct child *child = list_entry (e, struct child, child_elem);
-    //  printf("child tid %d\n", child->tid);
-      list_remove(e);
-//      free(child); //TODO i still dont know why we cannot free it
-  //  }
-  //  printf("end if in one for loop\n");
+  while (!list_empty(&cur->children)) {
+    struct list_elem *e = list_pop_front(&cur->children);
+    struct child *child = list_entry (e, struct child, child_elem);
+    free(child);
   }
   //printf("freed all child");
   struct thread *parent = get_thread_by_tid (cur->parent_tid);
