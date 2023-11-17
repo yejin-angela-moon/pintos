@@ -11,15 +11,10 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-
 #include "threads/fixed-point.c"
 #include "devices/timer.h"
 #include <inttypes.h>
-/////////
-
-#ifdef USERPROG
 #include "userprog/process.h"
-#endif
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -60,9 +55,6 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
 static unsigned thread_ticks;
-/* # of timer ticks since last yield. */
-//static int64_t ticks;
-//static int64_t timer_ticks;
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -380,7 +372,7 @@ thread_tid(void) {
 void
 thread_exit(void) {
   ASSERT(!intr_context());
-
+  
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -388,10 +380,13 @@ thread_exit(void) {
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
+  
   intr_disable();
   list_remove(&thread_current()->allelem);
   thread_current()->status = THREAD_DYING;
+  
   schedule();
+
   NOT_REACHED();
 }
 
@@ -504,6 +499,14 @@ thread_get_recent_cpu(void) {
   return fp_to_int_round_nearest(fp_mul_int(thread_current()->recent_cpu, 100));
 }
 
+struct thread *get_thread_by_tid(tid_t tid) {
+  for (struct list_elem *e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e)) {
+    if (list_entry(e, struct thread, allelem)->tid == tid) {
+      return list_entry(e, struct thread, allelem);
+    }
+  }
+  return NULL;
+}
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -589,6 +592,12 @@ init_thread(struct thread *t, const char *name, int priority) {
   t->magic = THREAD_MAGIC;
   lock_init(&t->wait_lock);
   list_init(&t->locks);
+  
+  t->init_fd = false;
+  list_init (&t->cp_manager.children_list);
+  lock_init (&t->cp_manager.children_lock);
+  cond_init (&t->cp_manager.children_cond);
+  t->cp_manager.load_result = 0;
 
   if (thread_mlfqs) {
     if (t != initial_thread) {

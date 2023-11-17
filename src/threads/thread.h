@@ -1,11 +1,12 @@
 #ifndef THREADS_THREAD_H
-#define THREADS_THREAD_H
+ #define THREADS_THREAD_H
 
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
 #include <threads/synch.h>
 #include <threads/fixed-point.h>
+#include <lib/kernel/hash.h>
 
 /* States in a thread's life cycle. */
 enum thread_status {
@@ -24,6 +25,14 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+struct child_parent_manager {
+   struct list children_list;
+   struct lock children_lock;
+   struct condition children_cond;
+   int load_result;
+};
+
 
 /* A kernel thread or user process.
 
@@ -93,6 +102,12 @@ struct thread {
     struct list locks;                  /* List of locks held by the thread. */
     struct lock wait_lock;              /* Lock that the thread is attempting to acquire, but still waiting for. */
 
+    struct hash fd_table;               /* File descriptor table. */
+    bool init_fd;
+
+    tid_t parent_tid;
+    struct child_parent_manager cp_manager;
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
     fixed_t recent_cpu;
@@ -101,20 +116,18 @@ struct thread {
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    
 #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 };
 
+
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "mlfqs". */
 extern bool thread_mlfqs;
-
-//static struct thread *idle_thread;
-
-//extern int64_t ticks;
 
 struct list mlfqueues[PRI_MAX];
 
@@ -182,6 +195,7 @@ void recalculate_recent_cpu_all(void);
 
 void calculate_priority(struct thread *t);
 
+struct thread *get_thread_by_tid(tid_t tid);
 
 #endif /* threads/thread.h */
 
