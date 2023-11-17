@@ -1,5 +1,4 @@
 #include "userprog/syscall.h"
-#include "userprog/pagedir.h"
 #include "userprog/process.h"
 #include "userprog/exception.h"
 #include <stdio.h>
@@ -14,6 +13,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "threads/malloc.h"
+#include "userprog/pagedir.h"
 
 struct lock syscall_lock;
 
@@ -57,18 +57,31 @@ syscall_init(void) {
 
 static void
 syscall_handler(struct intr_frame *f) {
-  if (!thread_current()->init_fd) {
-    hash_init(&thread_current()->fd_table, fd_hash, fd_less, NULL);
-    thread_current()->init_fd = true;
-  }
+	if (!thread_current()->init_fd) {
+          hash_init(&thread_current()->fd_table, fd_hash, fd_less, NULL);
+          thread_current()->init_fd = true;	  
+	}
 
+//   check_user_pointer(f, f->esp);  // check the frame's stack ptr is valid
+//   				  // whoever is dealing with arguments, call the above func on each one
+//   int val = get_user(f->esp);  // check and put user should be used to dereference
+//   if (val == -1)               // or write to location at any user pointer
+//     page_fault(f)
+
+//   if !(put_user(f->esp, 0))    // for any write
+//     page_fault(f);
+
+//   // these checks should ensure that page_fault is only called when a user program
+//   // makes an invalid memory access: if on happens in the kernel during a system call,
+//   // we detect it and kill the program to stop the kernel exploding
+
+
+//  printf("system call!\n");
   if (!is_user_vaddr(f->esp) || f->esp < (void *) 0x08048000) {
     exit(-1);
   }
 
-
   int syscall_num = *(int *) (f->esp);
-
   switch (syscall_num) {
     case SYS_HALT: { /* Halts Pintos */
       halt();
@@ -82,13 +95,14 @@ syscall_handler(struct intr_frame *f) {
     }
     case SYS_EXEC: { /**/  // added cast to line below: fixes warning but is it safe?
       check_user(f->esp + 4);
-      const char *cmd_line = *((const char **) (f->esp + 4)); // if status...
+    //  const char *cmd_line = (char *) get_user(f->esp + 4); // if status...
+      const char *cmd_line = *((const char **) (f->esp + 4));
       f->eax = (uint32_t) exec(cmd_line);
       break;
     }
     case SYS_WAIT: {
       check_user(f->esp + 4);
-      pid_t pid = *((pid_t *) (f->esp + 4));
+      pid_t pid = *((pid_t * )(f->esp + 4));
       f->eax = (uint32_t) wait(pid);
       break;
     }
@@ -175,25 +189,74 @@ halt(void) {
 static void free_fd(struct hash_elem *e, void *aux UNUSED) {
   struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
   file_close(fd->file);
+  //printf("almost free");
   free(fd);
+  //printf("after free");
 }
+
+
+static struct child *find_child_in_cp_manager(tid_t tid, struct child_parent_manager *cp_manager) {
+    if (cp_manager == NULL) {
+        return NULL;
+    }
+    struct list_elem *e;
+    for (e = list_begin(&cp_manager->children_list); e != list_end(&cp_manager->children_list); e = list_next(e)) {
+        struct child *c = list_entry(e, struct child, child_elem);
+        if (c->tid == tid) {
+            return c;          
+	}
+    }
+    return NULL;  
+}
+
 
 void
 exit(int status) {
-  printf("current tid %d is now exiting\n", thread_current()->tid);
+//  printf("exit syscall with cur tid %d\n", thread_current()->tid);
+  //lock_acquire(&cur->lock_children);
   struct thread *cur = thread_current();
   printf ("%s: exit(%d)\n", cur->name, status);
- 
-  struct thread *parent = get_thread_by_tid(cur->parent_tid);
-  if (parent != NULL && parent->tid != 1) {
+  struct thread *parent = get_thread_by_tid (cur->parent_tid);
+  if (parent != NULL  && parent->tid != 1) { 
     struct child *child = find_child_in_cp_manager(cur->tid, &parent->cp_manager);
     lock_acquire(&parent->cp_manager.children_lock);
+
     child->exit_status = status;
+  //printf("bwforw tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
     child->call_exit = true;
+    
     lock_release(&parent->cp_manager.children_lock);
   }
+//  printf("before closing file hash size %d\n", hash_size(&cur->fd_table));
   //struct hash_iterator i;
+  /*if (!hash_empty(&cur->fd_table)) {
+  hash_first(&i, &cur->fd_table);
+  int size = hash_size(&cur->fd_table);
+  int count = 0;
+  while (hash_next(&i)) {
+	  count++;
+ // for (int count = 0; count < size; count ++) {
+ //    printf("in while loop\n");
+//        struct hash_elem *e = hash_cur(&i);
+    struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
+    printf("getting the fd");
+    //hash_delete(&cur->fd_table, &fd->elem);
+    close(fd->fd);
+    if (count == size)
+      break;
+  } 
+  }
+  printf("after closing file\n");
+  hash_destroy(&cur->fd_table, NULL);*/
+ /* if (!hash_empty(&cur->fd_table)) {
+    hash_first(&i, &cur->fd_table);
+    while (hash_next(&i)) {
+      struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
+      close(fd->fd);
+    }
+  }*/
   hash_destroy(&cur->fd_table, free_fd);
+  //printf("after closing\n");
   thread_exit();
   //printf("after thread exi\nt");
 }
@@ -201,32 +264,52 @@ exit(int status) {
 pid_t
 exec(const char *cmd_line) {
   // Check if the command line pointer is valid
-  printf("the cmd line is %s\n", cmd_line);
   check_user(cmd_line);
   if (cmd_line == NULL || !is_user_vaddr(cmd_line)) {
     return -1;
   }
-
-  /* Create a new process and check if failed */
+   // printf("cmd line is %s of tid %d\n", cmd_line, thread_current()->tid);
+  // Load and execute the new process
+ // lock_acquire(&thread_current()->children_lock);
   pid_t pid = process_execute(cmd_line);
-  if (pid == TID_ERROR) {
+  //printf("end process execute\n");
+  if (pid == -1) {
+	  //printf("get -1 from process execute\n");
     return pid;
   }
-
   struct thread *cur = thread_current();
+  //printf("the current thread in exec with tid %d\n", cur->tid);
   lock_acquire(&cur->cp_manager.children_lock);
+ // printf("acquired lock in exec\n");
+//  while(true) {
+  //struct child *child = get_child_by_thread(cur);
   cur->cp_manager.load_result = 0;
-
-  while (cur->cp_manager.load_result == 0) {
-    cond_wait(&cur->cp_manager.children_cond, &cur->cp_manager.children_lock);
+  //printf("cur load %d\n", cur->load_result);
+  while(cur->cp_manager.load_result == 0) {
+  //while (true){
+  //   if (cur->child.exit_status == -1) {
+   //    return -1;
+   //  } else if (cur->child.exit_status != 0) {
+   //    break;
+    // }
+     cond_wait(&cur->cp_manager.children_cond, &cur->cp_manager.children_lock);
   }
-printf("after cond wait load result is %d for tid %d\n", cur->cp_manager.load_result, cur->tid);
-  if (&cur->cp_manager.load_result == -1) {
-  //get_thread_by_tid(cur->parent_tid)->cp_manager.load_result = -1;
+ // printf("cur load after cond wait %d of tid %d\n", cur->load_result, cur->tid);
+  if (cur->cp_manager.load_result == -1) {
+  // get_thread_by_tid(cur->parent_tid)->load_result = -1;
+   // exit(-1);
     pid = -1;
+  }/* else if (cur->load_result != 0) {
+	  break;
   }
-
+  }*/
+  
   lock_release(&cur->cp_manager.children_lock);
+  //lock_release(&thread_current()->children_lock);
+//  if (pid == TID_ERROR) {
+ //   return -1;
+  //}
+ // printf("the return pid is %d\n", pid);
   return pid;
 
 }
@@ -242,10 +325,10 @@ wait(pid_t pid) {
   return process_wait(pid);
 }
 
-
 bool
 create(const char *file, unsigned initial_size) {
-  check_user(file);
+//	printf("valid addr: %lld", (uint8_t) atoi(file));
+    check_user(file);
   if (file == NULL) {
     exit(-1);
     return false;
@@ -286,7 +369,6 @@ open(const char *file) {
   lock_release(&syscall_lock);
   return status;
 }
-
  
 int 
 filesize(int fd) {
@@ -309,6 +391,8 @@ read(int fd, void *buffer, unsigned size) {
   int read_size;
   lock_acquire(&syscall_lock);
   if (fd == 0) {
+    // Reading from the keyboard
+ //   printf("fd = 0\n");
     unsigned i;
     for (i = 0; i < size; i++) {
       ((uint8_t *) buffer)[i] = input_getc();
@@ -328,8 +412,6 @@ read(int fd, void *buffer, unsigned size) {
   return read_size;
 }
 
-
-
 int
 write(int fd, const void *buffer, unsigned size) {
  // printf("write \n");
@@ -340,9 +422,17 @@ write(int fd, const void *buffer, unsigned size) {
     int linesToPut;
     for (uint32_t j = 0; j < size; j += MAX_CONSOLE_WRITE) {  // max 200B at a time, j US so can compare with size
       linesToPut = (size < j + MAX_CONSOLE_WRITE) ? (size % MAX_CONSOLE_WRITE) : (j + MAX_CONSOLE_WRITE);
+     // printf("line to put %d", linesToPut);
       putbuf(buffer + j, linesToPut);
     }
     write_size = size;
+  
+ /* uint32_t i;  // TODO check fd+i in handler for writing
+  for (i = 0; i < size; i++) {
+    if (!put_user((uint8_t*)(fd+i), size)) // added cast not sure if thats cool
+      break;
+  }
+  return i;*/
   } else if (size == 0) {
     write_size = size;
   } else {
@@ -359,7 +449,6 @@ write(int fd, const void *buffer, unsigned size) {
   return write_size;
 }
 
-
 void
 seek(int fd , unsigned position) {
   lock_acquire(&syscall_lock);
@@ -371,7 +460,6 @@ seek(int fd , unsigned position) {
   lock_release(&syscall_lock);
   //}
 }
-
 
 unsigned
 tell(int fd) {
@@ -388,7 +476,6 @@ tell(int fd) {
   lock_release(&syscall_lock);
   return position;
 }
-
 
 void
 close(int fd) {
@@ -426,17 +513,14 @@ get_child_by_thread(struct thread *thread) {
 }
 */
 void
-check_user (void *ptr)
-{
+check_user (void *ptr) {
 // don't need to worry about code running after as it kills the process
-  struct thread *t = thread_current();
-  uint8_t *uaddr = ptr;
-  if (!is_user_vaddr((void *) ptr) || (pagedir_get_page(t->pagedir, uaddr) == NULL)) {
-    exit(-1);
-  }
-  
+    struct thread *t = thread_current();
+    uint8_t *uaddr = ptr;
+    if (!is_user_vaddr((void *) ptr) || (pagedir_get_page(t->pagedir, uaddr) == NULL)) {
+        exit(-1);
+    }
 }
-
 // credit to pintos manual:
 /* Reads a byte at user virtual address UADDR.
  * Returns the byte value if successful, -1 if a segfault
@@ -480,7 +564,7 @@ process_add_fd(struct file *file, bool executing) {
   struct file_descriptor *fd = malloc(sizeof(struct file_descriptor));
  
   if (fd == NULL) return -1;
-
+//printf("executing is %d\n", executing);
   fd->file = file;
   fd->fd = next_fd++;
   fd->executing = executing;
@@ -502,4 +586,5 @@ process_remove_fd(int fd) {
     //printf("after free\n");
   }
 } 
+
 
