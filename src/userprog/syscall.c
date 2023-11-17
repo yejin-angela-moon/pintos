@@ -163,13 +163,6 @@ halt(void) {
   shutdown_power_off();
 }
 
-/* Close the file and free the file_descriptor. */
-static void free_fd(struct hash_elem *e, void *aux UNUSED) {
-  struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
-  file_close(fd->file);
-  free(fd);
-}
-
 /* Find the child by the tid and the cp_manager. */
 static struct child *find_child_in_cp_manager(tid_t tid, struct child_parent_manager *cp_manager) {
     if (cp_manager == NULL) {
@@ -199,9 +192,6 @@ exit(int status) {
     child->call_exit = true;    
     lock_release(&parent->cp_manager.children_lock);
   }
-
-  /* Destroy the fd_table with free_fd. */
-  hash_destroy(&cur->fd_table, free_fd);
  
   thread_exit();
 }

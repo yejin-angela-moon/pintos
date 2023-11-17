@@ -268,12 +268,23 @@ process_wait(tid_t child_tid)
   }
 }
 
+/* Close the file and free the file_descriptor. */
+static void free_fd(struct hash_elem *e, void *aux UNUSED) {
+  struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
+  file_close(fd->file);
+  free(fd);
+}
+
+
 /* Free the current process's resources. */
 void
 process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+
+  /* Destroy the fd_table with free_fd. */
+  hash_destroy(&cur->fd_table, free_fd);
 
   /* Free all the locks that current thread hold. */
   for (struct list_elem *e = list_begin(&cur->locks); e != list_end(&cur->locks);
@@ -311,9 +322,7 @@ process_exit (void)
     lock_acquire (&parent->cp_manager.children_lock);
     cond_broadcast (&parent->cp_manager.children_cond, &parent->cp_manager.children_lock);
     lock_release (&parent->cp_manager.children_lock);
-  }
-  //hash_destroy(&cur->fd_table, NULL);
-   
+  }  
 }
 
 /* Sets up the CPU for running user code in the current
