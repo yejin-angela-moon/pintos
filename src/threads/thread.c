@@ -15,7 +15,6 @@
 #include "threads/fixed-point.c"
 #include "devices/timer.h"
 #include <inttypes.h>
-/////////
 
 //#ifdef USERPROG
 #include "userprog/process.h"
@@ -112,7 +111,11 @@ thread_init(void)
   init_thread(initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid();
-  //printf("tid for thread just init %d\n", initial_thread->tid);
+
+  //lock_init(&initial_thread->cp_manager.children_lock);
+  //list_init(&initial_thread->cp_manager.children_list);
+  //cond_init(&initial_thread->cp_manager.children_cond);
+
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -304,6 +307,12 @@ thread_create(const char *name, int priority,
 
   intr_set_level(old_level);
 
+  /* Add the child process to a child list */
+  //t->parent = thread_tid();
+  //struct child *c = add_child_process(t->tid);
+  //t->cp_manager = c;
+
+
   /* Add to run queue. */
   thread_unblock(t);
   if (thread_current()->donated_priority < t->donated_priority) {
@@ -385,8 +394,7 @@ thread_tid(void) {
 void
 thread_exit(void) {
   ASSERT(!intr_context());
-  //printf("in te tid %d call_exit now is %d\n", thread_current()->tid, thread_current()->child.call_exit);
-//printf("thread exit\n");
+
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -394,19 +402,13 @@ thread_exit(void) {
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
-  //printf("after the process_exit function\n");
   intr_disable();
-//  list_remove(&thread_current()->child_elem);
   list_remove(&thread_current()->allelem);
-  //printf("remove elem from allelem\n");
-  //struct list_elem *e = &thread_current()->child.child_elem;
-  //printf("in te tid %d call_exit now is %d\n", thread_current()->tid, list_entry(e, struct child, child_elem)->call_exit);;
+
   thread_current()->status = THREAD_DYING;
-  //printf("ready to schedule\n");
   schedule();
   printf("finish schedule\n");
   NOT_REACHED();
-  //printf("thread exited\n");
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and
@@ -593,9 +595,6 @@ is_thread(struct thread *t) {
   return t != NULL && t->magic == THREAD_MAGIC;
 }
 
-//unsigned fd_hash(const struct hash_elem *e, void *aux);
-//bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
-
 /* Hash function to generate a hash value from a file descriptor. */
 /*unsigned
 fd_hash(const struct hash_elem *e, void *aux UNUSED) {
@@ -630,11 +629,13 @@ init_thread(struct thread *t, const char *name, int priority) {
   t->magic = THREAD_MAGIC;
   lock_init(&t->wait_lock);
   list_init(&t->locks);
-  list_init(&t->children);
+  list_init(&t->cp_manager.children_list);
   //t->waited = false; 
   //t->call_exit = false;
-  lock_init (&t->children_lock);
-  cond_init (&t->children_cond);
+  lock_init (&t->cp_manager.children_lock);
+  cond_init (&t->cp_manager.children_cond);
+  lock_init (&t->cp_manager.manager_lock);
+  list_init (&t->cp_manager.children_list);
   t->init_fd = false;
 //  printf("init thread\n");
 
@@ -706,7 +707,6 @@ thread_schedule_tail(struct thread *prev) {
   /* Mark us as running. */
   cur->status = THREAD_RUNNING;
 
-  //printf("tst");
   /* Start new time slice. */
   thread_ticks = 0;
 
@@ -714,8 +714,6 @@ thread_schedule_tail(struct thread *prev) {
   /* Activate the new address space. */
   process_activate ();
 #endif
-
-  //printf("process avtivated\n");
 
   /* If the thread we switched from is dying, destroy its struct
      thread.  This must happen late so that thread_exit() doesn't
@@ -725,7 +723,7 @@ thread_schedule_tail(struct thread *prev) {
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) {
     ASSERT(prev != cur);
     palloc_free_page(prev);
-    //printf("one thread left\n");
+
   }
 }
 
@@ -749,7 +747,7 @@ schedule(void) {
   if (cur != next)
     prev = switch_threads(cur, next);
   thread_schedule_tail(prev);
- // printf("tst\n");
+
 }
 
 /* Returns a tid to use for a new thread. */

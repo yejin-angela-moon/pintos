@@ -8,12 +8,24 @@
 #include <threads/fixed-point.h>
 #include <lib/kernel/hash.h>
 
+
+/* If false (default), use round-robin scheduler.
+   If true, use multi-level feedback queue scheduler.
+   Controlled by kernel command-line option "mlfqs". */
+extern bool thread_mlfqs;
+
 /* States in a thread's life cycle. */
 enum thread_status {
     THREAD_RUNNING,     /* Running thread. */
     THREAD_READY,       /* Not running but ready to run. */
     THREAD_BLOCKED,     /* Waiting for an event to trigger. */
     THREAD_DYING        /* About to be destroyed. */
+};
+
+enum load_status {
+   NOT_LOADED,
+   LOAD_FAILED,
+   LOADED
 };
 
 /* Thread identifier type.
@@ -25,14 +37,15 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
-/*
-struct child {
-    tid_t tid;
-    struct list_elem child_elem;
-    int exit_status;
-    bool waited;
-    bool call_exit;
-};*/
+
+
+struct child_parent_manager {
+   struct lock manager_lock;
+   struct list children_list;
+   struct lock children_lock;
+   struct condition children_cond;
+   int load_result;
+};
 
 /* A kernel thread or user process.
 
@@ -102,16 +115,20 @@ struct thread {
     struct list locks;                  /* List of locks held by the thread. */
     struct lock wait_lock;              /* Lock that the thread is attempting to acquire, but still waiting for. */
 
-    struct list children;
+    //struct list children;
 
     ///struct child child;
-    struct lock children_lock;
-    struct condition children_cond;
+    //struct lock children_lock;
+    //struct condition children_cond;
+
+    struct child_parent_manager cp_manager;
+    //struct file *executable;
 
     struct hash fd_table;               /* File descriptor table. */
     bool init_fd;
     tid_t parent_tid;
-    int load_result;
+
+    //int load_result;
 
  /*   struct list_elem child_elem;
     int exit_status;
@@ -132,12 +149,6 @@ struct thread {
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 };
-
-
-/* If false (default), use round-robin scheduler.
-   If true, use multi-level feedback queue scheduler.
-   Controlled by kernel command-line option "mlfqs". */
-extern bool thread_mlfqs;
 
 //static struct thread *idle_thread;
 
