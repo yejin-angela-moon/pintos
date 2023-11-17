@@ -281,7 +281,7 @@ exec(const char *cmd_line) {
   }
  // printf("cur load after cond wait %d of tid %d\n", cur->load_result, cur->tid);
   if (cur->load_result == -1) {
-   get_thread_by_tid(cur->parent_tid)->load_result = -1;
+  // get_thread_by_tid(cur->parent_tid)->load_result = -1;
    // exit(-1);
     pid = -1;
   }/* else if (cur->load_result != 0) {
@@ -567,7 +567,7 @@ process_remove_fd(int fd) {
   if (fd != -1) {
     hash_delete(&thread_current()->fd_table, &fd_struct->elem);
     file_close(fd_struct->file);
-  //  free(fd_struct);  //TODO must free this
+    free(fd_struct);  //TODO must free this
     //printf("after free\n");
   }
 } 
