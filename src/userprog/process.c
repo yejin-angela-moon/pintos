@@ -70,7 +70,9 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy2);
+  /* Freeing process_name fn_copy */
   palloc_free_page(fn_copy);
+
   if (tid == TID_ERROR) {
     palloc_free_page (fn_copy2);
   } else {
@@ -98,9 +100,9 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
  
   for (int i = argc - 1; i >= 0; i--) {
     int strlength = 0;
-    if (strlen(argv[i]) >= 1005) { //TODO
-      strlength = 1005;
-      argv[i][1005] = '\0';
+    if (strlen(argv[i]) >= PGSIZE) {
+      strlength = PGSIZE;
+      argv[i][PGSIZE] = '\0';
     } else {
       strlength = strlen(argv[i]);
     }
@@ -156,13 +158,16 @@ start_process (void *file_name_)
   char *token, *save_ptr;
   int argc = 0;
   char **argv = palloc_get_page(0);
+  if (argv == NULL){
+    thread_exit ();
+  }
   char *process_name = strtok_r(file_name, " ", &save_ptr);
   argv[argc++] = process_name;
 
   /* Parse file_name and save arguments in argv */
   for (token = strtok_r (NULL, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
     argv[argc++] = token;
-     if (argc == MAX_ARGS) {
+     if (argc == MAX_ARGS - 1) {
        break;
      }
   }

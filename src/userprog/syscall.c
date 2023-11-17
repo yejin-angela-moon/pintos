@@ -56,10 +56,11 @@ syscall_handler(struct intr_frame *f) {
   }
 
   /* Call exit(-1) for invalid esp. */
-  if (!is_user_vaddr(f->esp) || f->esp < (void *) 0x08048000) {
+  if (!is_user_vaddr(f->esp)) {
     exit(-1);
   }
 
+  /* Casting syscall_num into an int */
   int syscall_num = *(int *) (f->esp);
   switch (syscall_num) {
     case SYS_HALT: {      /* Halts Pintos */
