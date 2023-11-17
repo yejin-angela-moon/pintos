@@ -3,6 +3,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define MAX_CONSOLE_WRITE 200
+#define FIRST_FD_NUMBER 2
+
 typedef int pid_t;
 
 void syscall_init (void);

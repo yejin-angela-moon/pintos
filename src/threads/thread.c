@@ -15,7 +15,6 @@
 #include "threads/fixed-point.c"
 #include "devices/timer.h"
 #include <inttypes.h>
-/////////
 
 //#ifdef USERPROG
 #include "userprog/process.h"
@@ -113,9 +112,9 @@ thread_init(void)
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid();
 
-  lock_init(&initial_thread->cp_manager.manager_lock);
-  list_init(&initial_thread->cp_manager.children_list);
-  cond_init(&initial_thread->cp_manager.children_cond);
+  //lock_init(&initial_thread->cp_manager.children_lock);
+  //list_init(&initial_thread->cp_manager.children_list);
+  //cond_init(&initial_thread->cp_manager.children_cond);
 
 }
 
@@ -596,9 +595,6 @@ is_thread(struct thread *t) {
   return t != NULL && t->magic == THREAD_MAGIC;
 }
 
-//unsigned fd_hash(const struct hash_elem *e, void *aux);
-//bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
-
 /* Hash function to generate a hash value from a file descriptor. */
 /*unsigned
 fd_hash(const struct hash_elem *e, void *aux UNUSED) {
@@ -636,7 +632,7 @@ init_thread(struct thread *t, const char *name, int priority) {
   list_init(&t->cp_manager.children_list);
   //t->waited = false; 
   //t->call_exit = false;
-  lock_init (&t->children_lock);
+  lock_init (&t->cp_manager.children_lock);
   cond_init (&t->cp_manager.children_cond);
   lock_init (&t->cp_manager.manager_lock);
   list_init (&t->cp_manager.children_list);
@@ -711,7 +707,6 @@ thread_schedule_tail(struct thread *prev) {
   /* Mark us as running. */
   cur->status = THREAD_RUNNING;
 
-  //printf("tst");
   /* Start new time slice. */
   thread_ticks = 0;
 
@@ -719,8 +714,6 @@ thread_schedule_tail(struct thread *prev) {
   /* Activate the new address space. */
   process_activate ();
 #endif
-
-  //printf("process avtivated\n");
 
   /* If the thread we switched from is dying, destroy its struct
      thread.  This must happen late so that thread_exit() doesn't
@@ -730,7 +723,7 @@ thread_schedule_tail(struct thread *prev) {
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) {
     ASSERT(prev != cur);
     palloc_free_page(prev);
-    //printf("one thread left\n");
+
   }
 }
 
@@ -754,7 +747,7 @@ schedule(void) {
   if (cur != next)
     prev = switch_threads(cur, next);
   thread_schedule_tail(prev);
- // printf("tst\n");
+
 }
 
 /* Returns a tid to use for a new thread. */

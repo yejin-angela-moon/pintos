@@ -38,20 +38,11 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
-struct child {
-    tid_t tid;
-    struct list_elem child_elem;        /* List element for children list. */
-    int exit_status;
-    bool waited;
-    bool call_exit;
-    int load_result;
-    struct semaphore exit_sema;
-    struct semaphore load_sema;
-};
 
 struct child_parent_manager {
    struct lock manager_lock;
    struct list children_list;
+   struct lock children_lock;
    struct condition children_cond;
    int load_result;
 };
@@ -127,11 +118,11 @@ struct thread {
     //struct list children;
 
     ///struct child child;
-    struct lock children_lock;
+    //struct lock children_lock;
     //struct condition children_cond;
 
     struct child_parent_manager cp_manager;
-    struct file *executable;
+    //struct file *executable;
 
     struct hash fd_table;               /* File descriptor table. */
     bool init_fd;

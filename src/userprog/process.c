@@ -26,8 +26,8 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp);
 
- int argc = 0;
- char *argv[MAX_ARGS];
+int argc = 0;
+char *argv[MAX_ARGS];
 
 /* Hash function to generate a hash value from a file descriptor. */
 /*unsigned 
@@ -56,8 +56,10 @@ process_execute (const char *file_name) {
 
     /* Make a copy of FILE_NAME. */
     fn_copy = palloc_get_page (0);
-    if (fn_copy == NULL)
-        return TID_ERROR;
+    if (fn_copy == NULL) {
+      return TID_ERROR;
+    }
+   
     strlcpy (fn_copy, file_name, PGSIZE);
 
     /* Parse the argument strings */
@@ -73,32 +75,36 @@ process_execute (const char *file_name) {
         return TID_ERROR;
     }
 
+    char *token;
+    argc = 0;
+    argv[argc++] = process_name;
+
+    for (token = strtok_r(NULL, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+      argv[argc++] = token;
+      if (argc == 570) {
+        break;
+      }
+    }
+    argv[argc] = NULL;
+
     /* Create a new thread to execute FILE_NAME. */
     tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy);
     if (tid == TID_ERROR) {
         palloc_free_page(fn_copy);
-        return tid;
+        //return tid;
+    } else {
+      lock_acquire(&thread_current()->cp_manager.children_lock);
+      struct child *child = malloc(sizeof(*child));
+      if (child != NULL) {
+        child->tid = tid;
+        child->waited = false;
+        child->call_exit = false;
+        child->exit_status = 0;
+        get_thread_by_tid(tid)->parent_tid = thread_current()->tid;
+        list_push_back(&thread_current()->cp_manager.children_list, &child->child_elem);
+      }
+      lock_release(&thread_current()->cp_manager.children_lock);
     }
-
-    struct thread *cur = thread_current();
-    struct child_parent_manager *cp_manager = &cur->cp_manager;
-
-    lock_acquire(&cp_manager->manager_lock);
-
-    struct child *child = find_or_create_child(tid, cp_manager);
-    if (child == NULL) {
-        lock_release(&cp_manager->manager_lock);
-        return TID_ERROR;
-    }
-
-    child->waited = false;
-    child->call_exit = false;
-    child->exit_status = 0;
-    child->load_result = 0; 
-    sema_init(&child->load_sema, 0);  
-
-    lock_release(&cp_manager->manager_lock);
-
     return tid;
 }
 
@@ -110,28 +116,36 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
  
   int length = 0;
   for (int i = argc - 1; i >= 0; i--) {
-    *esp = *esp - strlen(argv[i]) - 1;
-    memcpy(*esp, argv[i], strlen(argv[i]) + 1);
+    int strlength = 0;
+    if (strlen(argv[i]) >= 1005) {
+      strlength = 1005;
+      argv[i][1005] = '\0';
+    } else {
+      strlength = strlen(argv[i]);
+    }
+    length += strlength + 1;
+
+    *esp = *esp - strlength - 1;
+    memcpy(*esp, argv[i], strlength + 1);
    
-    length += strlen(argv[i]) + 1;
     argv_addresses[i] = (uint32_t) *esp;
   }
   /* Word-align the stack pointer */
-  *esp -= 4 - length % 4;
+  *esp -= ESP_DECREMENT - length % ESP_DECREMENT;
 
   /* Push a null pointer sentinel */
-  *esp -= 4;
-  *(uint32_t *) *esp = (uint32_t) NULL;
+  *esp -= ESP_DECREMENT;
+  *(uint32_t *) *esp = 0x0;
 
   /* Push the addresses of arguments */
   for (int i = argc - 1; i >= 0; i--) {
-    *esp -= 4;
+    *esp -= ESP_DECREMENT;
     * (uint32_t *) *esp = argv_addresses[i];
   }
 
   /* Push address of argv */
   void *argv0_addr = *esp;
-  *esp -= 4;
+  *esp -= ESP_DECREMENT;
   *(void **) *esp = argv0_addr;
 
   /* Push argc */
@@ -139,7 +153,7 @@ void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
   *(int *) *esp = argc;
 
   /* Push fake return address */
-  *esp -= 4;
+  *esp -= ESP_DECREMENT;
   * (uint32_t *) *esp = 0x0;
 
 }
@@ -160,28 +174,29 @@ start_process (void *file_name_) {
 
   success = load(file_name, &if_.eip, &if_.esp);
 
+  int status;
+  if (!success) {
+    status = -1;
+  } else {
+    status = 1;
+  }
+
   struct thread *cur = thread_current();
   struct thread *parent = get_thread_by_tid(cur->parent_tid);
   if (parent != NULL) {
-    struct child_parent_manager *cp_manager = &parent->cp_manager;
-    lock_acquire(&cp_manager->manager_lock);
+    //struct child_parent_manager *cp_manager = &parent->cp_manager;
+    lock_acquire(&parent->cp_manager.children_lock);
 
-    struct child *child = find_child_in_cp_manager(cur->tid, cp_manager);
-    if (child != NULL) {
-      child->load_result = success ? 1 : -1;  // Set load result
-      cond_signal(&cp_manager->children_cond, &cp_manager->manager_lock);  // Signal the parent
-    }
-
-    lock_release(&cp_manager->manager_lock);
+    parent->cp_manager.load_result = status;
+    cond_signal(&parent->cp_manager.children_cond, &parent->cp_manager.children_lock);
+    lock_release(&parent->cp_manager.children_lock);
   }
-
   if (!success) {
-    palloc_free_page(file_name);
     thread_exit();
   }
-
   setup_stack_populate(argv, argc, &if_.esp);
   palloc_free_page(file_name);
+
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -191,25 +206,6 @@ start_process (void *file_name_) {
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
 
-}
-
-struct child *
-get_child_by_thread(struct thread *thread) {
-  struct thread *parent = get_thread_by_tid (thread->parent_tid);
-  struct child *child = NULL;
-  struct child_parent_manager *cp_manager = &parent->cp_manager;
-  lock_acquire(&parent->children_lock);
-  struct list *children = &cp_manager->children_list;
-  if (parent != NULL  && parent->tid != 1) {
-    for (struct list_elem *e = list_begin(children); e != list_end(children); e = list_next(e)) {
-      child = list_entry(e, struct child, child_elem);
-      if (child->tid == thread->tid){
-        break;
-      }
-    }
-  }
-  lock_release(&parent->children_lock);
-  return child;
 }
 
 
@@ -226,38 +222,56 @@ int
 process_wait (tid_t child_tid)
 {
   if (child_tid == TID_ERROR) {
-	  printf("tid error\n");
+	 // printf("tid error\n");
     return TID_ERROR;
   }
+  bool isChild = false;
   struct thread *cur = thread_current();
-  struct child *child = NULL;
-  int exit_status = -1;
-  lock_acquire(&cur->children_lock);
+  //struct child *child = NULL;
+  //int exit_status = -1;
+  lock_acquire(&cur->cp_manager.children_lock);
   struct list_elem *e;
-  for (e = list_begin(&cur->cp_manager.children_list); e != list_end(&cur->cp_manager.children_list); e = list_next(e)) {
-    struct child *c = list_entry(e, struct child, child_elem);
-    if (c->tid == child_tid) {
-      child = c;
+  for (e = list_begin(&cur->cp_manager.children_list); 
+      e != list_end(&cur->cp_manager.children_list); 
+      e = list_next(e)) {
+    //struct child *c = list_entry(e, struct child, child_elem);
+    if (list_entry(e, struct child, child_elem)->tid == child_tid) {
+      isChild = true;
       break;
     }
+    //if (c->tid == child_tid) {
+      //child = c;
+      //break;
+    //}
   }
-
-  if (child == NULL || child->waited) {
-    lock_release(&cur->children_lock);
+  lock_release(&cur->cp_manager.children_lock);
+  if (!isChild) {
     return TID_ERROR;
-  } 
-
+  }
+  struct child *child = list_entry(e, struct child, child_elem);
+  if (child->waited) {
+    return TID_ERROR;
+  }
   child->waited = true;
-  if (!child->call_exit) {
-    sema_down(&child->exit_sema);
+  int status = -100;
+
+  lock_acquire(&cur->cp_manager.children_lock);
+  while (get_thread_by_tid(child_tid) != NULL) {
+    cond_wait(&cur->cp_manager.children_cond, &cur->cp_manager.children_lock);
   }
 
-  exit_status = child->exit_status;
+  if (get_thread_by_tid(child_tid) == NULL) {
+    child = list_entry(e, struct child, child_elem);
+    if (child->call_exit) {
+      status = child->exit_status;
+    } else {
+      status = TID_ERROR;
+    }
+  }
+  lock_release(&cur->cp_manager.children_lock);
+  return status;
 
-  lock_release(&cur->children_lock);
-  return exit_status;  
-
-}
+ }
 
 /* Free the current process's resources. */
 void
@@ -266,10 +280,10 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-  while (!list_empty(&cur->locks))
+  for (struct list_elem *e = list_begin(&cur->locks); e != list_end(&cur->locks); e = list_next(e)) 
   {
-    struct lock *lock = list_entry(list_pop_front(&cur->locks), struct lock, lock_elem);
-    lock_release(lock);
+    //struct lock *lock = list_entry(list_pop_front(&cur->locks), struct lock, lock_elem);
+    lock_release(list_entry(e, struct lock, lock_elem));
   }
   // TODO maybe free all user program mallocs?
 
@@ -290,22 +304,34 @@ process_exit (void)
     pagedir_destroy (pd);
   }
 
-  while (!list_empty(&cur->cp_manager.children_list)) {  
+  while (!list_empty(&cur->cp_manager.children_list)) {
     struct list_elem *e = list_pop_front(&cur->cp_manager.children_list);
-    struct child *c = list_entry(e, struct child, child_elem);
-    free(c);
+    struct child *child = list_entry(e, struct child, child_elem);
+    free(child);
   }
 
-  struct hash_iterator i;
-  
-  hash_first(&i, &cur->fd_table);
-  while (hash_next(&i)) {
-    struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
-    file_close(fd->file);
-    hash_delete(&cur->fd_table, &fd->elem);
-    free(fd);
+  struct thread *parent = get_thread_by_tid(cur->parent_tid);
+  if (parent != NULL) {
+    lock_acquire(&parent->cp_manager.children_lock);
+    if (parent->cp_manager.load_result == 0) {
+      parent->cp_manager.load_result = -1;
+    }
+    cond_broadcast(&parent->cp_manager.children_cond, &parent->cp_manager.children_lock);
+    lock_release(&parent->cp_manager.children_lock);
   }
-  hash_destroy(&cur->fd_table, NULL);
+
+  /*struct hash_iterator i;
+
+  if (!hash_empty(&cur->fd_table)) {
+    hash_first(&i, &cur->fd_table);
+    while (hash_next(&i)) {
+      struct file_descriptor *fd = hash_entry(hash_cur(&i), struct file_descriptor, elem);
+      file_close(fd->file);
+      hash_delete(&cur->fd_table, &fd->elem);
+    }
+  }
+ 
+  hash_destroy(&cur->fd_table, NULL);*/
 }
 
 /* Sets up the CPU for running user code in the current
@@ -420,7 +446,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   }
   file_deny_write(file);
-  t->executable = file;
+  //t->executable = file;
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -506,7 +532,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* We arrive here whether the load is successful or not. */
 
   /* Signal the parent process about the load status. */
-  struct thread *parent_thread = get_thread_by_tid(t->parent_tid);
+  /*struct thread *parent_thread = get_thread_by_tid(t->parent_tid);
   if (parent_thread != NULL) {
     struct child_parent_manager *cp_manager = &parent_thread->cp_manager;
     lock_acquire(&cp_manager->manager_lock);
@@ -517,10 +543,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
       sema_up(&child->load_sema);
     }
     lock_release(&cp_manager->manager_lock);
-  }
+  }*/
 
 
-  //file_close (file);
+  file_close (file);
   return success;
 }
 

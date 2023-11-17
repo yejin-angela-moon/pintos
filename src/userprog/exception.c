@@ -121,9 +121,9 @@ kill (struct intr_frame *f)
 static void
 page_fault (struct intr_frame *f) 
 {
-  bool not_present;  /* True: not-present page, false: writing r/o page. */
-  bool write;        /* True: access was write, false: access was read. */
-  bool user;         /* True: access by user, false: access by kernel. */
+  //bool not_present;  /* True: not-present page, false: writing r/o page. */
+  //bool write;        /* True: access was write, false: access was read. */
+  //bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
 
   /* Obtain faulting address, the virtual address that was
@@ -143,9 +143,9 @@ page_fault (struct intr_frame *f)
   page_fault_cnt++;
 
   /* Determine cause. */
-  not_present = (f->error_code & PF_P) == 0;
-  write = (f->error_code & PF_W) != 0;
-  user = (f->error_code & PF_U) != 0;
+  //not_present = (f->error_code & PF_P) == 0;
+  //write = (f->error_code & PF_W) != 0;
+  //user = (f->error_code & PF_U) != 0;
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
@@ -157,7 +157,7 @@ page_fault (struct intr_frame *f)
   //         write ? "writing" : "reading",
   //         user ? "user" : "kernel");
   // kill (f);
-  if (fault_addr == NULL || fault_addr >= LOADER_PHYS_BASE || fault_addr < 0x08048000){
+  if (fault_addr == NULL || (uint32_t) fault_addr >= LOADER_PHYS_BASE || (uint32_t) fault_addr < 0x08048000){
     exit(-1);
   } else if (f->cs == SEL_KCSEG) {
     f->eip = (void (*)(void))f->eax;

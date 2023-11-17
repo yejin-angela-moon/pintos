@@ -17,15 +17,13 @@
 
 struct lock syscall_lock;
 
-struct lock syscall_lock;
-
 static void syscall_handler(struct intr_frame *);
 
 int get_user(const uint8_t *uaddr);
 
 static bool put_user(uint8_t *udst, uint8_t byte);
 
-void check_user(const void * ptr);
+void check_user(void * ptr);
 
 int process_add_fd(struct file *file, bool executing);
 
@@ -53,14 +51,18 @@ syscall_init(void) {
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
-bool first_time = true;
+//bool first_time = true;
 
 static void
 syscall_handler(struct intr_frame *f) {
-	if (first_time) {
-          hash_init(&thread_current()->fd_table, fd_hash, fd_less, NULL);
-          first_time = false;	  
-	}
+  if (!thread_current()->init_fd) {
+    hash_init(&thread_current()->fd_table, fd_hash, fd_less, NULL);
+    thread_current()->init_fd = true;
+  }
+
+  if (!is_user_vaddr(f->esp) || f->esp < (void *) 0x08048000) {
+    exit(-1);
+  }
 
 //   check_user_pointer(f, f->esp);  // check the frame's stack ptr is valid
 //   				  // whoever is dealing with arguments, call the above func on each one
@@ -79,11 +81,6 @@ syscall_handler(struct intr_frame *f) {
 //  printf("system call!\n");
   int syscall_num = *(int *) (f->esp);
 
-  if (!is_user_vaddr(f->esp) || f->esp < (void *) 0x08048000) {
-    exit(-1);
-    return;
-  }
-
   switch (syscall_num) {
     case SYS_HALT: { /* Halts Pintos */
       halt();
@@ -91,43 +88,52 @@ syscall_handler(struct intr_frame *f) {
     }
     case SYS_EXIT: { /* Terminate user process*/
       check_user(f->esp + 4);
-      int status = get_user(f->esp + 4); // if status = -1 page_fault
+      int status = *((unsigned *) (f->esp + 4)); // if status = -1 page_fault
       exit(status);
       break;
     }
     case SYS_EXEC: { /**/  // added cast to line below: fixes warning but is it safe?
       check_user(f->esp + 4);
-      const char *cmd_line = (char *) get_user(f->esp + 4); // if status...
+      const char *cmd_line = *((const char **) (f->esp + 4)); // if status...
       f->eax = (uint32_t) exec(cmd_line);
       break;
     }
     case SYS_WAIT: {
-      pid_t pid = *((pid_t * )(f->esp + 4));
+      check_user(f->esp + 4);
+      pid_t pid = *((pid_t *) (f->esp + 4));
       f->eax = (uint32_t) wait(pid);
       break;
     }
     case SYS_CREATE: { /* Create a file. */
+      check_user(f->esp + 4);
+      check_user(f->esp + 8);
       const char *file = *((const char **) (f->esp + 4));
       unsigned initial_size = *((unsigned *) (f->esp + 8));
       f->eax = (uint32_t) create(file, initial_size);
       break;
     }
     case SYS_REMOVE: { /* Delete a file. */
+      check_user(f->esp + 4);
       const char *file = *((const char **) (f->esp + 4));
       f->eax = (uint32_t) remove(file);
       break;
     }
     case SYS_OPEN: {  /* Open a file. */
+      check_user(f->esp + 4);
       const char *file = *((const char **) (f->esp + 4));
       f->eax = (uint32_t) open(file);
       break;
     }
     case SYS_FILESIZE: { /* Obtain a file's size. */
+      check_user(f->esp + 4);
       int fd = *((int *) (f->esp + 4));
       f->eax = (uint32_t) filesize(fd);
       break;
     }
     case SYS_READ: {  /* Read from a file. */
+      check_user(f->esp + 4);
+      check_user(f->esp + 8);
+      check_user(f->esp + 12);
       int fd = *((int *) (f->esp + 4));
       void *buffer = *((void **) (f->esp + 8));
       unsigned size = *((unsigned *) (f->esp + 12));
@@ -135,6 +141,8 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     case SYS_WRITE: { /* Write to a file. */
+      check_user(f->esp + 4);
+      check_user(f->esp + 8);
       int fd = *((int *) (f->esp + 4));
       // maybe should be: int fd = get_user(f->esp + 4);
       const void *buffer = *((const void **)(f->esp + 8));
@@ -144,23 +152,27 @@ syscall_handler(struct intr_frame *f) {
       break;
     }
     case SYS_SEEK: { /* Change position in a file. */
+      check_user(f->esp + 4);
+      check_user(f->esp + 8);
       int fd = *((int *) (f->esp + 4));
       unsigned position = *((unsigned *) (f->esp + 8));
       seek(fd, position);
       break;
     }
     case SYS_TELL: { /* Report current position in a file. */
+      check_user(f->esp + 4);
       int fd = *((int *) (f->esp + 4));
       f->eax = (uint32_t) tell(fd);
       break;
     }
     case SYS_CLOSE: {
+      check_user(f->esp + 4);
       int fd = *((int *) (f->esp + 4));
       close(fd);
       break;
     }
     default: {
-      //exit(-1);
+      exit(-1);
       break;
     }
   }
@@ -172,25 +184,28 @@ halt(void) {
   shutdown_power_off();
 }
 
+static void free_fd(struct hash_elem *e, void *aux UNUSED) {
+  struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
+  file_close(fd->file);
+  free(fd);
+}
+
 void
 exit(int status) {
 
   struct thread *cur = thread_current();
   printf ("%s: exit(%d)\n", cur->name, status);
 
-  struct thread *parent_thread = get_thread_by_tid(cur->parent_tid);
-  if (parent_thread != NULL) {
-    struct child_parent_manager *cp_manager = &parent_thread->cp_manager;
-    lock_acquire(&cp_manager->manager_lock);
-
-    struct child *child = find_child_in_cp_manager(cur->tid, cp_manager);
-    if (child != NULL) {
-      child->exit_status = status;
-      child->call_exit = true;
-      sema_up(&child->exit_sema);
-    }
-    lock_release(&cp_manager->manager_lock);
+  struct thread *parent = get_thread_by_tid(cur->parent_tid);
+  if (parent != NULL && parent->tid != 1) {
+    struct child *child = find_child_in_cp_manager(cur->tid, &parent->cp_manager);
+    lock_acquire(&parent->cp_manager.children_lock);
+    child->exit_status = status;
+    child->call_exit = true;
+    lock_release(&parent->cp_manager.children_lock);
   }
+  struct hash_iterator i;
+  hash_destroy(&cur->fd_table, free_fd);
   thread_exit();
 }
 
@@ -204,41 +219,24 @@ exec(const char *cmd_line) {
 
   /* Create a new process and check if failed */
   pid_t pid = process_execute(cmd_line);
-  if (pid == -1) {
+  if (pid == TID_ERROR) {
     return pid;
   }
 
-  /* Allocate memory for a new child process. */
-  struct child *new_child = malloc(sizeof(struct child));
-  if (new_child == NULL) { 
-    return -1; 
-  }
-
-  /* Initilise the child structure. */
-  new_child->tid = pid;
-  new_child->exit_status = -1; /* default value */
-  new_child->waited = false;
-  new_child->call_exit = false;
-  sema_init(&new_child->load_sema, 0);
-
-  /* Add the child to the parent's list.
-     The cp_manager in each parent thread contains a list of all its children. */
   struct thread *cur = thread_current();
-  struct thread *parent_thread = get_thread_by_tid(cur->parent_tid);
-  if (parent_thread != NULL) {
-    struct child_parent_manager *cp_manager = &parent_thread->cp_manager;
-    lock_acquire(&cp_manager->manager_lock);
-    cp_manager->load_result = 0;
-    lock_release(&cp_manager->manager_lock);
+  lock_acquire(&cur->cp_manager.children_lock);
+  cur->cp_manager.load_result = 0;
+
+  while (cur->cp_manager.load_result == 0) {
+    cond_wait(&cur->cp_manager.children_cond, &cur->cp_manager.children_lock);
   }
-  //cur->child.load_result = 0;
-  lock_acquire(&cur->cp_manager.manager_lock);
-  list_push_back(&cur->cp_manager.children_list, &new_child->child_elem);
-  lock_release(&cur->cp_manager.manager_lock);
 
-  /* Wait for the child to finish loading. */
-  sema_down(&new_child->load_sema);
+  if (&cur->cp_manager.load_result == -1) {
+    get_thread_by_tid(cur->parent_tid)->cp_manager.load_result = -1;
+    pid = -1;
+  }
 
+  lock_release(&cur->cp_manager.children_lock);
   return pid;
 
 }
@@ -257,6 +255,7 @@ wait(pid_t pid) {
 
 bool
 create(const char *file, unsigned initial_size) {
+  check_user(file);
   if (file == NULL) {
     exit(-1);
     return false;
@@ -319,8 +318,6 @@ read(int fd, void *buffer, unsigned size) {
   int read_size;
   lock_acquire(&syscall_lock);
   if (fd == 0) {
-    // Reading from the keyboard
- //   printf("fd = 0\n");
     unsigned i;
     for (i = 0; i < size; i++) {
       ((uint8_t *) buffer)[i] = input_getc();
@@ -350,18 +347,11 @@ write(int fd, const void *buffer, unsigned size) {
   lock_acquire(&syscall_lock);
   if (fd == 1) {  // writes to conole
     int linesToPut;
-    for (uint32_t j = 0; j < size; j += 200) {  // max 200B at a time, j US so can compare with size
-      linesToPut = (size < j + 200) ? size : j + 200;
+    for (uint32_t j = 0; j < size; j += MAX_CONSOLE_WRITE) {  // max 200B at a time, j US so can compare with size
+      linesToPut = (size < j + MAX_CONSOLE_WRITE) ? (size % MAX_CONSOLE_WRITE) : (j + MAX_CONSOLE_WRITE);
       putbuf(buffer + j, linesToPut);
     }
     write_size = size;
-  
- /* uint32_t i;  // TODO check fd+i in handler for writing
-  for (i = 0; i < size; i++) {
-    if (!put_user((uint8_t*)(fd+i), size)) // added cast not sure if thats cool
-      break;
-  }
-  return i;*/
   } else if (size == 0) {
     write_size = size;
   } else {
@@ -428,11 +418,11 @@ close(int fd) {
 }
 
 void
-check_user (const void *ptr)
+check_user (void *ptr)
 {
 // don't need to worry about code running after as it kills the process
   struct thread *t = thread_current();
-  const uint8_t *uaddr = ptr;
+  uint8_t *uaddr = ptr;
   if (!is_user_vaddr((void *) ptr) || (pagedir_get_page(t->pagedir, uaddr) == NULL)) {
     exit(-1);
   }
@@ -478,7 +468,7 @@ process_get_fd(int fd) {
 
 int
 process_add_fd(struct file *file, bool executing) {
-  static int next_fd = 2; /* Magic number? after 0 and 1 */
+  static int next_fd = FIRST_FD_NUMBER; /* Magic number? after 0 and 1 */
   struct file_descriptor *fd = malloc(sizeof(struct file_descriptor));
  
   if (fd == NULL) return -1;
@@ -500,7 +490,7 @@ process_remove_fd(int fd) {
   if (fd != -1) {
     hash_delete(&thread_current()->fd_table, &fd_struct->elem);
     file_close(fd_struct->file);
-    free(fd_struct);
+    //free(fd_struct);
   }
 }
 
