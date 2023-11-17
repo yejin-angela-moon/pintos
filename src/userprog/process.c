@@ -9,7 +9,6 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
-
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -64,9 +63,10 @@ process_execute (const char *file_name)
     return TID_ERROR;
   }
 
- if (strlen(file_name) - strlen(process_name) > 512) {
+  /* Prevent stack overflow. */
+  if (strlen(file_name) - strlen(process_name) > 512) {
    return TID_ERROR;
- }
+  }
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy2);
@@ -76,7 +76,6 @@ process_execute (const char *file_name)
   } else {
     lock_acquire(&thread_current()->cp_manager.children_lock);
     struct child *child = malloc (sizeof(*child));
-
     if (child != NULL) {
       child->tid = tid;  
       child->waited = false;
@@ -84,10 +83,10 @@ process_execute (const char *file_name)
       child->exit_status = 0;
       get_thread_by_tid(tid)->parent_tid = thread_current()->tid;
       list_push_back(&thread_current()->cp_manager.children_list, &child->child_elem);
-      
     }
     lock_release(&thread_current()->cp_manager.children_lock);
   }
+  
   return tid;
 }
 
@@ -95,11 +94,11 @@ process_execute (const char *file_name)
 void setup_stack_populate (char *argv[MAX_ARGS], int argc, void **esp) {
   uint32_t argv_addresses[argc];
   *esp = PHYS_BASE;
- 
   int length = 0;
+ 
   for (int i = argc - 1; i >= 0; i--) {
     int strlength = 0;
-    if (strlen(argv[i]) >= 1005) {
+    if (strlen(argv[i]) >= 1005) { //TODO
       strlength = 1005;
       argv[i][1005] = '\0';
     } else {
@@ -174,19 +173,13 @@ start_process (void *file_name_)
   /* Load the actual process in the the thread */
   success = load (file_name, &if_.eip, &if_.esp);
 
-   /* If load failed, quit. */
+  /* Communicate whether the load was successful to its parent. */
   int status = success ? 1 : -1;
-
-  struct thread *cur = thread_current();
-
-  struct thread *parent = get_thread_by_tid(cur->parent_tid);
-
+  struct thread *parent = get_thread_by_tid(thread_current()->parent_tid);
   if (parent != NULL) {
     lock_acquire(&parent->cp_manager.children_lock);
-
     parent->cp_manager.load_result = status;
     cond_signal(&parent->cp_manager.children_cond, &parent->cp_manager.children_lock);
-    
     lock_release(&parent->cp_manager.children_lock);
   }
 
@@ -221,12 +214,16 @@ start_process (void *file_name_)
 int
 process_wait(tid_t child_tid)
 {
+  /* Return TID_ERROR if the child_tid is invalid. */
   if (child_tid == TID_ERROR) {
     return TID_ERROR;
   }
+
   bool isChild = false;
   struct thread *cur = thread_current();
   struct list_elem *e;
+
+  /* Check whether the thread with child_tid is a child of the current thread. */
   lock_acquire(&cur->cp_manager.children_lock);
   for (e = list_begin(&cur->cp_manager.children_list); e != list_end(&cur->cp_manager.children_list); e = list_next(e)) {
     if (list_entry(e, struct child, child_elem)->tid == child_tid) {
@@ -235,29 +232,35 @@ process_wait(tid_t child_tid)
     }
   }
   lock_release(&cur->cp_manager.children_lock);
+
+  /* Return TID_ERROR if it is not a child of the current thread. */
   if (!isChild) {
     return TID_ERROR;
   } else {
     struct child *child = list_entry(e, struct child, child_elem);
+    
+    /* Return TID_ERROR if process_wait has been called on the thread. */
     if (child->waited) {
       return TID_ERROR;
     }
     child->waited = true;
-     int status = -100;
-    
+   
     lock_acquire(&cur->cp_manager.children_lock);
+    
+    /* Wait until the thread exit. */
     while (get_thread_by_tid (child_tid) != NULL) {
-       cond_wait (&cur->cp_manager.children_cond, &cur->cp_manager.children_lock); 
+       cond_wait (&cur->cp_manager.children_cond, &cur->cp_manager.children_lock);
     }
-    if (get_thread_by_tid (child_tid) == NULL) {
- 	 child = list_entry(e, struct child, child_elem);
-         if (child->call_exit) {
-           status = child->exit_status;
-         } else {
-           status =  TID_ERROR;
-         }
+
+    /* Return the exit status if the thread was exited by exit(). Othereise, return TID_ERROR if the thread was terminated by the kernel.*/
+    int status = 0;
+    child = list_entry(e, struct child, child_elem);
+    if (child->call_exit) {
+      status = child->exit_status;
+    } else {
+      status =  TID_ERROR;
     }
-       
+    
     lock_release(&cur->cp_manager.children_lock);
     return status;  
   }
@@ -270,9 +273,9 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  /* Free all the locks that current thread hold. */
   for (struct list_elem *e = list_begin(&cur->locks); e != list_end(&cur->locks);
-          e = list_next(e))
-  {
+          e = list_next(e)){
     lock_release(list_entry(e, struct lock, lock_elem));
   }
 
@@ -292,22 +295,27 @@ process_exit (void)
     pagedir_activate (NULL);
     pagedir_destroy (pd);
   } 
-
+  
+  /* Remove the child_elem from the children_list and free all the child.  */
   while (!list_empty(&cur->cp_manager.children_list)) {
     struct list_elem *e = list_pop_front(&cur->cp_manager.children_list);
     struct child *child = list_entry (e, struct child, child_elem);
-
     free(child);
   }
+
+  /* Communicate the thread is about to exit to its parent. */
   struct thread *parent = get_thread_by_tid (cur->parent_tid);
-  if (parent != NULL)
-    {
-      lock_acquire (&parent->cp_manager.children_lock);
-
-      cond_broadcast (&parent->cp_manager.children_cond, &parent->cp_manager.children_lock);
-
-      lock_release (&parent->cp_manager.children_lock);
-    }
+  if (parent != NULL) {
+    lock_acquire (&parent->cp_manager.children_lock);
+    /* if (parent->load_result == 0) {
+	parent->load_result = -1;
+      }*/
+    cond_broadcast (&parent->cp_manager.children_cond, &parent->cp_manager.children_lock);
+    //cond_signal (&parent->children_cond, &parent->children_lock);
+    lock_release (&parent->cp_manager.children_lock);
+  }
+  //hash_destroy(&cur->fd_table, NULL);
+   
 }
 
 /* Sets up the CPU for running user code in the current
@@ -671,50 +679,4 @@ install_page (void *upage, void *kpage, bool writable)
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
 
-struct child *find_child_in_cp_manager(tid_t tid, struct child_parent_manager *cp_manager) {
-    if (cp_manager == NULL) {
-        return NULL;
-    }
-
-    struct list_elem *e;
-    for (e = list_begin(&cp_manager->children_list); e != list_end(&cp_manager->children_list); e = list_next(e)) {
-        struct child *c = list_entry(e, struct child, child_elem);
-        if (c->tid == tid) {
-            return c;          }
-    }
-
-    return NULL;  
-}
-
-struct child *find_or_create_child(tid_t pid, struct child_parent_manager *cp_manager) {
-    if (cp_manager == NULL) {
-        return NULL;
-    }
-
-    // Search for existing child
-    struct list_elem *e;
-    for (e = list_begin(&cp_manager->children_list); e != list_end(&cp_manager->children_list); e = list_next(e)) {
-        struct child *c = list_entry(e, struct child, child_elem);
-        if (c->tid == pid) {
-            return c;  // Child found
-        }
-    }
-
-    // Create a new child if not found
-    struct child *new_child = malloc(sizeof(struct child));
-    if (new_child == NULL) {
-        return NULL;  // Memory allocation failed
-    }
-
-    // Initialize the new child
-    new_child->tid = pid;
-    new_child->exit_status = -1;  // Default exit status
-    new_child->waited = false;
-    new_child->call_exit = false;
-
-    // Add the new child to the list
-    list_push_back(&cp_manager->children_list, &new_child->child_elem);
-
-    return new_child;
-}
 

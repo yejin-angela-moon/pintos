@@ -1,5 +1,5 @@
 #ifndef THREADS_THREAD_H
-#define THREADS_THREAD_H
+ #define THREADS_THREAD_H
 
 #include <debug.h>
 #include <list.h>
@@ -103,6 +103,7 @@ struct thread {
 
     struct hash fd_table;               /* File descriptor table. */
     bool init_fd;
+
     tid_t parent_tid;
     struct child_parent_manager cp_manager;
 

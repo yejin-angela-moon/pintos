@@ -11,15 +11,10 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-
 #include "threads/fixed-point.c"
 #include "devices/timer.h"
 #include <inttypes.h>
-/////////
-
-//#ifdef USERPROG
 #include "userprog/process.h"
-//#endif
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -60,9 +55,6 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
 static unsigned thread_ticks;
-/* # of timer ticks since last yield. */
-//static int64_t ticks;
-//static int64_t timer_ticks;
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -112,7 +104,6 @@ thread_init(void)
   init_thread(initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid();
-  //printf("tid for thread just init %d\n", initial_thread->tid);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -277,10 +268,6 @@ thread_create(const char *name, int priority,
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
-  //printf("the thread just init with tid %d\n", tid);
-//  t->parent_tid = thread_current()->tid;
-
-  //printf("the thread just init with parent tid %d\n", thread_current()->tid);
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack'
@@ -385,8 +372,7 @@ thread_tid(void) {
 void
 thread_exit(void) {
   ASSERT(!intr_context());
-  //printf("in te tid %d call_exit now is %d\n", thread_current()->tid, thread_current()->child.call_exit);
-//printf("thread exit\n");
+  
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -394,19 +380,14 @@ thread_exit(void) {
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
-  //printf("after the process_exit function\n");
+  
   intr_disable();
-//  list_remove(&thread_current()->child_elem);
   list_remove(&thread_current()->allelem);
-  //printf("remove elem from allelem\n");
-  //struct list_elem *e = &thread_current()->child.child_elem;
-  //printf("in te tid %d call_exit now is %d\n", thread_current()->tid, list_entry(e, struct child, child_elem)->call_exit);;
   thread_current()->status = THREAD_DYING;
-  //printf("ready to schedule\n");
+  
   schedule();
-  printf("finish schedule\n");
+
   NOT_REACHED();
-  //printf("thread exited\n");
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and
@@ -519,7 +500,6 @@ thread_get_recent_cpu(void) {
 }
 
 struct thread *get_thread_by_tid(tid_t tid) {
- // struct thread *target;
   for (struct list_elem *e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e)) {
     if (list_entry(e, struct thread, allelem)->tid == tid) {
       return list_entry(e, struct thread, allelem);
@@ -725,7 +705,6 @@ schedule(void) {
   if (cur != next)
     prev = switch_threads(cur, next);
   thread_schedule_tail(prev);
- // printf("tst\n");
 }
 
 /* Returns a tid to use for a new thread. */

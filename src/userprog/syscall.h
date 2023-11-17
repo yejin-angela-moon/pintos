@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define FAIL -1
 #define MAX_CONSOLE_WRITE 200
 #define FIRST_FD_NUMBER 2
 
@@ -40,7 +41,6 @@ bool hash_less(int a, int b);
 
 struct file_descriptor *process_get_fd(int fd);
 
-//int process_add_fd(struct file *file);
 
 void process_remove_fd(int fd);
 
