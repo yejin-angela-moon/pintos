@@ -115,7 +115,7 @@ process_execute (const char *file_name)
 	  printf("tid error???");
     palloc_free_page (fn_copy);
   } else {
- lock_acquire(&thread_current()->children_lock);
+ lock_acquire(&thread_current()->cp_manager.children_lock);
     struct child *child = malloc (sizeof(*child));
     //printf("make a child\n");
     if (child != NULL) {
@@ -126,10 +126,10 @@ process_execute (const char *file_name)
      // get_thread_by_tid(tid)->child = *child;
       get_thread_by_tid(tid)->parent_tid = thread_current()->tid;
       //printf("a new child tid %d is push to the childe of parent tid %d\n", tid,  thread_current()->tid);
-      list_push_back(&thread_current()->children, &child->child_elem);
+      list_push_back(&thread_current()->cp_manager.children_list, &child->child_elem);
       
     }//printf("create a new thread\n");
-    lock_release(&thread_current()->children_lock);
+    lock_release(&thread_current()->cp_manager.children_lock);
   }
   
   //printf("tid: %d\n", tid);
@@ -268,13 +268,13 @@ start_process (void *file_name_)
     if (parent != NULL) {// && parent->tid != 1) {
     //  printf("parnet no null and try acquire lock\n");
 //       lock_init(&parent->children_lock);
-      lock_acquire(&parent->children_lock);
+      lock_acquire(&parent->cp_manager.children_lock);
   
   //    printf("modifing the load result of tid %d to %d\n" ,cur->tid, status);
       //cur->tid = TID_ERROR;
-      parent->load_result = status;
-      cond_signal(&parent->children_cond, &parent->children_lock);
-      lock_release(&parent->children_lock);
+      parent->cp_manager.load_result = status;
+      cond_signal(&parent->cp_manager.children_cond, &parent->cp_manager.children_lock);
+      lock_release(&parent->cp_manager.children_lock);
     }
     //lock_release(&cur->children_lock);
    //     printf("not success");
@@ -338,14 +338,14 @@ process_wait (tid_t child_tid)
   struct thread *cur = thread_current();
   struct list_elem *e;
 //  printf("see if it a child\n");
-  lock_acquire(&cur->children_lock);
-  for (e = list_begin(&cur->children); e != list_end(&cur->children); e = list_next(e)) {
+  lock_acquire(&cur->cp_manager.children_lock);
+  for (e = list_begin(&cur->cp_manager.children_list); e != list_end(&cur->cp_manager.children_list); e = list_next(e)) {
     if (list_entry(e, struct child, child_elem)->tid == child_tid) {
       isChild = true;
       break;
     }
   }
-  lock_release(&cur->children_lock);
+  lock_release(&cur->cp_manager.children_lock);
   if (!isChild) {
 	 // printf("not child\n");
     return TID_ERROR;
@@ -358,11 +358,11 @@ process_wait (tid_t child_tid)
 //    printf("waited\n");
      int status = -100;
     
-    lock_acquire(&cur->children_lock);
+    lock_acquire(&cur->cp_manager.children_lock);
   //  printf("ready for while loop with cur %d and child %d\n", cur->tid, child->tid);
     while (get_thread_by_tid (child_tid) != NULL) {
    //  while (true) {
-       cond_wait (&cur->children_cond, &cur->children_lock); 
+       cond_wait (&cur->cp_manager.children_cond, &cur->cp_manager.children_lock); 
     }
    //  printf("end cond wait\n");
     //}    // child = list_entry(e, struct child, child_elem);
@@ -388,7 +388,7 @@ process_wait (tid_t child_tid)
      //sema_up(&cur->children);
     }
        
-    lock_release(&cur->children_lock);
+    lock_release(&cur->cp_manager.children_lock);
     //printf("process wait end\n");
     return status;  
   }
@@ -435,8 +435,8 @@ process_exit (void)
   //printf("cur tid %d with parent tid %d\n", cur->tid, cur->parent_tid);
   //struct list_elem *e = list_begin(&cur->children);
  // list_remove(&cur->child.child_elem);
-  while (!list_empty(&cur->children)) {
-    struct list_elem *e = list_pop_front(&cur->children);
+  while (!list_empty(&cur->cp_manager.children_list)) {
+    struct list_elem *e = list_pop_front(&cur->cp_manager.children_list);
     struct child *child = list_entry (e, struct child, child_elem);
     //free(child);
   /*  struct thread *thread = get_thread_by_tid(child->tid);
@@ -461,14 +461,14 @@ process_exit (void)
   struct thread *parent = get_thread_by_tid (cur->parent_tid);
   if (parent != NULL)
     {
-      lock_acquire (&parent->children_lock);
+      lock_acquire (&parent->cp_manager.children_lock);
   /*    if (parent->load_result == 0) {
 	parent->load_result = -1;
       }*/
 //      printf("cond sign with parent %d and child %d\n", parent->tid, cur->tid);
-      cond_broadcast (&parent->children_cond, &parent->children_lock);
+      cond_broadcast (&parent->cp_manager.children_cond, &parent->cp_manager.children_lock);
       //cond_signal (&parent->children_cond, &parent->children_lock);
-      lock_release (&parent->children_lock);
+      lock_release (&parent->cp_manager.children_lock);
     }
  /*
   struct hash_iterator i;

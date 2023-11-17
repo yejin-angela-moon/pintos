@@ -25,7 +25,7 @@ static bool put_user(uint8_t *udst, uint8_t byte);
 
 void check_user(void * ptr);
 
-struct child* get_child_by_thread(struct thread *thread);
+//struct child* get_child_by_thread(struct thread *thread);
 
 int process_add_fd(struct file *file, bool executing);
 
@@ -195,6 +195,21 @@ static void free_fd(struct hash_elem *e, void *aux UNUSED) {
 }
 
 
+static struct child *find_child_in_cp_manager(tid_t tid, struct child_parent_manager *cp_manager) {
+    if (cp_manager == NULL) {
+        return NULL;
+    }
+    struct list_elem *e;
+    for (e = list_begin(&cp_manager->children_list); e != list_end(&cp_manager->children_list); e = list_next(e)) {
+        struct child *c = list_entry(e, struct child, child_elem);
+        if (c->tid == tid) {
+            return c;          
+	}
+    }
+    return NULL;  
+}
+
+
 void
 exit(int status) {
 //  printf("exit syscall with cur tid %d\n", thread_current()->tid);
@@ -203,14 +218,14 @@ exit(int status) {
   printf ("%s: exit(%d)\n", cur->name, status);
   struct thread *parent = get_thread_by_tid (cur->parent_tid);
   if (parent != NULL  && parent->tid != 1) { 
-    struct child *child = get_child_by_thread(cur);
-    lock_acquire(&parent->children_lock);
+    struct child *child = find_child_in_cp_manager(cur->tid, &parent->cp_manager);
+    lock_acquire(&parent->cp_manager.children_lock);
 
     child->exit_status = status;
   //printf("bwforw tid %d call_exit now is %d\n", cur->tid, cur->child.call_exit);
     child->call_exit = true;
     
-    lock_release(&parent->children_lock);
+    lock_release(&parent->cp_manager.children_lock);
   }
 //  printf("before closing file hash size %d\n", hash_size(&cur->fd_table));
   //struct hash_iterator i;
@@ -264,23 +279,23 @@ exec(const char *cmd_line) {
   }
   struct thread *cur = thread_current();
   //printf("the current thread in exec with tid %d\n", cur->tid);
-  lock_acquire(&cur->children_lock);
+  lock_acquire(&cur->cp_manager.children_lock);
  // printf("acquired lock in exec\n");
 //  while(true) {
   //struct child *child = get_child_by_thread(cur);
-  cur->load_result = 0;
+  cur->cp_manager.load_result = 0;
   //printf("cur load %d\n", cur->load_result);
-  while(cur->load_result == 0) {
+  while(cur->cp_manager.load_result == 0) {
   //while (true){
   //   if (cur->child.exit_status == -1) {
    //    return -1;
    //  } else if (cur->child.exit_status != 0) {
    //    break;
     // }
-     cond_wait(&cur->children_cond, &cur->children_lock);
+     cond_wait(&cur->cp_manager.children_cond, &cur->cp_manager.children_lock);
   }
  // printf("cur load after cond wait %d of tid %d\n", cur->load_result, cur->tid);
-  if (cur->load_result == -1) {
+  if (cur->cp_manager.load_result == -1) {
   // get_thread_by_tid(cur->parent_tid)->load_result = -1;
    // exit(-1);
     pid = -1;
@@ -289,7 +304,7 @@ exec(const char *cmd_line) {
   }
   }*/
   
-  lock_release(&cur->children_lock);
+  lock_release(&cur->cp_manager.children_lock);
   //lock_release(&thread_current()->children_lock);
 //  if (pid == TID_ERROR) {
  //   return -1;
@@ -479,7 +494,7 @@ close(int fd) {
   //  exit(-1);
 //  }
 }
-
+/*
 struct child *
 get_child_by_thread(struct thread *thread) {
   struct thread *parent = get_thread_by_tid (thread->parent_tid);
@@ -496,7 +511,7 @@ get_child_by_thread(struct thread *thread) {
   lock_release(&parent->children_lock);
   return child;
 }
-
+*/
 void
 check_user (void *ptr) {
 // don't need to worry about code running after as it kills the process

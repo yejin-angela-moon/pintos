@@ -34,6 +34,15 @@ struct child {
     bool call_exit;
 };*/
 
+struct child_parent_manager {
+ //  struct lock manager_lock;
+   struct list children_list;
+   struct lock children_lock;
+   struct condition children_cond;
+   int load_result;
+};
+
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -102,16 +111,18 @@ struct thread {
     struct list locks;                  /* List of locks held by the thread. */
     struct lock wait_lock;              /* Lock that the thread is attempting to acquire, but still waiting for. */
 
-    struct list children;
+    //struct list children;
 
     ///struct child child;
-    struct lock children_lock;
-    struct condition children_cond;
+   // struct lock children_lock;
+  //  struct condition children_cond;
 
     struct hash fd_table;               /* File descriptor table. */
     bool init_fd;
     tid_t parent_tid;
-    int load_result;
+   // int load_result;
+    struct child_parent_manager cp_manager;
+
 
  /*   struct list_elem child_elem;
     int exit_status;
