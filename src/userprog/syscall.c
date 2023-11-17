@@ -204,7 +204,7 @@ exit(int status) {
     child->call_exit = true;
     lock_release(&parent->cp_manager.children_lock);
   }
-  struct hash_iterator i;
+  //struct hash_iterator i;
   hash_destroy(&cur->fd_table, free_fd);
   thread_exit();
 }

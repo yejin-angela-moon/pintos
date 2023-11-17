@@ -229,8 +229,8 @@ process_wait (tid_t child_tid)
   struct thread *cur = thread_current();
   //struct child *child = NULL;
   //int exit_status = -1;
-  lock_acquire(&cur->cp_manager.children_lock);
   struct list_elem *e;
+  lock_acquire(&cur->cp_manager.children_lock);
   for (e = list_begin(&cur->cp_manager.children_list); 
       e != list_end(&cur->cp_manager.children_list); 
       e = list_next(e)) {
@@ -313,9 +313,9 @@ process_exit (void)
   struct thread *parent = get_thread_by_tid(cur->parent_tid);
   if (parent != NULL) {
     lock_acquire(&parent->cp_manager.children_lock);
-    if (parent->cp_manager.load_result == 0) {
+    /*if (parent->cp_manager.load_result == 0) {
       parent->cp_manager.load_result = -1;
-    }
+    }*/
     cond_broadcast(&parent->cp_manager.children_cond, &parent->cp_manager.children_lock);
     lock_release(&parent->cp_manager.children_lock);
   }
