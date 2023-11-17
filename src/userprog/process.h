@@ -11,18 +11,18 @@
 #define ESP_DECREMENT 4
 
 struct child {
-  tid_t tid;
-  struct list_elem child_elem;
-  int exit_status;
-  bool waited;
+  tid_t tid;                   
+  struct list_elem child_elem;  
+  int exit_status;             
+  bool waited;                 
   bool call_exit;
 };
 
 struct file_descriptor {
-  int fd;                   
-  struct file *file;         
-  struct hash_elem elem;
-  bool executing; 
+  int fd;                       
+  struct file *file;            
+  struct hash_elem elem;       
+  bool executing;               
 };
 
 

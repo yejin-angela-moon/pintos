@@ -22,6 +22,7 @@ static bool put_user(uint8_t *udst, uint8_t byte);
 void check_user(void * ptr);
 int process_add_fd(struct file *file, bool executing);
 unsigned fd_hash(const struct hash_elem *e, void *aux);
+
 bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
 /* Hash function to generate a hash value from a file descriptor. */
@@ -55,10 +56,11 @@ syscall_handler(struct intr_frame *f) {
   }
 
   /* Call exit(-1) for invalid esp. */
-  if (!is_user_vaddr(f->esp) || f->esp < (void *) 0x08048000) {
+  if (!is_user_vaddr(f->esp)) {
     exit(-1);
   }
 
+  /* Casting syscall_num into an int */
   int syscall_num = *(int *) (f->esp);
   switch (syscall_num) {
     case SYS_HALT: {      /* Halts Pintos */
@@ -230,9 +232,7 @@ exec(const char *cmd_line) {
   lock_release(&cur->cp_manager.children_lock);
   
   return pid;
-
 }
-
 
 int
 wait(pid_t pid) {
@@ -308,7 +308,6 @@ filesize(int fd) {
   lock_release(&syscall_lock);
   return size;
 }
-
 
 int
 read(int fd, void *buffer, unsigned size) {
