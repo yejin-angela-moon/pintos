@@ -189,7 +189,7 @@ halt(void) {
 static void free_fd(struct hash_elem *e, void *aux UNUSED) {
   struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
   file_close(fd->file);
- // printf("almost free");
+  //printf("almost free");
   free(fd);
   //printf("after free");
 }
@@ -197,7 +197,7 @@ static void free_fd(struct hash_elem *e, void *aux UNUSED) {
 
 void
 exit(int status) {
-  //printf("exit syscall with cur tid %d\n", thread_current()->tid);
+//  printf("exit syscall with cur tid %d\n", thread_current()->tid);
   //lock_acquire(&cur->lock_children);
   struct thread *cur = thread_current();
   printf ("%s: exit(%d)\n", cur->name, status);
@@ -213,7 +213,7 @@ exit(int status) {
     lock_release(&parent->children_lock);
   }
 //  printf("before closing file hash size %d\n", hash_size(&cur->fd_table));
-  struct hash_iterator i;
+  //struct hash_iterator i;
   /*if (!hash_empty(&cur->fd_table)) {
   hash_first(&i, &cur->fd_table);
   int size = hash_size(&cur->fd_table);
@@ -241,6 +241,7 @@ exit(int status) {
     }
   }*/
   hash_destroy(&cur->fd_table, free_fd);
+  //printf("after closing\n");
   thread_exit();
   //printf("after thread exi\nt");
 }
@@ -252,11 +253,13 @@ exec(const char *cmd_line) {
   if (cmd_line == NULL || !is_user_vaddr(cmd_line)) {
     return -1;
   }
-  //  printf("cmd line is %s\n", cmd_line);
+   // printf("cmd line is %s of tid %d\n", cmd_line, thread_current()->tid);
   // Load and execute the new process
-  //lock_acquire(&thread_current()->children_lock);
+ // lock_acquire(&thread_current()->children_lock);
   pid_t pid = process_execute(cmd_line);
+  //printf("end process execute\n");
   if (pid == -1) {
+	  //printf("get -1 from process execute\n");
     return pid;
   }
   struct thread *cur = thread_current();
@@ -268,24 +271,30 @@ exec(const char *cmd_line) {
   cur->load_result = 0;
   //printf("cur load %d\n", cur->load_result);
   while(cur->load_result == 0) {
+  //while (true){
   //   if (cur->child.exit_status == -1) {
    //    return -1;
    //  } else if (cur->child.exit_status != 0) {
    //    break;
     // }
      cond_wait(&cur->children_cond, &cur->children_lock);
-  } 
-  //printf("cur load after cond wait %d\n", cur->load_result);
-  if (cur->load_result == -1) {
-    return -1;
   }
+ // printf("cur load after cond wait %d of tid %d\n", cur->load_result, cur->tid);
+  if (cur->load_result == -1) {
+   get_thread_by_tid(cur->parent_tid)->load_result = -1;
+   // exit(-1);
+    pid = -1;
+  }/* else if (cur->load_result != 0) {
+	  break;
+  }
+  }*/
   
   lock_release(&cur->children_lock);
   //lock_release(&thread_current()->children_lock);
 //  if (pid == TID_ERROR) {
  //   return -1;
   //}
-  //printf("the return pid is %d\n", pid);
+ // printf("the return pid is %d\n", pid);
   return pid;
 
 }

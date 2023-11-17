@@ -56,7 +56,7 @@ process_execute (const char *file_name)
   tid_t tid;
 
  
-//printf("passing argument\n");
+//printf("process.execute start\n");
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -106,16 +106,18 @@ process_execute (const char *file_name)
   argv[argc] = NULL;
 //  free(inputs);
 //    setup_stack_populate(argv, argc, &if_.esp);
- // printf("filename: %s\n", process_name);
+  //printf("filename: %s\n", process_name);
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy);
    //tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
    //printf("tid after thread create by start process %d\n", tid);
-  if (tid == TID_ERROR)
+  if (tid == TID_ERROR) {
+	  printf("tid error???");
     palloc_free_page (fn_copy);
-  else {
+  } else {
  lock_acquire(&thread_current()->children_lock);
     struct child *child = malloc (sizeof(*child));
+    //printf("make a child\n");
     if (child != NULL) {
       child->tid = tid;  
       child->waited = false;
@@ -123,7 +125,7 @@ process_execute (const char *file_name)
       child->exit_status = 0;
      // get_thread_by_tid(tid)->child = *child;
       get_thread_by_tid(tid)->parent_tid = thread_current()->tid;
-     // printf("a new child tid %d is push to the childe of parent tid %d\n", tid,  thread_current()->tid);
+      //printf("a new child tid %d is push to the childe of parent tid %d\n", tid,  thread_current()->tid);
       list_push_back(&thread_current()->children, &child->child_elem);
       
     }//printf("create a new thread\n");
@@ -251,6 +253,7 @@ start_process (void *file_name_)
   //palloc_free_page (file_name);
   int status;
   if (!success) {
+//	  printf("not success to load\n\n\n");
     status = -1;
   } else {
 //	  printf("sucessin load\n");
@@ -267,7 +270,7 @@ start_process (void *file_name_)
 //       lock_init(&parent->children_lock);
       lock_acquire(&parent->children_lock);
   
-   //   printf("modifing the exit status of tid %d to %d\n" ,cur->tid, status);
+  //    printf("modifing the load result of tid %d to %d\n" ,cur->tid, status);
       //cur->tid = TID_ERROR;
       parent->load_result = status;
       cond_signal(&parent->children_cond, &parent->children_lock);
@@ -397,7 +400,7 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-//printf("exit process\n");
+//printf("exit process with tid %d\n", cur->tid);
 
 //cur->child.tid = 0;
 //cur->child = NULL;
@@ -454,16 +457,17 @@ process_exit (void)
   */
     free(child);
   }
-  //printf("freed all child");
+//  printf("freed all child");
   struct thread *parent = get_thread_by_tid (cur->parent_tid);
   if (parent != NULL)
     {
       lock_acquire (&parent->children_lock);
-      if (parent->load_result == 0) {
+  /*    if (parent->load_result == 0) {
 	parent->load_result = -1;
-      }
-    //  printf("cond sign with parent %d and child %d\n", parent->tid, cur->tid);
+      }*/
+//      printf("cond sign with parent %d and child %d\n", parent->tid, cur->tid);
       cond_broadcast (&parent->children_cond, &parent->children_lock);
+      //cond_signal (&parent->children_cond, &parent->children_lock);
       lock_release (&parent->children_lock);
     }
  /*
