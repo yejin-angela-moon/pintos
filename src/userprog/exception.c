@@ -142,6 +142,14 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
+  
+  /* vm implementation:
+     find page that faulted in spt
+     if address is valid, get data (could be in fs, swap slot, or 0-page)
+     if invalid, kill with code below
+     get a frame to store page (or locate shared frame)
+     fetch data into frame if not sharing (read from fs, swap, zero etc)
+     use pagedir.c to point pt entry for address to frame */
 
   if (fault_addr == NULL || (uint32_t) fault_addr >= LOADER_PHYS_BASE){
     exit(-1);
@@ -154,5 +162,4 @@ page_fault (struct intr_frame *f)
 
 
 }
-
 
