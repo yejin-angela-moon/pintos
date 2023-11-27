@@ -14,11 +14,18 @@ struct spt_entry {
     bool in_memory; 
     struct hash_elem elem;
     // other potential fields: fd, file_offset, is_read_only, is_dirty, timestamp, swap slot, is_swapped_out
+    // lazy loading fields
+    off_t file_offset;
+    uint32_t read_bytes;
+    uint32_t zero_bytes;
+    bool writable;
+    struct file *file;
 };
 
 // page table itself
 struct sup_page_table {
   struct hash table;
+  struct lock spt_lock;
   // other potential fields: owner_thread, spt_lock
 
 };

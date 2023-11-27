@@ -21,6 +21,7 @@
 #include "threads/vaddr.h"
 #include "lib/kernel/hash.h"
 #include "../vm/frame.h"
+#include "../vm/page.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -609,6 +610,22 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     /* Check if virtual page already allocated */
     struct thread *t = thread_current ();
     uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
+
+    struct spt_entry *spte = malloc(sizeof(struct spt_entry));
+    if (spte == NULL) {
+      exit(-1);
+    }
+
+    spte->user_vaddr = upage;
+    spte->file = file;
+    spte->file_offset = ofs;
+    spte->read_bytes = page_read_bytes;
+    spte->zero_bytes = page_zero_bytes;
+    spte->writable = writable;
+
+    lock_acquire(&spt_lock);
+    hash_insert(t->spt.table, &spte->elem);
+    lock_release(&spt_lock);
 
     if (kpage == NULL){
 
