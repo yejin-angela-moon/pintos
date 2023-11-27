@@ -1,44 +1,21 @@
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
-#include "threads/malloc.h"
+#include "../lib/kernel/hash.h"
+#include "../vm/page.h"
 // could move to a header file
 
-// one entry in the supplemental page table (SPT)
-struct spt_entry {
-    uint32_t user_vaddr;
-    uint32_t frame_addr;
-    bool in_memory; 
-    struct hash_elem elem;
-    // other potential fields: fd, file_offset, is_read_only, is_dirty, timestamp, swap slot, is_swapped_out
+unsigned page_hash(const struct hash_elem *elem, void *aux) {
+    struct page_entry *page = hash_entry(elem, struct page_entry, elem);
+    return hash_int((int)page->user_vaddr);
 }
 
-// page table itself
-struct sup_page_table {
-    struct hash table;
-    // other potential fields: owner_thread, spt_lock
+// Comparison function for page entries
+bool page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux) {
+    struct page_entry *page_a = hash_entry(a, struct page_entry, elem);
+    struct page_entry *page_b = hash_entry(b, struct page_entry, elem);
+    return page_a->user_vaddr < page_b->user_vaddr;  
 }
-
-
-// hash table helper functions
-void
-spt_init (struct sup_page_table *spt) {
-  spt->table = malloc(sizeof(struct hash))
-  hash_init(&sup_page_table->table, spt_hash, spt_less, NULL);
-}
-
-
-unsigned
-spt_hash (const struct hash_elem *e, void *aux UNUSED) {
-  struct spt_entry *spte = hash_entry(e, struct spt_entry, elem);
-  return hash_int(spte->spte);
-}
-
-bool 
-fd_less (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
-  struct file_descriptor *fd_a = hash_entry(a, struct file_descriptor, elem);
-  struct file_descriptor *fd_b = hash_entry(b, struct file_descriptor, elem);
-  return fd_a->fd < fd_b->fd;
-}  
-
-
 
 
