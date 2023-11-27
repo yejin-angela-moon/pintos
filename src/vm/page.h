@@ -1,0 +1,25 @@
+#include <stdint.h>
+#include <stdbool.h>
+#include <lib/kernel/hash.h>
+
+// one entry in the supplemental page table (SPT)
+struct spt_entry {
+    uint32_t user_vaddr;
+    uint32_t frame_addr;
+    bool in_memory; 
+    struct hash_elem elem;
+    // other potential fields: fd, file_offset, is_read_only, is_dirty, timestamp, swap slot, is_swapped_out
+}
+
+// page table itself
+struct sup_page_table {
+    struct hash table;
+    // other potential fields: owner_thread, spt_lock
+}
+
+
+void spt_init (struct sup_page_table *spt)
+
+unsigned spt_hash (const struct hash_elem *e, void *aux UNUSED)
+
+bool fd_less (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED)

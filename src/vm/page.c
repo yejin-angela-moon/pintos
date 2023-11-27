@@ -1,22 +1,5 @@
-#include <stdio.h>
+#include "vm/page.h"
 #include "threads/malloc.h"
-// could move to a header file
-
-// one entry in the supplemental page table (SPT)
-struct spt_entry {
-    uint32_t user_vaddr;
-    uint32_t frame_addr;
-    bool in_memory; 
-    struct hash_elem elem;
-    // other potential fields: fd, file_offset, is_read_only, is_dirty, timestamp, swap slot, is_swapped_out
-}
-
-// page table itself
-struct sup_page_table {
-    struct hash table;
-    // other potential fields: owner_thread, spt_lock
-}
-
 
 // hash table helper functions
 void
