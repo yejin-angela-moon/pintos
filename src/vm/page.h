@@ -8,7 +8,7 @@
 #include <stdint.h>
 
 // one entry in the supplemental page table (SPT)
-struct page_entry {
+struct spt_entry {
     uint32_t user_vaddr;
     uint32_t frame_addr;
     bool in_memory; 
@@ -16,8 +16,17 @@ struct page_entry {
     // other potential fields: fd, file_offset, is_read_only, is_dirty, timestamp, swap slot, is_swapped_out
 };
 
-unsigned page_hash (const struct hash_elem *e, void *aux);
+// page table itself
+struct sup_page_table {
+  struct hash table;
+  // other potential fields: owner_thread, spt_lock
 
-bool page_less (const struct hash_elem *a, const struct hash_elem *b, void *aux);
+}
+
+void spt_init (struct sup_page_table *spt);
+
+unsigned spt_hash (const struct hash_elem *e, void *aux UNUSED);
+
+bool spt_less (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
 
 #endif

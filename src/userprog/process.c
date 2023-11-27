@@ -20,6 +20,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "lib/kernel/hash.h"
+#include "../vm/frame.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -612,7 +613,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     if (kpage == NULL){
 
       /* Get a new page of memory. */
-      kpage = palloc_get_page (PAL_USER);
+      kpage = allocate_frame (PAL_USER, NULL);
       if (kpage == NULL){
         return false;
       }
@@ -620,7 +621,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable))
       {
-        palloc_free_page (kpage);
+        free_frame (kpage);
         return false;
       }
 
@@ -654,14 +655,14 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+  kpage = allocate_frame (PAL_USER | PAL_ZERO, NULL);
   if (kpage != NULL)
   {
     success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
     if (success)
       *esp = PHYS_BASE;
     else
-      palloc_free_page (kpage);
+      free_frame (kpage);
   }
   return success;
 }
