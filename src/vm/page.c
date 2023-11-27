@@ -15,7 +15,7 @@ unsigned spt_hash(const struct hash_elem *elem, void *aux UNUSED) {
 bool spt_less(const struct hash_elem *a, const struct hash_elem *b, void *aux) {
     struct spt_entry *spte_a = hash_entry(a, struct spt_entry, elem);
     struct spt_entry *spte_b = hash_entry(b, struct spt_entry, elem);
-    return page_a->user_vaddr < page_b->user_vaddr;  
+    return spte_a->user_vaddr < spte_b->user_vaddr;  
 }
 
 struct sup_page_table*

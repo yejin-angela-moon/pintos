@@ -21,7 +21,7 @@ struct sup_page_table {
   struct hash table;
   // other potential fields: owner_thread, spt_lock
 
-}
+};
 
 void spt_init (struct sup_page_table *spt);
 
