@@ -34,6 +34,8 @@ struct sup_page_table {
 
 void spt_init (struct sup_page_table *spt);
 
+struct sup_page_table *spt_create(void);
+
 unsigned spt_hash (const struct hash_elem *e, void *aux UNUSED);
 
 bool spt_less (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);

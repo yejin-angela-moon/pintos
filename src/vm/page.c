@@ -19,10 +19,17 @@ bool spt_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UN
     return spte_a->user_vaddr < spte_b->user_vaddr;  
 }
 
-struct sup_page_table*
-spt_create (void) {
+/*
+struct sup_page_table *spt_create (void) {
   struct sup_page_table *spt = malloc(sizeof(struct sup_page_table));
   hash_init (&spt->table, spt_hash, spt_less, NULL);
   return spt;
+}
+*/
+
+
+void spt_init (struct sup_page_table *spt) {
+  hash_init(&spt->table, spt_hash, spt_less, NULL);
+  lock_init(&spt->spt_lock);
 }
 
