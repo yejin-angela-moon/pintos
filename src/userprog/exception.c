@@ -178,13 +178,6 @@ handle_user_page_fault(void *fault_addr, struct intr_frame *f) {
  }
 }
 
-struct spt_entry *spt_find_page(struct sup_page_table *spt, void *vaddr) {
-  struct spt_entry *tmp;
-  tmp->user_vaddr = vaddr;
-  struct hash_elem *e = hash_find(&spt->table, &tmp->elem);
-  return e != NULL ? hash_entry(e, struct spt_entry, elem) : NULL;
-}
-
 void
 handle_kernel_page_fault(struct intr_frame *f) {
 

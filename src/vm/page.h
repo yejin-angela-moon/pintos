@@ -42,4 +42,6 @@ unsigned spt_hash (const struct hash_elem *e, void *aux UNUSED);
 
 bool spt_less (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
 
+struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr);
+
 #endif

@@ -33,3 +33,10 @@ void spt_init (struct sup_page_table *spt) {
   lock_init(&spt->spt_lock);
 }
 
+struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr) {
+  struct spt_entry tmp;
+  tmp.user_vaddr = (uint32_t)vaddr;
+  struct hash_elem *e = hash_find(&spt->table, &tmp.elem);
+  return e != NULL ? hash_entry(e, struct spt_entry, elem) : NULL;
+}
+
