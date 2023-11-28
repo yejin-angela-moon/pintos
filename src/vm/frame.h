@@ -6,9 +6,14 @@
 #include "../threads/palloc.h"
 
 struct frame_entry {
-    struct spt_entry *page;     
-    bool in_use;            
-    struct hash_elem hash_elem; 
+  struct spt_entry *page;     
+  bool in_use;            
+  struct hash_elem hash_elem;
+};
+
+struct frame_table {
+  struct hash table;
+  struct lock table_lock;
 };
 
 

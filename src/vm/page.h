@@ -1,8 +1,10 @@
 #ifndef VM_PAGE_H
 #define VM_PAGE_H
 
-#include "../lib/kernel/hash.h"
-#include "../threads/synch.h"
+#include "lib/kernel/hash.h"
+#include "threads/synch.h"
+#include "filesys/off_t.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>

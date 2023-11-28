@@ -12,8 +12,6 @@
 
 static struct lock frame_lock;
 
-static struct hash frame_map;
-
 unsigned frame_hash(const struct hash_elem *elem, void *aux UNUSED) {
     struct frame_entry *frame = hash_entry(elem, struct frame_entry, hash_elem);
     return hash_bytes(&frame->page, sizeof frame->page); 
@@ -33,7 +31,7 @@ frame_table_init(void) {
 }
 
 void
-*allocate_frame(enum palloc_flags flags, void *aux) {
+*allocate_frame(struct frame_table *ft) {
   lock_acquire(&frame_lock);
   
   void *frame_page = palloc_get_page(PAL_USER | flags);
@@ -49,7 +47,7 @@ void
       return NULL;
     }
 
-    frame->page = page;
+    frame->page = frame_page;
     frame->in_use = true;
 
     lock_acquire(&ft->table_lock);
@@ -59,6 +57,8 @@ void
 
     return frame;
 }
+
+
 
 /* Free frame */
 void 

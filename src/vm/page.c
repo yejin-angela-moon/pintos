@@ -2,8 +2,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include "../lib/kernel/hash.h"
-#include "../vm/page.h"
+#include "lib/kernel/hash.h"
+#include "threads/malloc.h"
+#include "vm/page.h"
 // could move to a header file
 
 unsigned spt_hash(const struct hash_elem *elem, void *aux UNUSED) {
@@ -12,7 +13,7 @@ unsigned spt_hash(const struct hash_elem *elem, void *aux UNUSED) {
 }
 
 // Comparison function for page entries
-bool spt_less(const struct hash_elem *a, const struct hash_elem *b, void *aux) {
+bool spt_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
     struct spt_entry *spte_a = hash_entry(a, struct spt_entry, elem);
     struct spt_entry *spte_b = hash_entry(b, struct spt_entry, elem);
     return spte_a->user_vaddr < spte_b->user_vaddr;  

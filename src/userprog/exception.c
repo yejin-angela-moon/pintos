@@ -7,6 +7,8 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/syscall.h"
+#include "vm/page.h"
+#include "vm/frame.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -142,17 +144,56 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-
-  if (fault_addr == NULL || (uint32_t) fault_addr >= LOADER_PHYS_BASE){
-    exit(-1);
-  } else if (f->cs == SEL_KCSEG) {
-    f->eip = (void (*)(void))f->eax;
-    f->eax = 0xffffffff;
+  if (is_user_vaddr(fault_addr)) {
+    handle_user_page_fault(fault_addr, f);
   } else {
-    kill(f);
+    handle_kernel_page_fault(f);
   }
-
 
 }
 
+void
+handle_user_page_fault(void *fault_addr, struct intr_frame *f) {
+ struct thread *cur = thread_current();
+ struct sup_page_table *spt = &cur->spt;
+ struct spt_entry *spte = spt_find_page(spt, fault_addr);
+ if (spte != NULL) {
+   if (!spte->in_memory) {
+     struct frame_entry *frame = allocate_frame(&frame_table, spte);
+     memset(frame->physical_addr, 0, PGSIZE);
+     spte->in_memory = true;
+     spte->frame = frame;
+     pagedir_set_page(thread_current()->pagedir, fault_addr, frame->physical_addr);
+   }
+
+   if (f->error_code & PF_W) {
+     spte->is_dirty = true;
+   } else {
+     // Read access
+   }
+ } else {
+   exit(-1);
+ }
+}
+
+struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr) {
+  struct spt_entry tmp;
+  tmp.user_vaddr = vaddr;
+  struct hash_elem *e = hash_find(&spt->table, &tmp->elem);
+  return e != NULL ? hash_entry(e, struct spt_entry, elem) : NULL;
+}
+
+void
+handle_kernel_page_fault(struct intr_frame *f) {
+
+}
+
+bool
+is_user_vaddr(const void *vaddr) {
+  return vaddr != NULL && is_user_space(vaddr);
+}
+
+bool is_user_space(const void *vaddr) {
+  return vaddr < PHYS_BASE;
+}
 
