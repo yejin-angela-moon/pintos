@@ -623,9 +623,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     spte->zero_bytes = page_zero_bytes;
     spte->writable = writable;
 
-    lock_acquire(&spt_lock);
-    hash_insert(t->spt.table, &spte->elem);
-    lock_release(&spt_lock);
+    lock_acquire(&t->spt.spt_lock);
+    hash_insert(&t->spt.table, &spte->elem);
+    lock_release(&t->spt.spt_lock);
 
     if (kpage == NULL){
 

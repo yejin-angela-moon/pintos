@@ -2,6 +2,7 @@
 #include "userprog/pagedir.h"
 #include <inttypes.h>
 #include <stdio.h>
+#include <string.h>
 #include "threads/loader.h"
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
@@ -9,6 +10,7 @@
 #include "userprog/syscall.h"
 #include "vm/page.h"
 #include "vm/frame.h"
+#include "threads/vaddr.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -144,7 +146,7 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-  if (is_user_vaddr(fault_addr)) {
+  if (fault_addr != NULL && is_user_space(fault_addr)) {
     handle_user_page_fault(fault_addr, f);
   } else {
     handle_kernel_page_fault(f);
@@ -159,11 +161,11 @@ handle_user_page_fault(void *fault_addr, struct intr_frame *f) {
  struct spt_entry *spte = spt_find_page(spt, fault_addr);
  if (spte != NULL) {
    if (!spte->in_memory) {
-     struct frame_entry *frame = allocate_frame(&frame_table, spte);
+     struct frame_entry *frame = spte->frame;
      memset(frame->physical_addr, 0, PGSIZE);
      spte->in_memory = true;
      spte->frame = frame;
-     pagedir_set_page(thread_current()->pagedir, fault_addr, frame->physical_addr);
+     pagedir_set_page(thread_current()->pagedir, fault_addr, spte->frame->physical_addr, spte->writable);
    }
 
    if (f->error_code & PF_W) {
@@ -176,9 +178,9 @@ handle_user_page_fault(void *fault_addr, struct intr_frame *f) {
  }
 }
 
-struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr) {
-  struct spt_entry tmp;
-  tmp.user_vaddr = vaddr;
+struct spt_entry *spt_find_page(struct sup_page_table *spt, void *vaddr) {
+  struct spt_entry *tmp;
+  tmp->user_vaddr = vaddr;
   struct hash_elem *e = hash_find(&spt->table, &tmp->elem);
   return e != NULL ? hash_entry(e, struct spt_entry, elem) : NULL;
 }
@@ -188,12 +190,6 @@ handle_kernel_page_fault(struct intr_frame *f) {
 
 }
 
-bool
-is_user_vaddr(const void *vaddr) {
-  return vaddr != NULL && is_user_space(vaddr);
-}
 
-bool is_user_space(const void *vaddr) {
-  return vaddr < PHYS_BASE;
-}
+
 

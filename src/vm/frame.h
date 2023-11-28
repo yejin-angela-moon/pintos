@@ -1,14 +1,17 @@
 #ifndef VM_FRAME_H
 #define VM_FRAME_H
 
-#include "../lib/kernel/hash.h"
-#include "../threads/synch.h"
-#include "../threads/palloc.h"
+#include "lib/kernel/hash.h"
+#include "threads/synch.h"
+#include "threads/palloc.h"
+#include <stdint.h>
+
 
 struct frame_entry {
   struct spt_entry *page;     
   bool in_use;            
   struct hash_elem hash_elem;
+  void *physical_addr;
 };
 
 struct frame_table {

@@ -12,7 +12,7 @@
 // one entry in the supplemental page table (SPT)
 struct spt_entry {
     uint32_t user_vaddr;
-    uint32_t frame_addr;
+    //uint32_t frame_addr;
     bool in_memory; 
     struct hash_elem elem;
     // other potential fields: fd, file_offset, is_read_only, is_dirty, timestamp, swap slot, is_swapped_out
@@ -22,6 +22,8 @@ struct spt_entry {
     uint32_t zero_bytes;
     bool writable;
     struct file *file;
+    bool is_dirty;
+    struct frame_entry *frame;
 };
 
 // page table itself
