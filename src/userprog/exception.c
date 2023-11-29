@@ -17,6 +17,7 @@ static long long page_fault_cnt;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
+static void handle_user_page_fault(void *fault_addr, struct intr_frame *f);
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -146,15 +147,20 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-  if (fault_addr != NULL && is_user_space(fault_addr)) {
+  // Check if the memory reference is valid
+  // Invalid access -> kill the process (user address, kernel address or permission error)
+  // Allocate page frame
+  // Fetch the data from teh disk to the page frame
+  // Update page table
+  if (fault_addr != NULL && (uint32_t) fault_addr < LOADER_PHYS_BASE) {
     handle_user_page_fault(fault_addr, f);
   } else {
-    handle_kernel_page_fault(f);
+    kill(f);
   }
 
 }
 
-void
+static void
 handle_user_page_fault(void *fault_addr, struct intr_frame *f) {
  struct thread *cur = thread_current();
  struct sup_page_table *spt = &cur->spt;
@@ -178,10 +184,6 @@ handle_user_page_fault(void *fault_addr, struct intr_frame *f) {
  }
 }
 
-void
-handle_kernel_page_fault(struct intr_frame *f) {
-
-}
 
 
 

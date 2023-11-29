@@ -31,7 +31,7 @@ frame_table_init(void) {
 }
 
 void
-*allocate_frame(struct frame_table *ft) {
+*allocate_frame(enum palloc_flags flags, void *aux UNUSED) {
   lock_acquire(&frame_lock);
   
   void *frame_page = palloc_get_page(PAL_USER | flags);

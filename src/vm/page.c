@@ -40,3 +40,8 @@ struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr) {
   return e != NULL ? hash_entry(e, struct spt_entry, elem) : NULL;
 }
 
+void
+free_spt(struct hash_elem *e, void *aux UNUSED) {
+  struct spt_entry *spte = hash_entry(e, struct spt_entry, elem);
+  free(spte);
+}

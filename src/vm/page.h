@@ -23,7 +23,7 @@ struct spt_entry {
     bool writable;
     struct file *file;
     bool is_dirty;
-    struct frame_entry *frame;
+    struct frame_entry *frame; // VPN -> PFN
 };
 
 // page table itself
@@ -38,10 +38,12 @@ void spt_init (struct sup_page_table *spt);
 
 struct sup_page_table *spt_create(void);
 
-unsigned spt_hash (const struct hash_elem *e, void *aux UNUSED);
+unsigned spt_hash (const struct hash_elem *e, void *aux);
 
-bool spt_less (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
+bool spt_less (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
 struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr);
+
+void free_spt(struct hash_elem *e, void *aux);
 
 #endif

@@ -20,8 +20,8 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "lib/kernel/hash.h"
-#include "../vm/frame.h"
-#include "../vm/page.h"
+#include "vm/frame.h"
+#include "vm/page.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -146,6 +146,10 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+
+  /* Initialise the hash for virtual pages */
+  struct sup_page_table *spt;
+  hash_init(&spt->table, spt_hash, spt_less, NULL);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -293,6 +297,10 @@ process_exit (void)
           e = list_next(e)){
     lock_release(list_entry(e, struct lock, lock_elem));
   }
+
+  /* Delete the virtual page hash table */
+  struct sup_page_table *spt = &cur->spt;
+  hash_destroy(&spt->table, free_spt);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -611,22 +619,26 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     struct thread *t = thread_current ();
     uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
 
+    /* Create virtual memory page entry */
     struct spt_entry *spte = malloc(sizeof(struct spt_entry));
     if (spte == NULL) {
       exit(-1);
     }
 
-    spte->user_vaddr = upage;
+    /* Initialise the virtual page entry */
+    spte->user_vaddr = (uint32_t)upage;
     spte->file = file;
     spte->file_offset = ofs;
     spte->read_bytes = page_read_bytes;
     spte->zero_bytes = page_zero_bytes;
     spte->writable = writable;
 
+    /* Insert the virtual page entry to the hash table */
     lock_acquire(&t->spt.spt_lock);
     hash_insert(&t->spt.table, &spte->elem);
     lock_release(&t->spt.spt_lock);
 
+    //TODO: Delete the physical page allocation
     if (kpage == NULL){
 
       /* Get a new page of memory. */
@@ -660,6 +672,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     /* Advance. */
     read_bytes -= page_read_bytes;
     zero_bytes -= page_zero_bytes;
+    ofs += page_read_bytes;
     upage += PGSIZE;
   }
   return true;
@@ -681,6 +694,26 @@ setup_stack (void **esp)
     else
       free_frame (kpage);
   }
+
+  /* Create and initialise virtual page entry */
+  struct spt_entry *spte = malloc(sizeof(struct spt_entry));
+  if (spte == NULL) {
+    exit(-1);
+  }
+  spte->user_vaddr = PHYS_BASE - PGSIZE;
+  spte->file = NULL;
+  spte->file_offset = 0;
+  spte->read_bytes = 0;
+  spte->zero_bytes = 0;
+  spte->writable = true;
+
+  //TODO: a function to insert hash elem into spt.table
+  //do we need lock?
+  lock_acquire(&t->spt.spt_lock);
+  hash_insert(&t->spt.table, &spte->elem);
+  lock_release(&t->spt.spt_lock);
+
+
   return success;
 }
 
