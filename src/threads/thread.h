@@ -7,7 +7,7 @@
 #include <threads/synch.h>
 #include <threads/fixed-point.h>
 #include <lib/kernel/hash.h>
-#include <vm/page.c>
+#include <vm/page.h>
 
 /* States in a thread's life cycle. */
 enum thread_status {
