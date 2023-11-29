@@ -5,21 +5,24 @@
 #include "../threads/vaddr.h"
 #include "../userprog/pagedir.h"
 #include <stdio.h>
-#include "../vm/page.h"
+#include "vm/page.h"
+#include "vm/frame.h"
+#include "userprog/syscall.h"
 #include "../threads/synch.h"
 #include "lib/kernel/hash.h"
 #include "../threads/palloc.h"
+#include "../threads/malloc.h"
 
 static struct lock frame_lock;
 
-unsigned frame_hash(const struct hash_elem *elem, void *aux UNUSED) {
-    struct frame_entry *frame = hash_entry(elem, struct frame_entry, hash_elem);
+unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED) {
+    struct frame_entry *frame = hash_entry(e, struct frame_entry, elem);
     return hash_bytes(&frame->page, sizeof frame->page); 
 }
 
 bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
-    struct frame_entry *frame_a = hash_entry(a, struct frame_entry, hash_elem);
-    struct frame_entry *frame_b = hash_entry(b, struct frame_entry, hash_elem);
+    struct frame_entry *frame_a = hash_entry(a, struct frame_entry, elem);
+    struct frame_entry *frame_b = hash_entry(b, struct frame_entry, elem);
     return frame_a->page < frame_b->page; 
 }
 
@@ -73,9 +76,9 @@ frame_free_or_remove(void *page, bool free_page) {
     exit(-1);
   }
 
-  struct frame_entry *f = hash_entry(h, struct frame_entry, hash_elem);
+  struct frame_entry *f = hash_entry(h, struct frame_entry, elem);
 
-  hash_delete(&frame_map, &f->hash_elem);
+  hash_delete(&frame_map, &f->elem);
   if (free_page) palloc_free_page(page);
   free(f);
 }
