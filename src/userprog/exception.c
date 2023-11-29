@@ -164,11 +164,14 @@ static void
 handle_user_page_fault(void *fault_addr, struct intr_frame *f) {
  struct thread *cur = thread_current();
  struct sup_page_table *spt = &cur->spt;
+ /* Search for the virtual page entry */
  struct spt_entry *spte = spt_find_page(spt, fault_addr);
  if (spte != NULL) {
+   // Allocate the page
+   // Load the data from file to physical memory - load_file(), install_page()
+   // Set up the page table
    if (!spte->in_memory) {
      struct frame_entry *frame = spte->frame;
-     memset(frame->physical_addr, 0, PGSIZE);
      spte->in_memory = true;
      spte->frame = frame;
      pagedir_set_page(thread_current()->pagedir, fault_addr, spte->frame->physical_addr, spte->writable);

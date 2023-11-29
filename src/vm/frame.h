@@ -4,14 +4,17 @@
 #include "lib/kernel/hash.h"
 #include "threads/synch.h"
 #include "threads/palloc.h"
+#include "threads/thread.h"
 #include <stdint.h>
 
 
 struct frame_entry {
   struct spt_entry *page;     
   bool in_use;            
-  struct hash_elem hash_elem;
+  struct hash_elem elem;
   void *physical_addr;
+  tid_t tid;
+  void *frame; 
 };
 
 struct frame_table {
@@ -25,7 +28,7 @@ unsigned frame_hash(const struct hash_elem *elem, void *aux);
 
 bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
-void *allocate_frame(enum palloc_flags flags, void *aux);
+void *allocate_frame(enum palloc_flags flags);
 
 void free_frame(struct spt_entry *page);
 
