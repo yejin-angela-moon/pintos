@@ -2,16 +2,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include "../threads/vaddr.h"
-#include "../userprog/pagedir.h"
+#include "threads/vaddr.h"
+#include "userprog/pagedir.h"
 #include <stdio.h>
 #include "vm/page.h"
 #include "vm/frame.h"
 #include "userprog/syscall.h"
-#include "../threads/synch.h"
+#include "threads/synch.h"
 #include "lib/kernel/hash.h"
-#include "../threads/palloc.h"
-#include "../threads/malloc.h"
+#include "threads/palloc.h"
+#include "threads/malloc.h"
 
 static struct lock frame_lock;
 static struct hash frame_table;
