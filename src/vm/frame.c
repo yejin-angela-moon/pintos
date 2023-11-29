@@ -14,6 +14,7 @@
 #include "../threads/malloc.h"
 
 static struct lock frame_lock;
+static struct hash frame_table;
 
 unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED) {
     struct frame_entry *frame = hash_entry(e, struct frame_entry, elem);
@@ -27,10 +28,9 @@ bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux 
 }
 
 void 
-frame_table_init(void) {
+frame_init(void) {
   lock_init(&frame_lock);
-  hash_init(&frame_map, frame_hash, frame_less, NULL);
-
+  hash_init(&frame_table, frame_hash, frame_less, NULL);
 }
 
 void
@@ -56,7 +56,7 @@ void
 
     lock_acquire(&frame_lock);
     //lock_acquire(&ft->table_lock);
-    hash_insert(&ft->table, &frame->elem);
+    hash_insert(&frame_table, &frame->elem);
     //lock_release(&ft->table_lock);
     lock_release(&frame_lock);
 
@@ -71,14 +71,14 @@ frame_free_or_remove(void *page, bool free_page) {
   struct frame_entry frame_tmp;
   frame_tmp.page = page;
 
-  struct hash_elem *h = hash_find(&frame_map, &(frame_tmp.hash_elem));
+  struct hash_elem *h = hash_find(&frame_table, &(frame_tmp.elem));
   if (h == NULL) {
     exit(-1);
   }
 
   struct frame_entry *f = hash_entry(h, struct frame_entry, elem);
 
-  hash_delete(&frame_map, &f->elem);
+  hash_delete(&frame_table, &f->elem);
   if (free_page) palloc_free_page(page);
   free(f);
 }

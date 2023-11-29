@@ -28,7 +28,7 @@ unsigned frame_hash(const struct hash_elem *elem, void *aux);
 
 bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
-void frame_table_init(void);
+void frame_init(void);
 
 void *allocate_frame(enum palloc_flags flags);
 
