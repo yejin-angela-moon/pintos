@@ -176,6 +176,17 @@ sub compare_output {
 			&& !/^ esi=.* edi=.* esp=.* ebp=.*/
 			&& !/^ cs=.* ds=.* es=.* ss=.*/, @output);
     }
+    my $ignore_kernel_faults = exists $options{IGNORE_KERNEL_FAULTS};
+    if ($ignore_kernel_faults) {
+	delete $options{IGNORE_KERNEL_FAULTS};
+	@output = grep (!/^Page fault at.*in kernel context\.$/
+			&& !/: dying due to interrupt 0x0e \(.*\).$/
+			&& !/^Interrupt 0x0e \(.*\) at eip=/
+			&& !/^ cr2=.* error=.*/
+			&& !/^ eax=.* ebx=.* ecx=.* edx=.*/
+			&& !/^ esi=.* edi=.* esp=.* ebp=.*/
+			&& !/^ cs=.* ds=.* es=.* ss=.*/, @output);
+    }    
     die "unknown option " . (keys (%options))[0] . "\n" if %options;
 
     my ($msg);
@@ -223,6 +234,8 @@ sub compare_output {
       if $ignore_exit_codes;
     $msg .= "\n(User fault messages are excluded for matching purposes.)\n"
       if $ignore_user_faults;
+    $msg .= "\n(Kernel fault messages are excluded for matching purposes.)\n"
+      if $ignore_kernel_faults;       
     fail "Test output failed to match any acceptable form.\n\n$msg";
 }
 
