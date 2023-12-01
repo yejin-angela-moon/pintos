@@ -31,4 +31,13 @@ off_t file_length (struct file *);
 bool file_compare (struct file *, struct file *);
 unsigned file_hash (struct file *);
 
+
+/* Representation of memory-mapped file */
+struct map_file {
+  mapid_t mid;
+  struct file *file;
+  void *addr;  // should this be void* ?
+  // length of mapped file?
+}
+
 #endif /* filesys/file.h */
