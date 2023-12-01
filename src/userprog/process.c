@@ -1,4 +1,3 @@
-#include "stdlib.h"
 #include "userprog/process.h"
 #include <debug.h>
 #include <inttypes.h>
@@ -20,8 +19,8 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "lib/kernel/hash.h"
-#include "vm/frame.h"
-#include "vm/page.h"
+#include "vm/frame.c"
+#include "vm/page.c"
 #include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
@@ -616,9 +615,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-    /* Check if virtual page already allocated */
-    struct thread *t = thread_current ();
-    uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
+    struct thread *t = thread_current();
 
     /* Create virtual memory page entry */
     struct spt_entry *spte = malloc(sizeof(struct spt_entry));
@@ -639,36 +636,23 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     hash_insert(&t->spt.table, &spte->elem);
     lock_release(&t->spt.spt_lock);
 
-    //TODO: Delete the physical page allocation
-    if (kpage == NULL){
-
-      /* Get a new page of memory. */
-      kpage = allocate_frame (PAL_USER);
-      if (kpage == NULL){
-        return false;
-      }
-
-      /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable))
-      {
-        free_frame ((struct spt_entry *)kpage);
-        return false;
-      }
-
-    } else {
-
-      /* Check if writable flag for the page should be updated */
-      if(writable && !pagedir_is_writable(t->pagedir, upage)){
-        pagedir_set_writable(t->pagedir, upage, writable);
-      }
-
+    /*
+    uint8_t *kpage = allocate_frame (PAL_USER);
+    if (kpage == NULL) {
+      return false;
     }
 
-    /* Load data into the page. */
-    if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes){
+    if (file_read (file, kpage, page_read_bytes) != (int) page_zero_bytes) {
+      free_frame (kpage);
       return false;
     }
     memset (kpage + page_read_bytes, 0, page_zero_bytes);
+
+    if (!install_page (upage, kpage, writable)) {
+      free_frame(kpage);
+      return false;
+    }
+    */
 
     /* Advance. */
     read_bytes -= page_read_bytes;

@@ -35,7 +35,7 @@ frame_init(void) {
 
 void
 *allocate_frame(enum palloc_flags flags) {
-  //lock_acquire(&frame_lock);
+  lock_acquire(&frame_lock);
   
   void *frame_page = palloc_get_page(PAL_USER | flags);
   if (frame_page == NULL) {
@@ -45,7 +45,7 @@ void
   
     struct frame_entry *frame = malloc(sizeof(struct frame_entry));
     if (frame == NULL) {
-      //lock_release(&frame_lock);
+      lock_release(&frame_lock);
       //exit(-1);
       return NULL;
     }
@@ -54,7 +54,7 @@ void
     frame->in_use = true;
     frame->tid = thread_current()->tid;
 
-    lock_acquire(&frame_lock);
+    //lock_acquire(&frame_lock);
     //lock_acquire(&ft->table_lock);
     hash_insert(&frame_table, &frame->elem);
     //lock_release(&ft->table_lock);

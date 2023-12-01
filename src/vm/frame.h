@@ -6,7 +6,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include <stdint.h>
-
+#include <stdlib.h> 
 
 struct frame_entry {
   struct spt_entry *page;     
@@ -41,3 +41,4 @@ void free_frame(void *page);
 
 
 #endif
+
