@@ -109,6 +109,7 @@ struct thread {
     struct child_parent_manager cp_manager;
 
     struct sup_page_table spt;
+    struct list mmap_files;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
