@@ -22,6 +22,7 @@ for my $prereq_test (@prereq_tests) {
     fail "Prerequisite test $prereq_test failed.\n" if $result[0] ne 'PASS';
 }
 
+
 # Generic testing.
 
 sub check_expected {
@@ -186,7 +187,17 @@ sub compare_output {
 			&& !/^ eax=.* ebx=.* ecx=.* edx=.*/
 			&& !/^ esi=.* edi=.* esp=.* ebp=.*/
 			&& !/^ cs=.* ds=.* es=.* ss=.*/, @output);
-    }    
+    }
+    my $ignore_div0_faults = exists $options{IGNORE_DIV0_FAULTS};
+    if ($ignore_div0_faults) {
+	delete $options{IGNORE_DIV0_FAULTS};
+	@output = grep (!/: dying due to interrupt 0000 \(.*\).$/
+			&& !/^Interrupt 0000 \(.*\) at eip=/
+			&& !/^ cr2=.* error=.*/
+			&& !/^ eax=.* ebx=.* ecx=.* edx=.*/
+			&& !/^ esi=.* edi=.* esp=.* ebp=.*/
+			&& !/^ cs=.* ds=.* es=.* ss=.*/, @output);
+    }
     die "unknown option " . (keys (%options))[0] . "\n" if %options;
 
     my ($msg);
@@ -235,10 +246,12 @@ sub compare_output {
     $msg .= "\n(User fault messages are excluded for matching purposes.)\n"
       if $ignore_user_faults;
     $msg .= "\n(Kernel fault messages are excluded for matching purposes.)\n"
-      if $ignore_kernel_faults;       
+      if $ignore_kernel_faults;      
+    $msg .= "\n(Divide Error messages are excluded for matching purposes.)\n"
+      if $ignore_div0_faults;
     fail "Test output failed to match any acceptable form.\n\n$msg";
 }
-
+
 # File system extraction.
 
 # check_archive (\%CONTENTS)
@@ -590,7 +603,7 @@ sub read_tar {
     close (ARCHIVE);
     return %content;
 }
-
+
 # Utilities.
 
 sub fail {
