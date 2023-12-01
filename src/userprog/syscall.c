@@ -127,7 +127,7 @@ syscall_handler(struct intr_frame *f) {
       check_user(f->esp + 12);
       int fd = *((int *) (f->esp + 4));
       const void *buffer = *((const void **)(f->esp + 8));
-      unsigned size = *((unsigned *)(f->esp + 12));
+      unsigned size = *((unsigned *) (f->esp + 12));
       f->eax = (uint32_t) write(fd, buffer, size);
       break;
     }
@@ -151,6 +151,19 @@ syscall_handler(struct intr_frame *f) {
       close(fd);
       break;
     }
+    case SYS_MMAP: {  /* memory map a file */
+      check_user(f->esp + 4);
+      check_user(f->esp + 8);
+      int fd = *((int *) (f->esp + 4));
+      void *addr = *((void **) (f->esp + 8));
+      f->eax = (uint32_t) mmap(fd, addr);
+      break;
+    }
+    case SYS_MUNMAP: {  /* unmaps a file */
+      check_user(f->esp + 4);
+      mapid_t mid = *((mapid_t *) (f->esp + 4));
+      munmap(mid);
+      break;
     default: {
       exit(-1);
       break;
@@ -386,6 +399,18 @@ close(int fd) {
   /* Remove the fd form fd_table, close the file and free the file_descriptor. */
   process_remove_fd(fd);
   lock_release(&syscall_lock);
+}
+
+// TODO implement these
+mapid_t
+mmap(int fd, void *addr) {
+  // do stuff
+  return 0
+}
+
+void
+munmap(mapid_t mapping) {
+  // do stuff
 }
 
 void
