@@ -20,7 +20,9 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "lib/kernel/hash.h"
+#ifdef VM
 #include "vm/frame.h"
+#endif
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -574,6 +576,15 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
   return true;
 }
 
+static void *allocate_user_frame(void) {
+  void *frame = allocate_frame();
+  if (frame == NULL) {
+    exit(-1);
+  }
+  return frame;
+}
+
+
 /* Loads a segment starting at offset OFS in FILE at address
    UPAGE.  In total, READ_BYTES + ZERO_BYTES bytes of virtual
    memory are initialized, as follows:
@@ -606,40 +617,36 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
+#ifdef VM
     /* Check if virtual page already allocated */
     struct thread *t = thread_current ();
-    uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
+#else
+    //uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
+    uint8_t *kpage = allocate_user_frame();
 
     if (kpage == NULL){
-
-      /* Get a new page of memory. */
-      kpage = palloc_get_page (PAL_USER);
-      if (kpage == NULL){
-        return false;
-      }
-
-      /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable))
-      {
-        palloc_free_page (kpage);
-        return false;
-      }
-
-    } else {
+      return false;
+    }
 
       /* Check if writable flag for the page should be updated */
+      /*
       if(writable && !pagedir_is_writable(t->pagedir, upage)){
         pagedir_set_writable(t->pagedir, upage, writable);
-      }
-
-    }
+      }*/
 
     /* Load data into the page. */
     if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes){
+      deallocate_frame(kpage);
       return false;
     }
     memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
+    /* Add the page to the process's address space. */
+    if (!install_page (upage, kpage, writable)) {
+      vm_free_frame (kpage);
+      return false;
+    }
+#endif
     /* Advance. */
     read_bytes -= page_read_bytes;
     zero_bytes -= page_zero_bytes;
@@ -655,14 +662,15 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+
+  kpage = allocate_frame();
   if (kpage != NULL)
   {
     success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
     if (success)
       *esp = PHYS_BASE;
     else
-      palloc_free_page (kpage);
+      deallocate_frame (kpage);
   }
   return success;
 }
