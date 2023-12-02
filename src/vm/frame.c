@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+struct hash frame_table;
 
 unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED) {
   struct frame *frame = hash_entry(e, struct frame, elem);

@@ -28,6 +28,8 @@
 #include "userprog/gdt.h"
 #include "userprog/syscall.h"
 #include "userprog/tss.h"
+#include "vm/frame.h"
+#include "vm/page.h"
 #else
 #include "tests/threads/tests.h"
 #endif
@@ -133,6 +135,7 @@ main (void)
 #ifdef VM
   /* Initialise the swap disk */  
   swap_init ();
+  frame_table_init ();
 #endif
 
   printf ("Boot complete.\n");
