@@ -46,8 +46,18 @@ void *allocate_frame(void) {
 }
 
 /* Deallocate a frame by marking it as free */
-void deallocate_frame(void *frame_addr) {  //TODO: now the input is usually a pointer to a page
-  struct frame *frame = (struct frame *)frame_addr;
+void deallocate_frame(void *page_addr) {  
+  struct page *page = (struct page *)page_addr;
+  struct hash_iterator i;
+  struct frame *frame;
+  hash_first(&i, &frame_table);
+  while (hash_next(&i)) {
+    struct hash_elem *e = hash_cur(&i);
+    if (hash_entry(e, struct frame, elem)->page == page) {  //not sure if == is suitable
+        frame = hash_entry(e, struct frame, elem);
+	break;
+    }
+  }
   hash_delete(&frame_table, &frame->elem);
   palloc_free_page(frame->page);
   free(frame);
