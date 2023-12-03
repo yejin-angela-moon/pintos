@@ -5,6 +5,8 @@
 #include "lib/kernel/hash.h"
 #include "threads/synch.h"
 #include <stdlib.h>
+#include "vm/frame.h"
+
 
 #define MAX_ARGS 1024
 #define WORD_ALIGN_MASK 0xfffffffc

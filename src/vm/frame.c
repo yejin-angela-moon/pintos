@@ -37,7 +37,7 @@ void *allocate_frame(void) {
     if (frame->page != NULL) {
       frame->is_free = false;
       hash_insert(&frame_table, &frame->elem);
-      return frame;
+      return frame->page;
     } else {
       free(frame);
     }
@@ -46,7 +46,7 @@ void *allocate_frame(void) {
 }
 
 /* Deallocate a frame by marking it as free */
-void deallocate_frame(void *frame_addr) {
+void deallocate_frame(void *frame_addr) {  //TODO: now the input is usually a pointer to a page
   struct frame *frame = (struct frame *)frame_addr;
   hash_delete(&frame_table, &frame->elem);
   palloc_free_page(frame->page);
