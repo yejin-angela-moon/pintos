@@ -435,7 +435,22 @@ mmap(int fd, void *addr) {
 // TODO this one
 void
 munmap(mapid_t mapping) {
-  // do stuff
+  struct list map_list = thread_current()->mmap_files;
+  struct list_elem *e;
+  struct map_file *mf;
+  for (e = list_begin (&map_list); e != list_end (&map_list);
+		  e = list_next (e)) {
+    struct map_file *mmap = list_entry (e, struct map_file, elem);
+    if (mmap->mid == mapping) {
+      mf = mmap;
+      list_remove(e);
+      break;
+  }
+  if (mf == NULL)
+    return;  // not found
+  
+  // TODO write changes to file and page, remove page from list of virtual pages
+  free(mf);
 }
 
 void
@@ -446,6 +461,7 @@ check_user (void *ptr) {
     if (!is_user_vaddr((void *) ptr) || (pagedir_get_page(t->pagedir, uaddr) == NULL)) {
         exit(-1);
     }
+
 }
 
 /* Credit to pintos manual: */
