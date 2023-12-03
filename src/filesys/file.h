@@ -37,7 +37,8 @@ struct map_file {
   mapid_t mid;
   struct file *file;
   void *addr;  // should this be void* ?
-  // length of mapped file?
+  size_t length;
+  struct list_elem elem;
 }
 
 #endif /* filesys/file.h */

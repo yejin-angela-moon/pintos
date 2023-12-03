@@ -25,6 +25,8 @@ unsigned fd_hash(const struct hash_elem *e, void *aux);
 
 bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
+static int next_mmap_id = 1;
+
 /* Hash function to generate a hash value from a file descriptor. */
 unsigned
 fd_hash(const struct hash_elem *e, void *aux UNUSED) {
@@ -401,13 +403,36 @@ close(int fd) {
   lock_release(&syscall_lock);
 }
 
-// TODO implement these
+
 mapid_t
-mmap(int fd, void *addr) {
-  // do stuff
-  return 0
+add_mmap(struct map_file *mmap) {
+  mmap->mid = next_mmap_id++;  // maybe this should be hash
+  list_push_back(thread_current()->mmap_files, mmap->elem);
 }
 
+mapid_t
+mmap(int fd, void *addr) {
+  struct file_descriptor *file = process_get_fd(fd);
+  if (file == NULL || addr == 0) {
+    return -1;  // exit(-1); spec says to return -1 which is an invalid mapping id?
+  }
+  int length = file_length(file->file);
+  // validate mapping, exit(-1)/return if false
+
+  struct map_file *mmap = malloc(sizeof(struct map_file));
+  if (mmap == NULL)
+    return -1;  // exit(-1);
+
+  mmap->file = file->file;  // or just file?
+  mmap->addr = addr;
+  mmap->length = length;
+
+  add_mmap(struct map_file *mmap);
+  // TODO do lazy loading stuff
+  return mmap->mid;
+}
+
+// TODO this one
 void
 munmap(mapid_t mapping) {
   // do stuff

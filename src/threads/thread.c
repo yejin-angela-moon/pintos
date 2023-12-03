@@ -595,6 +595,7 @@ init_thread(struct thread *t, const char *name, int priority) {
   list_init(&t->locks);
   t->init_fd = false;
   //spt_init(&t->spt);
+  list_init(&t->mmap_files);  // not sure if this should be a hashmap instead
   list_init (&t->cp_manager.children_list);
   lock_init (&t->cp_manager.children_lock);
   cond_init (&t->cp_manager.children_cond);
