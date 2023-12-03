@@ -10,11 +10,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/*
 struct page {
   void *frame;
   bool present;
   bool dirty;
 };
+*/
 
 void* allocate_page(void);
 void deallocate_page(struct page *pg);
@@ -32,7 +34,7 @@ struct spt_entry {
     bool writable;
     struct file *file;
     bool is_dirty;
-    struct frame_entry *frame; // VPN -> PFN
+    struct frame *frame; // VPN -> PFN
 };
 
 // page table itself

@@ -12,10 +12,14 @@
 // could move to a header file
 
 
-void page_init(struct page *pg) {
+void spte_init(struct spt_entry *spte) {
+  /*
   pg->frame = NULL;
   pg->present = false;
   pg->dirty = false;
+  */
+  spte->frame = NULL;
+  spte->is_dirty = false;
 }
 
 unsigned spt_hash(const struct hash_elem *elem, void *aux UNUSED) {
