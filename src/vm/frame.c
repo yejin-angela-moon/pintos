@@ -1,101 +1,55 @@
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include "threads/vaddr.h"
-#include "userprog/pagedir.h"
-#include <stdio.h>
-#include "vm/page.h"
 #include "vm/frame.h"
-#include "userprog/syscall.h"
-#include "threads/synch.h"
 #include "lib/kernel/hash.h"
 #include "threads/palloc.h"
+#include "threads/synch.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
+#include "threads/vaddr.h"
+#include "threads/palloc.h"
+#include "userprog/pagedir.h"
+#include "userprog/syscall.h"
+#include <stdbool.h>
+#include <stddef.h>
 
-static struct lock frame_lock;
-static struct hash frame_table;
+struct hash frame_table;
 
 unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED) {
-    struct frame_entry *frame = hash_entry(e, struct frame_entry, elem);
-    return hash_bytes(&frame->page, sizeof frame->page); 
+  struct frame *frame = hash_entry(e, struct frame, elem);
+  return hash_bytes(&frame->page, sizeof frame->page);
 }
 
 bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
-    struct frame_entry *frame_a = hash_entry(a, struct frame_entry, elem);
-    struct frame_entry *frame_b = hash_entry(b, struct frame_entry, elem);
-    return frame_a->page < frame_b->page; 
+  struct frame *frame_a = hash_entry(a, struct frame, elem);
+  struct frame *frame_b = hash_entry(b, struct frame, elem);
+  return frame_a->page < frame_b->page;
 }
 
-void 
-frame_init(void) {
-  lock_init(&frame_lock);
+/* Initialise the frame table, set all frames as free. */
+void frame_table_init(void) {
   hash_init(&frame_table, frame_hash, frame_less, NULL);
 }
 
-void
-*allocate_frame(enum palloc_flags flags) {
-  lock_acquire(&frame_lock);
-  
-  void *frame_page = palloc_get_page(PAL_USER | flags);
-  if (frame_page == NULL) {
-    exit(-1);
-    //TODO: also check if evicting possible
-  }
-  
-    struct frame_entry *frame = malloc(sizeof(struct frame_entry));
-    if (frame == NULL) {
-      lock_release(&frame_lock);
-      //exit(-1);
-      return NULL;
+/* Allocate a free frame and return its address */
+void *allocate_frame(void) {
+  struct frame *frame = (struct frame *)malloc(sizeof(frame));
+  if (frame != NULL) {
+    frame->page = palloc_get_page(PAL_USER);
+    if (frame->page != NULL) {
+      frame->is_free = false;
+      hash_insert(&frame_table, &frame->elem);
+      return frame->page;
+    } else {
+      free(frame);
     }
-
-    frame->page = frame_page;
-    frame->in_use = true;
-    frame->tid = thread_current()->tid;
-
-    //lock_acquire(&frame_lock);
-    //lock_acquire(&ft->table_lock);
-    hash_insert(&frame_table, &frame->elem);
-    //lock_release(&ft->table_lock);
-    lock_release(&frame_lock);
-
-    return frame;
-}
-
-
-
-/* Free frame */
-void 
-frame_free_or_remove(void *page, bool free_page) {
-  struct frame_entry frame_tmp;
-  frame_tmp.page = page;
-
-  struct hash_elem *h = hash_find(&frame_table, &(frame_tmp.elem));
-  if (h == NULL) {
-    exit(-1);
   }
-
-  struct frame_entry *f = hash_entry(h, struct frame_entry, elem);
-
-  hash_delete(&frame_table, &f->elem);
-  if (free_page) palloc_free_page(page);
-  free(f);
+  return NULL;
 }
 
-/* Remove frame entry */
-void
-remove_frame_entry (void *page) {
-  lock_acquire(&frame_lock);
-  frame_free_or_remove(page, false);
-  lock_release(&frame_lock);
-}
-
-/* Free or remove frame entry */
-void 
-free_frame(void *page) {
-  lock_acquire(&frame_lock);
-  frame_free_or_remove(page, true);
-  lock_release(&frame_lock);
+/* Deallocate a frame by marking it as free */
+void deallocate_frame(void *frame_addr) {  //TODO: now the input is usually a pointer to a page
+  struct frame *frame = (struct frame *)frame_addr;
+  hash_delete(&frame_table, &frame->elem);
+  palloc_free_page(frame->page);
+  free(frame);
 }
 

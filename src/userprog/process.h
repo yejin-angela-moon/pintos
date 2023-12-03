@@ -7,6 +7,8 @@
 #include "vm/page.h"
 #include "vm/frame.h"
 #include <stdlib.h>
+#include "vm/frame.h"
+
 
 #define MAX_ARGS 1024
 #define WORD_ALIGN_MASK 0xfffffffc

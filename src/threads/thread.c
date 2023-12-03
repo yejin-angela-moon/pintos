@@ -15,7 +15,7 @@
 #include "devices/timer.h"
 #include <inttypes.h>
 #include "userprog/process.h"
-#include "vm/page.h"
+#include "vm/frame.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -99,6 +99,8 @@ thread_init(void)
   lock_init(&tid_lock);
   list_init(&ready_list);
   list_init(&all_list);
+
+  //frame_table_init();
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread();
@@ -615,6 +617,8 @@ init_thread(struct thread *t, const char *name, int priority) {
   old_level = intr_disable();
   list_push_back(&all_list, &t->allelem);
   intr_set_level(old_level);
+
+  //frame_table_init();
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

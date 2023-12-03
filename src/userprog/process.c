@@ -19,9 +19,9 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "lib/kernel/hash.h"
-#include "vm/frame.c"
-#include "vm/page.c"
-#include "userprog/syscall.h"
+#ifdef VM
+#include "vm/frame.h"
+#endif
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -583,6 +583,15 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
   return true;
 }
 
+static void *allocate_user_frame(void) {
+  void *frame = allocate_frame();
+  if (frame == NULL) {
+    exit(-1);
+  }
+  return frame;
+}
+
+
 /* Loads a segment starting at offset OFS in FILE at address
    UPAGE.  In total, READ_BYTES + ZERO_BYTES bytes of virtual
    memory are initialized, as follows:
@@ -615,7 +624,40 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-    struct thread *t = thread_current();
+//#ifdef VM
+    /* Check if virtual page already allocated */
+    struct thread *t = thread_current ();
+//#else
+    //uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
+ /*   uint8_t *kpage = allocate_user_frame();
+
+    if (kpage == NULL){
+      return false;
+    }
+*/
+    uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
+
+    if (kpage == NULL){
+
+      /* Get a new page of memory. */
+      kpage = allocate_frame();
+      if (kpage == NULL){
+        return false;
+      }
+
+      /* Add the page to the process's address space. */
+      if (!install_page (upage, kpage, writable))
+      {
+        deallocate_frame (kpage);
+        return false;
+      }
+
+    } else {
+
+      /* Check if writable flag for the page should be updated */
+      if(writable && !pagedir_is_writable(t->pagedir, upage)){
+        pagedir_set_writable(t->pagedir, upage, writable);
+      }
 
     /* Create virtual memory page entry */
     struct spt_entry *spte = malloc(sizeof(struct spt_entry));
@@ -623,37 +665,25 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       exit(-1);
     }
 
-    /* Initialise the virtual page entry */
-    spte->user_vaddr = (uint32_t)upage;
-    spte->file = file;
-    spte->file_offset = ofs;
-    spte->read_bytes = page_read_bytes;
-    spte->zero_bytes = page_zero_bytes;
-    spte->writable = writable;
+      /* Check if writable flag for the page should be updated */
+      /*
+      if(writable && !pagedir_is_writable(t->pagedir, upage)){
+        pagedir_set_writable(t->pagedir, upage, writable);
+      }*/
 
-    /* Insert the virtual page entry to the hash table */
-    lock_acquire(&t->spt.spt_lock);
-    hash_insert(&t->spt.table, &spte->elem);
-    lock_release(&t->spt.spt_lock);
-
-    /*
-    uint8_t *kpage = allocate_frame (PAL_USER);
-    if (kpage == NULL) {
-      return false;
-    }
-
-    if (file_read (file, kpage, page_read_bytes) != (int) page_zero_bytes) {
-      free_frame (kpage);
+    /* Load data into the page. */
+    if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes){
+    //  deallocate_frame(kpage);
       return false;
     }
     memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
-    if (!install_page (upage, kpage, writable)) {
-      free_frame(kpage);
-      return false;
-    }
-    */
-
+    /* Add the page to the process's address space. */
+ //   if (!install_page (upage, kpage, writable)) {
+   //   vm_free_frame (kpage);
+     // return false;
+   // }
+//#endif
     /* Advance. */
     read_bytes -= page_read_bytes;
     zero_bytes -= page_zero_bytes;
@@ -671,14 +701,14 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
 
-  kpage = (uint8_t *) allocate_frame (PAL_USER | PAL_ZERO);
+  kpage = allocate_frame();
   if (kpage != NULL)
   {
     success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
     if (success) 
       *esp = PHYS_BASE - 12;
     else
-      free_frame ((struct spt_entry *)kpage);
+      deallocate_frame (kpage);
   }
 
   /* Create and initialise virtual page entry */
