@@ -1,4 +1,3 @@
-#include "stdlib.h"
 #include "userprog/process.h"
 #include <debug.h>
 #include <inttypes.h>
@@ -147,6 +146,10 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+  struct thread *cur = thread_current();
+
+  /* Initialise the hash for virtual pages */
+  hash_init(&(&cur->spt)->table, spt_hash, spt_less, NULL);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -294,6 +297,10 @@ process_exit (void)
           e = list_next(e)){
     lock_release(list_entry(e, struct lock, lock_elem));
   }
+
+  /* Delete the virtual page hash table */
+  struct sup_page_table *spt = &cur->spt;
+  hash_destroy(&spt->table, free_spt);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -652,6 +659,10 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         pagedir_set_writable(t->pagedir, upage, writable);
       }
 
+    /* Create virtual memory page entry */
+    struct spt_entry *spte = malloc(sizeof(struct spt_entry));
+    if (spte == NULL) {
+      exit(-1);
     }
 
       /* Check if writable flag for the page should be updated */
@@ -676,6 +687,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     /* Advance. */
     read_bytes -= page_read_bytes;
     zero_bytes -= page_zero_bytes;
+    ofs += page_read_bytes;
     upage += PGSIZE;
   }
   return true;
@@ -693,11 +705,32 @@ setup_stack (void **esp)
   if (kpage != NULL)
   {
     success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-    if (success)
-      *esp = PHYS_BASE;
+    if (success) 
+      *esp = PHYS_BASE - 12;
     else
       deallocate_frame (kpage);
   }
+
+  /* Create and initialise virtual page entry */
+  struct spt_entry *spte = malloc(sizeof(struct spt_entry));
+  if (spte == NULL) {
+    exit(-1);
+  }
+  spte->user_vaddr = (uint32_t) PHYS_BASE - PGSIZE;
+  spte->file = NULL;
+  spte->file_offset = 0;
+  spte->read_bytes = 0;
+  spte->zero_bytes = 0;
+  spte->writable = true;
+
+  //TODO: a function to insert hash elem into spt.table
+  //do we need lock?
+  struct thread *t = thread_current();
+  lock_acquire(&t->spt.spt_lock);
+  hash_insert(&t->spt.table, &spte->elem);
+  lock_release(&t->spt.spt_lock);
+
+
   return success;
 }
 
@@ -715,7 +748,7 @@ install_page (void *upage, void *kpage, bool writable)
 {
   struct thread *t = thread_current ();
 
-  /* Verify that there's not already a page at that virtual
+  /* Verify that there')s not already a page at that virtual
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));

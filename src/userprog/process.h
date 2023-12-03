@@ -4,6 +4,8 @@
 #include "threads/thread.h"
 #include "lib/kernel/hash.h"
 #include "threads/synch.h"
+#include "vm/page.h"
+#include "vm/frame.h"
 #include <stdlib.h>
 #include "vm/frame.h"
 

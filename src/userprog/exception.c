@@ -2,17 +2,22 @@
 #include "userprog/pagedir.h"
 #include <inttypes.h>
 #include <stdio.h>
+#include <string.h>
 #include "threads/loader.h"
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/syscall.h"
+#include "vm/page.h"
+#include "vm/frame.h"
+#include "threads/vaddr.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
+static void handle_user_page_fault(void *fault_addr, struct intr_frame *f);
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -142,17 +147,47 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-
-  if (fault_addr == NULL || (uint32_t) fault_addr >= LOADER_PHYS_BASE){
-    exit(-1);
-  } else if (f->cs == SEL_KCSEG) {
-    f->eip = (void (*)(void))f->eax;
-    f->eax = 0xffffffff;
+  // Check if the memory reference is valid
+  // Invalid access -> kill the process (user address, kernel address or permission error)
+  // Allocate page frame
+  // Fetch the data from teh disk to the page frame
+  // Update page table
+  if (fault_addr != NULL && (uint32_t) fault_addr < LOADER_PHYS_BASE) {
+    handle_user_page_fault(fault_addr, f);
   } else {
     kill(f);
   }
 
-
 }
+
+static void
+handle_user_page_fault(void *fault_addr, struct intr_frame *f) {
+ struct thread *cur = thread_current();
+ struct sup_page_table *spt = &cur->spt;
+ /* Search for the virtual page entry */
+ struct spt_entry *spte = spt_find_page(spt, fault_addr);
+ if (spte != NULL) {
+   // Allocate the page
+   // Load the data from file to physical memory - load_file(), install_page()
+   // Set up the page table
+   if (!spte->in_memory) {
+     struct frame_entry *frame = spte->frame;
+     spte->in_memory = true;
+     spte->frame = frame;
+     pagedir_set_page(thread_current()->pagedir, fault_addr, spte->frame->physical_addr, spte->writable);
+   }
+
+   if (f->error_code & PF_W) {
+     spte->is_dirty = true;
+   } else {
+     // Read access
+   }
+ } else {
+   exit(-1);
+ }
+}
+
+
+
 
 

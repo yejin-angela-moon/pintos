@@ -35,6 +35,8 @@
 #endif
 #ifdef VM
 #include "devices/swap.h"
+#include "vm/page.h"
+#include "vm/frame.h"
 #endif
 #ifdef FILESYS
 #include "devices/block.h"
@@ -118,6 +120,7 @@ main (void)
 #ifdef USERPROG
   exception_init ();
   syscall_init ();
+  frame_init ();
 #endif
 
   /* Start thread scheduler and enable interrupts. */
