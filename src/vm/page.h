@@ -18,8 +18,8 @@ struct page {
 };
 */
 
-void* allocate_page(void);
-void deallocate_page(struct page *pg);
+// void* allocate_page(void);
+// void deallocate_page(struct page *pg);
 
 struct spt_entry {
     uint32_t user_vaddr;  /* User virtual address.*/
@@ -57,6 +57,9 @@ unsigned spt_hash (const struct hash_elem *e, void *aux);
 bool spt_less (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
 struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr);
+
+bool spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
+    uint32_t read_bytes, uint32_t zero_bytes, bool writable);
 
 void free_spt(struct hash_elem *e, void *aux);
 

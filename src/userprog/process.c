@@ -148,7 +148,7 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
   struct thread *cur = thread_current ();
-  struct sup_page_table *spt = &cur->spt;
+  struct sup_page_table *spt = cur->spt;
   hash_init (&spt->table, spt_hash, spt_less, NULL);
 
   /* Initialize interrupt frame and load executable. */
@@ -582,13 +582,13 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
   return true;
 }
 
-static void *allocate_user_frame(void) {
-  void *frame = allocate_frame();
-  if (frame == NULL) {
-    exit(-1);
-  }
-  return frame;
-}
+// static void *allocate_user_frame(void) {
+//   void *frame = allocate_frame();
+//   if (frame == NULL) {
+//     process_exit();
+//   }
+//   return frame;
+// }
 
 static bool
 load_segment_lazily (struct file *file, off_t ofs, uint8_t *upage,

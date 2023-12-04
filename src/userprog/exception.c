@@ -10,6 +10,9 @@
 #include "vm/page.h"
 #include "threads/vaddr.h"
 #include "vm/swap.h"
+#include "vm/frame.h"
+#include <string.h>
+#include "filesys/file.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -170,7 +173,7 @@ page_fault (struct intr_frame *f)
   if (fault_addr == NULL || !not_present || !is_user_vaddr(fault_addr))
     exit(-1);
 
-  spte = spt_find_page(&cur->spt, fault_page);
+  spte = spt_find_page(cur->spt, fault_page);
 
   if (spte == NULL)
     exit(-1);
@@ -194,7 +197,7 @@ page_fault (struct intr_frame *f)
       spte->in_memory = true;
   }
 
-  if (!install_page(spte->user_vaddr, frame, spte->writable)) {
+  if (!install_page((unsigned int)spte->user_vaddr, frame, spte->writable)) {
     exit(-1);
   }
 
@@ -235,7 +238,7 @@ static void load_page_from_swap(struct spt_entry *spte, void *frame) {
 
 static bool install_page(void *upage, void *kpage, bool writable) {
   struct thread *cur = thread_current();
-  struct spt_entry *spte = spt_find_page(&cur->spt, upage);
+  struct spt_entry *spte = spt_find_page(cur->spt, upage);
 
   if (spte == NULL)
     return false;

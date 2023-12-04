@@ -62,10 +62,10 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
   spte->ofs = ofs;
   spte->read_bytes = read_bytes;
   spte->zero_bytes = zero_bytes;
-  spte->writable;
+  spte->writable = writable;
   spte->in_memory = false;
 
-  struct sup_page_table *spt = &cur->spt;
+  struct sup_page_table *spt = cur->spt;
   result = hash_insert (&spt->table, &spte->elem);
   if (result != NULL)
     return false;
