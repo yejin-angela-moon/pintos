@@ -9,6 +9,8 @@
 #include "lib/kernel/hash.h"
 #include "threads/malloc.h"
 #include "vm/page.h"
+#include "threads/thread.h"
+
 // could move to a header file
 
 
@@ -45,8 +47,33 @@ struct sup_page_table *spt_create (void) {
 
 void spt_init (struct sup_page_table *spt) {
   hash_init(&spt->table, spt_hash, spt_less, NULL);
-  lock_init(&spt->spt_lock);
 }
+
+bool
+spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
+    uint32_t read_bytes, uint32_t zero_bytes, bool writable)
+{
+  struct spt_entry *spte = calloc (1, sizeof(struct spt_entry));
+  struct hash_elem *result;
+  struct thread *cur = thread_current ();
+  if (spte != NULL) {
+    return false;
+  }
+  spte->user_vaddr = (uint32_t) upage;
+  spte->file = file;
+  spte->ofs = ofs;
+  spte->read_bytes = read_bytes;
+  spte->zero_bytes = zero_bytes;
+  spte->writable = writable;
+  spte->in_memory = false;
+struct sup_page_table *spt = cur->spt;
+  result = hash_insert (&spt->table, &spte->elem);
+  if (result != NULL)
+    return false;
+
+  return true;
+}
+
 
 struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr) {
   struct spt_entry tmp;
