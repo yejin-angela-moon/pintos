@@ -406,16 +406,16 @@ close(int fd) {
 
 mapid_t
 add_mmap(struct map_file *mmap) {
-  mmap->mid = next_mmap_id++;  // maybe this should be hash
+  mmap->mid = next_mmap_id++;  // alternative: could use  hash
   list_push_back(thread_current()->mmap_files, mmap->elem);
 }
 
 mapid_t
 mmap(int fd, void *addr) {
   struct file_descriptor *file = process_get_fd(fd);
-  if (file == NULL || addr == 0) {
+  if (file == NULL || addr == 0)
     return -1;  // exit(-1); spec says to return -1 which is an invalid mapping id?
-  }
+ 
   int length = file_length(file->file);
   // validate mapping, exit(-1)/return if false
 
@@ -426,13 +426,16 @@ mmap(int fd, void *addr) {
   mmap->file = file->file;  // or just file?
   mmap->addr = addr;
   mmap->length = length;
+  
+  list_init(&mmap->pages); // TODO add pages to list (spt_entry)
+  
+
 
   add_mmap(struct map_file *mmap);
   // TODO do lazy loading stuff
   return mmap->mid;
 }
 
-// TODO this one
 void
 munmap(mapid_t mapping) {
   struct list map_list = thread_current()->mmap_files;
@@ -449,7 +452,14 @@ munmap(mapid_t mapping) {
   if (mf == NULL)
     return;  // not found
   
-  // TODO write changes to file and page, remove page from list of virtual pages
+  // TODO remove page from list of virtual pages
+  for (e = list_begin (&mf->pages); e != list_end (&mf->pages);
+                  e = list_next (e)) {
+    struct spt_entry *page = list_entry (e, struct spt_entry, lelem);
+    if (page->is_dirty)
+      // TODO write back to file
+      page->is_dirty = false  
+  }
   free(mf);
 }
 

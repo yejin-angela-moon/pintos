@@ -15,6 +15,7 @@ struct spt_entry {
     //uint32_t frame_addr;
     bool in_memory; 
     struct hash_elem elem;
+    struct list_elem lelem;
     // other potential fields: fd, file_offset, is_read_only, is_dirty, timestamp, swap slot, is_swapped_out
     // lazy loading fields
     off_t file_offset;
