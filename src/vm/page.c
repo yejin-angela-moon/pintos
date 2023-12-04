@@ -1,7 +1,7 @@
 #include "vm/page.h"
 #include <stddef.h>
 #include <stdbool.h>
-
+#include "threads/thread.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -9,6 +9,8 @@
 #include "lib/kernel/hash.h"
 #include "threads/malloc.h"
 #include "vm/page.h"
+#include "threads/pte.h"
+#include <string.h>
 // could move to a header file
 
 
@@ -20,6 +22,7 @@ void spte_init(struct spt_entry *spte) {
   */
   spte->frame = NULL;
   spte->is_dirty = false;
+
 }
 
 unsigned spt_hash(const struct hash_elem *elem, void *aux UNUSED) {
@@ -41,6 +44,34 @@ struct sup_page_table *spt_create (void) {
   return spt;
 }
 */
+
+
+
+bool
+spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
+    uint32_t read_bytes, uint32_t zero_bytes, bool writable)
+{
+  struct spt_entry *spte = calloc (1, sizeof(struct spt_entry));
+  struct hash_elem *result;
+  struct thread *cur = thread_current ();
+  if (spte != NULL) {
+    return false;
+  }
+  spte->user_vaddr = (uint32_t) upage;
+  spte->file = file;
+  spte->ofs = ofs;
+  spte->read_bytes = read_bytes;
+  spte->zero_bytes = zero_bytes;
+  spte->writable = writable;
+  spte->in_memory = false;
+
+  struct sup_page_table *spt = cur->spt;
+  result = hash_insert (&spt->table, &spte->elem);
+  if (result != NULL)
+    return false;
+
+  return true;
+}
 
 
 void spt_init (struct sup_page_table *spt) {
