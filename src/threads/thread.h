@@ -119,6 +119,8 @@ struct thread {
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
     
+    struct sup_page_table *spt;
+    
 #endif
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */

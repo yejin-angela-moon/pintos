@@ -22,19 +22,22 @@ void* allocate_page(void);
 void deallocate_page(struct page *pg);
 
 struct spt_entry {
-    uint32_t user_vaddr;
-    //uint32_t frame_addr;
-    bool in_memory; 
+    uint32_t user_vaddr;  /* User virtual address.*/
+    //uint32_t frame_addr; 
+    bool in_memory;       /* Whether the page is currently in memory. */
     struct hash_elem elem;
     // other potential fields: fd, file_offset, is_read_only, is_dirty, timestamp, swap slot, is_swapped_out
     // lazy loading fields
-    off_t file_offset;
-    uint32_t read_bytes;
-    uint32_t zero_bytes;
-    bool writable;
-    struct file *file;
+    off_t ofs;            /* Offset within the file. */
+    uint32_t read_bytes;  /* Number of bytes to read from the file. */
+    uint32_t zero_bytes;  /* Number of zero bytes to add to the end of the page. */
+    bool writable;        /* Whether the page is writable. */
+    struct file *file;    /* File associated with the page. */
     bool is_dirty;
-    struct frame *frame; // VPN -> PFN
+    bool is_valid;
+    // swap
+    size_t swap_slot;     /* Swap slot index. */
+    struct frame *frame;  /* Pointer to the frame in memory. */
 };
 
 // page table itself
