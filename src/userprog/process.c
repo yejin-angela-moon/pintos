@@ -147,9 +147,6 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-  struct thread *cur = thread_current ();
-  struct sup_page_table *spt = cur->spt;
-  hash_init (&spt->table, spt_hash, spt_less, NULL);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -415,9 +412,6 @@ static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
-static bool load_segment_lazily (struct file *file, off_t ofs, uint8_t *upage,
-                          uint32_t read_bytes, uint32_t zero_bytes,
-                          bool writable);
 
 /* Loads an ELF executable from FILE_NAME into the current thread.
    Stores the executable's entry point into *EIP
@@ -508,7 +502,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
             read_bytes = 0;
             zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
           }
-          if (!load_segment_lazily (file, file_page, (void *) mem_page,
+          if (!load_segment (file, file_page, (void *) mem_page,
                              read_bytes, zero_bytes, writable))
             goto done;
         }
@@ -582,38 +576,14 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
   return true;
 }
 
-// static void *allocate_user_frame(void) {
-//   void *frame = allocate_frame();
-//   if (frame == NULL) {
-//     process_exit();
-//   }
-//   return frame;
-// }
-
-static bool
-load_segment_lazily (struct file *file, off_t ofs, uint8_t *upage,
-    uint32_t read_bytes, uint32_t zero_bytes, bool writable)
-{
-  ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
-  ASSERT (pg_ofs (upage) == 0);
-  ASSERT (ofs % PGSIZE == 0);
-
-  while (read_bytes > 0 || zero_bytes > 0) {
-    size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
-    size_t page_zero_bytes = PGSIZE - page_read_bytes;
-
-    if (!spt_insert_file (file, ofs, upage, page_read_bytes,
-                          page_zero_bytes, writable))
-      return false;
-
-    /* Advance */
-    read_bytes -= page_read_bytes;
-    zero_bytes -= page_zero_bytes;
-    ofs += page_read_bytes;
-    upage += PGSIZE;
+static void *allocate_user_frame(void) {
+  void *frame = allocate_frame();
+  if (frame == NULL) {
+    exit(-1);
   }
-  return true;
+  return frame;
 }
+
 
 /* Loads a segment starting at offset OFS in FILE at address
    UPAGE.  In total, READ_BYTES + ZERO_BYTES bytes of virtual

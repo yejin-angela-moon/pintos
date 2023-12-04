@@ -45,12 +45,6 @@ void *allocate_frame(void) {
   return NULL;
 }
 
-void *frame_get_page(struct spt_entry *spte) {
-  // could be synchronised
-  void *frame = palloc_get_page(PAL_USER);
-  return frame;
-} 
-
 /* Deallocate a frame by marking it as free */
 void deallocate_frame(void *page_addr) {  
   struct page *page = (struct page *)page_addr;

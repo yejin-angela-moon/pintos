@@ -18,7 +18,6 @@ bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux)
 
 void frame_table_init(void);
 void* allocate_frame(void);
-void *frame_get_page(struct spt_entry *spte);
 void deallocate_frame(void* frame_addr);
 
 #endif /* vm/frame.h */
