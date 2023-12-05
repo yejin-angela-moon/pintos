@@ -19,10 +19,9 @@
 #include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "lib/kernel/hash.h"
-#ifdef VM
+
 #include "vm/frame.h"
-#endif
+
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -70,6 +69,9 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy2);
+ // hash_init (&thread_current()->spt, spt_hash, spt_less, NULL);
+  //hash_init (&get_thread_by_tid(tid)->spt, spt_hash, spt_less, NULL);
+  
   /* Freeing process_name fn_copy */
   palloc_free_page(fn_copy);
 
@@ -147,6 +149,9 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+  struct thread *cur = thread_current ();
+ struct hash spt = cur->spt;
+  //hash_init (&spt, spt_hash, spt_less, NULL);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -412,6 +417,9 @@ static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
+static bool load_segment_lazily (struct file *file, off_t ofs, uint8_t *upage,
+                          uint32_t read_bytes, uint32_t zero_bytes,
+                          bool writable);
 
 /* Loads an ELF executable from FILE_NAME into the current thread.
    Stores the executable's entry point into *EIP
@@ -502,7 +510,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
             read_bytes = 0;
             zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
           }
-          if (!load_segment (file, file_page, (void *) mem_page,
+          if (!load_segment_lazily (file, file_page, (void *) mem_page,
                              read_bytes, zero_bytes, writable))
             goto done;
         }
@@ -576,14 +584,44 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
   return true;
 }
 
-static void *allocate_user_frame(void) {
-  void *frame = allocate_frame();
-  if (frame == NULL) {
-    exit(-1);
-  }
-  return frame;
-}
+// static void *allocate_user_frame(void) {
+//   void *frame = allocate_frame();
+//   if (frame == NULL) {
+//     process_exit();
+//   }
+//   return frame;
+// }
 
+static bool
+load_segment_lazily (struct file *file, off_t ofs, uint8_t *upage,
+    uint32_t read_bytes, uint32_t zero_bytes, bool writable)
+{
+  ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
+  ASSERT (pg_ofs (upage) == 0);
+  ASSERT (ofs % PGSIZE == 0);
+
+  while (read_bytes > 0 || zero_bytes > 0) {
+    size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+    size_t page_zero_bytes = PGSIZE - page_read_bytes;
+//printf("ready to insert spt file");
+    if (!thread_current()->init_spt) {
+      hash_init (&thread_current()->spt, spt_hash, spt_less, NULL);
+      thread_current()->init_spt = true;
+    }
+    if (!spt_insert_file (file, ofs, upage, page_read_bytes,
+                          page_zero_bytes, writable)) {
+      return false;
+    }
+
+  //  printf("insert spt file");
+    /* Advance */
+    read_bytes -= page_read_bytes;
+    zero_bytes -= page_zero_bytes;
+    ofs += page_read_bytes;
+    upage += PGSIZE;
+  }
+  return true;
+}
 
 /* Loads a segment starting at offset OFS in FILE at address
    UPAGE.  In total, READ_BYTES + ZERO_BYTES bytes of virtual
@@ -720,4 +758,5 @@ install_page (void *upage, void *kpage, bool writable)
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
+
 

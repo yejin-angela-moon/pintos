@@ -57,6 +57,10 @@ unsigned spt_hash (const struct hash_elem *e, void *aux);
 
 bool spt_less (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
+bool
+spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
+    uint32_t read_bytes, uint32_t zero_bytes, bool writable);
+
 struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr);
 
 void free_spt(struct hash_elem *e, void *aux);

@@ -53,10 +53,12 @@ bool
 spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
     uint32_t read_bytes, uint32_t zero_bytes, bool writable)
 {
+	//printf("indide the spt insrt function\n");
   struct spt_entry *spte = calloc (1, sizeof(struct spt_entry));
+  //printf("calloc a new spte\n");
   struct hash_elem *result;
   struct thread *cur = thread_current ();
-  if (spte != NULL) {
+  if (spte == NULL) {
     return false;
   }
   spte->user_vaddr = (uint32_t) upage;
@@ -66,11 +68,16 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
   spte->zero_bytes = zero_bytes;
   spte->writable = writable;
   spte->in_memory = false;
-struct sup_page_table *spt = cur->spt;
-  result = hash_insert (&spt->table, &spte->elem);
-  if (result != NULL)
+  //printf("set up the spte\n");
+  struct hash spt = cur->spt;
+ // printf("get the spt of the cur thread\n");
+//  hash_init (&spt, spt_hash, spt_less, NULL);
+  result = hash_insert (&spt, &spte->elem);
+  if (result != NULL) {
+	  printf("cannot insert\n");
     return false;
-
+  }
+printf("inserted to the hash\n");
   return true;
 }
 
