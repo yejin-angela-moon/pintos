@@ -13,6 +13,7 @@
 #include <string.h>
 // could move to a header file
 
+static void spte_destroy (struct hash_elem *elem, void *aux);
 
 void spte_init(struct spt_entry *spte) {
   /*
@@ -37,14 +38,35 @@ bool spt_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UN
     return spte_a->user_vaddr < spte_b->user_vaddr;  
 }
 
-/*
-struct sup_page_table *spt_create (void) {
+
+struct sup_page_table *
+spt_create (void) {
   struct sup_page_table *spt = malloc(sizeof(struct sup_page_table));
   hash_init (&spt->table, spt_hash, spt_less, NULL);
   return spt;
 }
-*/
 
+void
+spt_destroy (struct sup_page_table *spt) {
+  ASSERT (spt != NULL);
+
+  hash_destroy (&spt->table, spte_destroy);
+}
+
+static void 
+spte_destroy (struct hash_elem *elem, void *aux UNUSED) {
+  struct spt_entry *spte = hash_entry (elem, struct spt_entry, elem);
+
+  if (spte->page != NULL) {
+    // assert entry is on frame
+    frame_remove_entry (spte->page);
+  }
+  // else if entry is on swap
+  // free the entry in swap
+
+  /* Clean up sup page table entry */
+  free(spte);
+}
 
 
 bool
@@ -73,10 +95,31 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
+bool
+spt_install_frame (struct sup_page_table *spt, void *user_vaddr, void *kpage) {
+  struct spt_entry *spte = (struct spt_entry *) malloc(sizeof(struct spt_entry));
 
-void spt_init (struct sup_page_table *spt) {
-  hash_init(&spt->table, spt_hash, spt_less, NULL);
-  lock_init(&spt->spt_lock);
+  spte->user_vaddr = user_vaddr;
+  spte->page = kpage;
+  spte->is_dirty = false;
+  
+  struct hash_elem *prev_elem = hash_insert (&spt->table, &spte->elem);
+  if (prev_elem == NULL) {
+    return true;
+  } else {
+    // There is already an entry
+    free(spte);
+    return false;
+  }
+
+}
+
+
+void spt_init (void) {
+  struct thread *cur = thread_current();
+  cur->spt = (struct sup_page_table *)malloc(sizeof(struct sup_page_table));
+  hash_init(&cur->spt->table, spt_hash, spt_less, NULL);
+  lock_init(&cur->spt->spt_lock);
 }
 
 struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr) {

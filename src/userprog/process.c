@@ -148,8 +148,8 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
   struct thread *cur = thread_current ();
-  struct sup_page_table *spt = cur->spt;
-  hash_init (&spt->table, spt_hash, spt_less, NULL);
+  //struct sup_page_table *spt = cur->spt;
+  //spt_init(spt);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -298,6 +298,11 @@ process_exit (void)
     lock_release(list_entry(e, struct lock, lock_elem));
   }
 
+#ifdef VM
+  spt_destroy(cur->spt);
+  cur->spt = NULL;
+#endif
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -435,6 +440,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
+#ifdef VM
+  t->spt = spt_create();
+#endif
   if (t->pagedir == NULL)
     goto done;
   process_activate ();

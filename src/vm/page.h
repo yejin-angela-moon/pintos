@@ -48,9 +48,11 @@ struct sup_page_table {
 
 };
 
-void spt_init (struct sup_page_table *spt);
+void spt_init (void);
 
 struct sup_page_table *spt_create(void);
+
+void spt_destroy (struct sup_page_table *spt);
 
 unsigned spt_hash (const struct hash_elem *e, void *aux);
 

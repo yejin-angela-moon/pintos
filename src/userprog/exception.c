@@ -13,6 +13,7 @@
 #include "vm/frame.h"
 #include <string.h>
 #include "filesys/file.h"
+#include <stddef.h>
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -170,7 +171,7 @@ page_fault (struct intr_frame *f)
   if (!not_present)
     exit(-1);
 
-  if (fault_addr == NULL || !not_present || !is_user_vaddr(fault_addr))
+  if (!fault_page)
     exit(-1);
 
   spte = spt_find_page(cur->spt, fault_page);

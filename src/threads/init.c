@@ -121,6 +121,7 @@ main (void)
   exception_init ();
   syscall_init ();
 //  frame_init ();
+  //spt_init();
 #endif
 
   /* Start thread scheduler and enable interrupts. */
