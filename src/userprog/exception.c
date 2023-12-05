@@ -178,7 +178,7 @@ page_fault (struct intr_frame *f)
 
   //stack growth code:
   if (/*is this a stack access?*/) {
-    void *esp = f->esp;
+    void *esp = user ? f->esp : cur->esp;
 
     if (!stack_valid(fault_addr, esp)) {
       exit(-1)
