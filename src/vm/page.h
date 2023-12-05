@@ -9,6 +9,9 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <vm/frame.h>
+#include <userprog/pagedir.h>
+#include <filesys/file.h>
 
 /*
 struct page {
@@ -60,6 +63,10 @@ bool spt_less (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 bool
 spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
     uint32_t read_bytes, uint32_t zero_bytes, bool writable);
+
+
+bool load_page_to_frame(struct spt_entry *spte);
+
 
 struct spt_entry* spt_find_page(struct hash *spt, void *vaddr);
 

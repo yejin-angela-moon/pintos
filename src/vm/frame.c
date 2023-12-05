@@ -31,7 +31,7 @@ void frame_table_init(void) {
 
 /* Allocate a free frame and return its address */
 void *allocate_frame(void) {
-  struct frame *frame = (struct frame *)malloc(sizeof(frame));
+  struct frame *frame = calloc(sizeof(struct frame), 1);
   if (frame != NULL) {
     frame->page = palloc_get_page(PAL_USER);
     if (frame->page != NULL) {
@@ -46,8 +46,7 @@ void *allocate_frame(void) {
 }
 
 void *frame_get_page(struct spt_entry *spte) {
-  // could be synchronised
-  void *frame = palloc_get_page(PAL_USER);
+void *frame = palloc_get_page(PAL_USER);
   return frame;
 } 
 

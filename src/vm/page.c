@@ -10,7 +10,7 @@
 #include "threads/malloc.h"
 #include "vm/page.h"
 #include "threads/thread.h"
-
+#include <string.h>
 // could move to a header file
 
 
@@ -81,6 +81,38 @@ printf("inserted to the hash\n");
   return true;
 }
 
+
+bool load_page_to_frame(struct spt_entry *spte) {
+	struct thread *cur = thread_current ();
+
+  file_seek (spte->file, spte->ofs);
+printf("file seek\n");
+  uint8_t *kpage = allocate_frame ();
+
+  printf("allocated frame\n");
+  if (kpage == NULL) {
+    return false;
+  }
+  printf("allocated frame not null\n");
+  
+  if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes)
+    {
+	    printf("the read byte is not equal\n");
+      deallocate_frame (kpage);
+      return false;
+    }
+  printf("file read\n");
+  memset (kpage + spte->read_bytes, 0, spte->zero_bytes);
+
+  if (!pagedir_set_page (cur->pagedir, (void *) spte->user_vaddr, kpage, spte->writable))
+    {
+      deallocate_frame (kpage);
+      return false;
+    }
+printf("end of the load page to frame function\n");
+  //spte->in_memory = true;
+  return true;
+}
 
 struct spt_entry* spt_find_page(struct hash *spt, void *vaddr) {
   struct spt_entry tmp;
