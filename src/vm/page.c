@@ -75,17 +75,17 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
   result = hash_insert (&spt, &spte->elem);
   if (result != NULL) {
 	  printf("cannot insert\n");
-    return false;
+//    return false;
   }
 printf("inserted to the hash\n");
   return true;
 }
 
 
-struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr) {
+struct spt_entry* spt_find_page(struct hash *spt, void *vaddr) {
   struct spt_entry tmp;
   tmp.user_vaddr = (uint32_t)vaddr;
-  struct hash_elem *e = hash_find(&spt->table, &tmp.elem);
+  struct hash_elem *e = hash_find(spt, &tmp.elem);
   return e != NULL ? hash_entry(e, struct spt_entry, elem) : NULL;
 }
 

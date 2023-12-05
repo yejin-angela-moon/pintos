@@ -61,7 +61,7 @@ bool
 spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
     uint32_t read_bytes, uint32_t zero_bytes, bool writable);
 
-struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr);
+struct spt_entry* spt_find_page(struct hash *spt, void *vaddr);
 
 void free_spt(struct hash_elem *e, void *aux);
 

@@ -172,8 +172,8 @@ page_fault (struct intr_frame *f)
 
   if (fault_addr == NULL || !not_present || !is_user_vaddr(fault_addr))
     exit(-1);
-/*printf("ready to find page");
-  spte = spt_find_page(cur->spt, fault_page);
+printf("ready to find page");
+  spte = spt_find_page(&cur->spt, fault_page);
 printf("page found");
   if (spte == NULL)
     exit(-1);
@@ -191,16 +191,16 @@ printf("page found");
     } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
       load_page_from_swap(spte, frame);
     } else {
-  */    /* Page is an all-zero page. */
-    /*  memset(frame, 0, PGSIZE);
+      /* Page is an all-zero page. */
+      memset(frame, 0, PGSIZE);
     }
       spte->in_memory = true;
   }
 
-  if (!install_page((unsigned int)spte->user_vaddr, frame, spte->writable)) {
+  if (!install_page((void *) spte->user_vaddr, frame, spte->writable)) {
     exit(-1);
   }
-*/
+
   /* (3.1.5) a page fault in the kernel merely sets eax to 0xffffffff
   * and copies its former value into eip. see syscall.c:get_user() */
   if(!user) { // kernel mode

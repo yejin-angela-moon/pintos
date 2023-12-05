@@ -603,8 +603,9 @@ load_segment_lazily (struct file *file, off_t ofs, uint8_t *upage,
   while (read_bytes > 0 || zero_bytes > 0) {
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
-//printf("ready to insert spt file");
+printf("ready to insert one new page in lazy load for tid %d\n", thread_current()->tid);
     if (!thread_current()->init_spt) {
+	    printf("need to be init");
       hash_init (&thread_current()->spt, spt_hash, spt_less, NULL);
       thread_current()->init_spt = true;
     }
@@ -620,6 +621,7 @@ load_segment_lazily (struct file *file, off_t ofs, uint8_t *upage,
     ofs += page_read_bytes;
     upage += PGSIZE;
   }
+  printf("end lazy while loop \n");
   return true;
 }
 
