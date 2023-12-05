@@ -122,7 +122,8 @@ thread_start(void) {
   sema_down(&idle_started);
 }
 
-/* Returns the number of threads currently in the ready list */
+/* Returns the number of threads currently in the ready list. 
+   Disables interrupts to avoid any race-conditions on the ready list. */
 size_t
 threads_ready(void) {
   return list_size(&ready_list);
@@ -132,6 +133,7 @@ threads_ready(void) {
 void
 recalculate_recent_cpu(struct thread *t) // to be run once per second
 {
+<<<<<<< HEAD
   t->recent_cpu = fp_add_int(
           fp_mul(fp_div(fp_mul_int(load_avg, 2), fp_add_int(fp_mul_int(load_avg, 2), 1)), t->recent_cpu), t->nice);
 }
@@ -174,6 +176,12 @@ void calculate_priority_all() {
     calculate_priority(list_entry(e,
     struct thread, allelem));
   }
+=======
+  enum intr_level old_level = intr_disable ();
+  return list_size (&ready_list);
+  intr_set_level (old_level);
+  
+>>>>>>> skeleton/master
 }
 
 /* Called by the timer interrupt handler at each timer tick.
