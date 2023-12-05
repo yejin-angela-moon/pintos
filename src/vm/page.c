@@ -11,6 +11,8 @@
 #include "vm/page.h"
 #include "threads/thread.h"
 #include <string.h>
+#include "threads/vaddr.h"
+#include "userprog/exception.h"
 // could move to a header file
 
 
@@ -52,16 +54,16 @@ void spt_init (struct sup_page_table *spt) {
 bool
 spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
     uint32_t read_bytes, uint32_t zero_bytes, bool writable)
-{
+{ //return true;
 	//printf("indide the spt insrt function\n");
-  struct spt_entry *spte = calloc (1, sizeof(struct spt_entry));
+  struct spt_entry *spte = malloc (sizeof(struct spt_entry));
   //printf("calloc a new spte\n");
   struct hash_elem *result;
   struct thread *cur = thread_current ();
   if (spte == NULL) {
     return false;
   }
-  spte->user_vaddr = (uint32_t) upage;
+  spte->user_vaddr = upage;
   spte->file = file;
   spte->ofs = ofs;
   spte->read_bytes = read_bytes;
@@ -69,15 +71,16 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
   spte->writable = writable;
   spte->in_memory = false;
   //printf("set up the spte\n");
-  struct hash spt = cur->spt;
+//  struct hash spt = cur->spt;
  // printf("get the spt of the cur thread\n");
 //  hash_init (&spt, spt_hash, spt_less, NULL);
-  result = hash_insert (&spt, &spte->elem);
+  result = hash_insert (&cur->spt, &spte->elem);
   if (result != NULL) {
 	  printf("cannot insert\n");
-//    return false;
+	  free (spte);
+  // return false;
   }
-printf("inserted to the hash\n");
+printf("inserted a new addr %d to the hash\n", (uint32_t) upage);
   return true;
 }
 
@@ -85,7 +88,7 @@ printf("inserted to the hash\n");
 bool load_page_to_frame(struct spt_entry *spte) {
 	struct thread *cur = thread_current ();
 
-  file_seek (spte->file, spte->ofs);
+ file_seek (spte->file, spte->ofs);
 printf("file seek\n");
   uint8_t *kpage = allocate_frame ();
 
@@ -112,11 +115,12 @@ printf("file seek\n");
 printf("end of the load page to frame function\n");
   //spte->in_memory = true;
   return true;
+
 }
 
 struct spt_entry* spt_find_page(struct hash *spt, void *vaddr) {
   struct spt_entry tmp;
-  tmp.user_vaddr = (uint32_t)vaddr;
+  tmp.user_vaddr = vaddr;
   struct hash_elem *e = hash_find(spt, &tmp.elem);
   return e != NULL ? hash_entry(e, struct spt_entry, elem) : NULL;
 }

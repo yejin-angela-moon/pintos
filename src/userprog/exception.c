@@ -13,6 +13,9 @@
 #include "vm/frame.h"
 #include <string.h>
 #include "filesys/file.h"
+#include <stdlib.h>
+#include <threads/malloc.h>
+#include <threads/palloc.h>
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -22,8 +25,6 @@ static void page_fault (struct intr_frame *);
 
 static void load_page_from_swap(struct spt_entry *spte, void *frame);
 static void load_page_from_file(struct spt_entry *spte, void *frame);
-
-static bool install_page(void *upage, void *kpage, bool writable);
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -172,15 +173,20 @@ page_fault (struct intr_frame *f)
 
   if (fault_addr == NULL || !not_present || !is_user_vaddr(fault_addr))
     exit(-1);
-printf("ready to find page\n");
+printf("ready to find page with addr %d and after round down %d\n", (uint32_t) fault_page, (uint32_t) fault_addr);
+
   spte = spt_find_page(&cur->spt, fault_page);
+  //struct frame * ffff = malloc(sizeof(struct frame));
 printf("page found\n");
-  if (spte == NULL)
+  if (spte == NULL) {
+    printf("spte is null and exit\n");
     exit(-1);
+  }
 
-  if (spte->writable && !write)
+  if (spte->writable && !write) {
+	 printf("spte is writable but cant write and exit\n");
     exit(-1);
-
+  }
   //void *frame = frame_get_page(spte);
   //if (frame == NULL)
     //exit(-1);
@@ -189,6 +195,7 @@ printf("page found\n");
     if (spte->file != NULL) {
 	    printf("load page from frame\n");
       load_page_to_frame(spte);
+      return;
     } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
 	   printf("load page fromswap\n"); 
    //   load_page_from_swap(spte, frame);
@@ -205,11 +212,11 @@ printf("page found\n");
 
   /* (3.1.5) a page fault in the kernel merely sets eax to 0xffffffff
   * and copies its former value into eip. see syscall.c:get_user() */
-  if(!user) { // kernel mode
+  else if(!user) { // kernel mode
     f->eip = (void *) f->eax;
     f->eax = 0xffffffff;
     return;
-  }
+  } else {
 
   /* Page fault can't be handled - kill the process */
   printf ("Page fault at %p: %s error %s page in %s context.\n",
@@ -218,7 +225,7 @@ printf("page found\n");
           write ? "writing" : "reading",
           user ? "user" : "kernel");
   kill (f);
-
+  }
   return;
 
 }
@@ -238,7 +245,7 @@ static void load_page_from_swap(struct spt_entry *spte, void *frame) {
   //swap_read(spte->swap_slot, frame);
 }
 
-static bool install_page(void *upage, void *kpage, bool writable) {
+bool install_page(void *upage, void *kpage, bool writable) {
   struct thread *cur = thread_current();
   struct spt_entry *spte = spt_find_page(&cur->spt, upage);
 

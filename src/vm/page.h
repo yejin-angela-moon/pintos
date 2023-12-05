@@ -25,7 +25,7 @@ void* allocate_page(void);
 //void* deallocate_page(struct page *pg);
 
 struct spt_entry {
-    uint32_t user_vaddr;  /* User virtual address.*/
+    uint8_t * user_vaddr;  /* User virtual address.*/
     //uint32_t frame_addr; 
     bool in_memory;       /* Whether the page is currently in memory. */
     struct hash_elem elem;
