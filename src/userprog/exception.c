@@ -24,6 +24,7 @@ static void load_page_from_swap(struct spt_entry *spte, void *frame);
 static void load_page_from_file(struct spt_entry *spte, void *frame);
 
 static bool install_page(void *upage, void *kpage, bool writable);
+static bool stack_valid(void *vaddr, void *esp);
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -175,6 +176,18 @@ page_fault (struct intr_frame *f)
 
   spte = spt_find_page(cur->spt, fault_page);
 
+  //stack growth code:
+  if (/*is this a stack access?*/) {
+    void *esp = f->esp;
+
+    if (!stack_valid(fault_addr, esp)) {
+      exit(-1)
+    }
+
+    void *kpage = allocate_frame();
+    install_page(fault_page, kpage, true);
+  }
+
   if (spte == NULL)
     exit(-1);
 
@@ -252,4 +265,10 @@ static bool install_page(void *upage, void *kpage, bool writable) {
   spte->frame = kpage;
 
   return true;
+}
+
+static bool stack_valid(void *vaddr, void *esp){
+  return  (vaddr >= PHYS_BASE - MAX_STACK_SIZE) &&
+          (vaddr == esp - PUSH_SIZE || vaddr = esp - PUSHA_SIZE || vaddr >= esp);
+
 }
