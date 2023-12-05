@@ -31,17 +31,17 @@ void frame_table_init(void) {
 
 /* Allocate a free frame and return its address */
 void *allocate_frame(void) {
-  struct frame frame;// = malloc(sizeof(struct frame));
-//  if (frame != NULL) {
-    frame.page = palloc_get_page(PAL_USER);
-    if (frame.page != NULL) {
-      frame.is_free = false;
-      hash_insert(&frame_table, &frame.elem);
-      return frame.page;
+  struct frame *frame = malloc(sizeof(struct frame));
+  if (frame != NULL) {
+    frame->page = palloc_get_page(PAL_USER);
+    if (frame->page != NULL) {
+      frame->is_free = false;
+      hash_insert(&frame_table, &frame->elem);
+      return frame->page;
     } else {
-    //  free(frame);
+      free(frame);
     }
-  //}
+  }
   return NULL;
 }
 
