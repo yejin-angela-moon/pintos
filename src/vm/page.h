@@ -51,6 +51,8 @@ struct spt_entry {
     size_t swap_slot;     /* Swap slot index. */
     struct frame *frame;  /* Pointer to the frame in memory. */
     enum spte_type type;
+    // shared
+    bool is_shared;
 };
 
 // page table itself
@@ -91,6 +93,8 @@ bool load_page(struct spt_entry *spte, void * kpage);
 struct spt_entry* spt_find_page(struct hash *spt, void *vaddr);
 
 void free_spt(struct hash_elem *e, void *aux);
+
+void init_page_sharing(void) ;
 
 
 #endif /* vm/page.h */
