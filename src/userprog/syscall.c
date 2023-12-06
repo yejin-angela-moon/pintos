@@ -61,9 +61,12 @@ syscall_handler(struct intr_frame *f) {
   if (!is_user_vaddr(f->esp)) {
     exit(-1);
   }
+  //This is to obtain the esp for stack growth
+  thread_current()->esp = f->esp;
 
   /* Casting syscall_num into an int */
   int syscall_num = *(int *) (f->esp);
+//  printf("the syscall is %d\n", syscall_num);
   switch (syscall_num) {
     case SYS_HALT: {      /* Halts Pintos */
       halt();

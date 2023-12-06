@@ -2,22 +2,32 @@
 #include "userprog/pagedir.h"
 #include <inttypes.h>
 #include <stdio.h>
-#include <string.h>
 #include "threads/loader.h"
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/syscall.h"
 #include "vm/page.h"
-#include "vm/frame.h"
 #include "threads/vaddr.h"
+#include "vm/swap.h"
+#include "vm/frame.h"
+#include <string.h>
+#include "filesys/file.h"
+#include <stdlib.h>
+#include <threads/malloc.h>
+#include <threads/palloc.h>
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
-static void handle_user_page_fault(void *fault_addr, struct intr_frame *f);
+
+static void load_page_from_swap(struct spt_entry *spte, void *frame);
+static void load_page_from_file(struct spt_entry *spte, void *frame);
+
+bool install_page(void *upage, void *kpage, bool writable);
+static bool stack_valid(void *vaddr, void *esp);
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -126,7 +136,12 @@ kill (struct intr_frame *f)
 static void
 page_fault (struct intr_frame *f) 
 {
+  bool not_present; /* True: not-present page, False: writing to read-only page. */
+  bool write;       /* True: access was write, False: access was read. */
+  bool user;        /* True: access by user, False: access by kernel. */
+
   void *fault_addr;  /* Fault address. */
+  struct spt_entry *spte;
 
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
@@ -147,47 +162,147 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-  // Check if the memory reference is valid
-  // Invalid access -> kill the process (user address, kernel address or permission error)
-  // Allocate page frame
-  // Fetch the data from teh disk to the page frame
-  // Update page table
-  if (fault_addr != NULL && (uint32_t) fault_addr < LOADER_PHYS_BASE) {
-    handle_user_page_fault(fault_addr, f);
-  } else {
-    kill(f);
+
+//printf("PAGE FAULT\n\n");
+
+  /* Determine cause. */
+  not_present = (f->error_code & PF_P) == 0;
+  write = (f->error_code & PF_W) != 0;
+  user = (f->error_code & PF_U) != 0;
+
+  struct thread *cur = thread_current();
+  void * fault_page = (void *) pg_round_down (fault_addr);
+
+  if (!not_present) {
+//	  printf("not present\n");
+    exit(-1);
+  }
+//printf("the fault addr is %p\n", fault_page);
+  if (fault_addr == NULL){ //|| !not_present || !is_user_vaddr(fault_addr)) {
+//	  printf("addr is NULL or not user vaddr");
+    exit(-1);
+  }
+//printf("ready to find page with addr %d and after round down %d\n", (uint32_t) fault_page, (uint32_t) fault_addr);
+
+  spte = spt_find_page(&cur->spt, fault_page);
+  //struct frame * ffff = malloc(sizeof(struct frame));
+//printf("page found\n");
+
+  //stack growth code:
+  void *esp = user ? f->esp : cur->esp;
+  if (spte == NULL && stack_valid(fault_addr, esp)) {
+//	  printf("time to grow stack\n");
+   // void *esp = user ? f->esp : cur->esp;
+
+//    if (!stack_valid(fault_addr, esp)) {
+  //    exit(-1);
+   // }
+    void *kpage = allocate_frame();
+    if (kpage != NULL && !pagedir_set_page (cur->pagedir, fault_page, kpage, true)) {
+      deallocate_frame (kpage); 
+    }
+    return;
   }
 
+  if (spte == NULL) {
+    exit(-1);
+  }
+//printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
+/*if (spte->writable && !write) {
+	 printf("spte is writable but cant write and exit\n");
+    exit(-1);
+  }*/
+  //void *frame = frame_get_page(spte);
+  //if (frame == NULL)
+    //exit(-1);
+
+ if (!spte->in_memory) {
+    if (spte->file != NULL) {
+uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
+
+    if (kpage == NULL){
+//printf("kapge is null in pagea fault so need to allocate frame\n");
+      
+      kpage = allocate_frame();
+      if (kpage == NULL){
+        exit(-1);
+      }
+    } 
+//printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
+
+//  if (!spte->in_memory) {
+  //  if (spte->file != NULL) {
+//	    printf("load page from frame\n");
+      load_page_to_frame(spte, kpage);
+//      return;
+    } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
+//	   printf("load page fromswap\n"); 
+   //   load_page_from_swap(spte, frame);
+    } else {
+      /* Page is an all-zero page. */
+     // memset(frame, 0, PGSIZE);
+    }
+      spte->in_memory = true;
+  }
+
+  //if (!install_page((void *) spte->user_vaddr, frame, spte->writable)) {
+  // exit(-1);
+ // }
+
+  /* (3.1.5) a page fault in the kernel merely sets eax to 0xffffffff
+  * and copies its former value into eip. see syscall.c:get_user() */
+  else if(!user) { // kernel mode
+    f->eip = (void *) f->eax;
+    f->eax = 0xffffffff;
+    return;
+  } else {
+
+  /* Page fault can't be handled - kill the process */
+  printf ("Page fault at %p: %s error %s page in %s context.\n",
+          fault_addr,
+          not_present ? "not present" : "rights violation",
+          write ? "writing" : "reading",
+          user ? "user" : "kernel");
+  kill (f);
+  }
+  return;
+
 }
 
-static void
-handle_user_page_fault(void *fault_addr, struct intr_frame *f) {
- struct thread *cur = thread_current();
- struct sup_page_table *spt = &cur->spt;
- /* Search for the virtual page entry */
- struct spt_entry *spte = spt_find_page(spt, fault_addr);
- if (spte != NULL) {
-   // Allocate the page
-   // Load the data from file to physical memory - load_file(), install_page()
-   // Set up the page table
-   if (!spte->in_memory) {
-     struct frame_entry *frame = spte->frame;
-     spte->in_memory = true;
-     spte->frame = frame;
-     pagedir_set_page(thread_current()->pagedir, fault_addr, spte->frame->physical_addr, spte->writable);
-   }
+static void load_page_from_file (struct spt_entry *spte, void *frame) {
+//  off_t bytes_read = file_read_at(spte->file, frame, spte->read_bytes, spte->ofs);
+ // if (bytes_read != (off_t) spte->read_bytes) {
+  //  exit(-1);
+ // }
 
-   if (f->error_code & PF_W) {
-     spte->is_dirty = true;
-   } else {
-     // Read access
-   }
- } else {
-   exit(-1);
- }
+  if (spte->zero_bytes > 0) {
+    memset(frame + spte->read_bytes, 0, spte->zero_bytes);
+  }
 }
 
+static void load_page_from_swap(struct spt_entry *spte, void *frame) {
+  //swap_read(spte->swap_slot, frame);
+}
 
+bool install_page(void *upage, void *kpage, bool writable) {
+  struct thread *cur = thread_current();
+  struct spt_entry *spte = spt_find_page(&cur->spt, upage);
 
+  if (spte == NULL)
+    return false;
 
+  if (pagedir_get_page(cur->pagedir, upage) != NULL)
+    return false;
 
+  if (!pagedir_set_page(cur->pagedir, upage, kpage, writable))
+    return false;
+
+  spte->frame = kpage;
+
+  return true;
+}
+
+static bool stack_valid(void *vaddr, void *esp){
+  return  (PHYS_BASE - vaddr <= MAX_STACK_SIZE) && (vaddr >= esp - PUSHA_SIZE); 
+
+}

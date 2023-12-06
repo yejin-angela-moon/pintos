@@ -19,10 +19,9 @@
 #include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "lib/kernel/hash.h"
+
 #include "vm/frame.h"
-#include "vm/page.h"
-#include "userprog/syscall.h"
+
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -70,6 +69,9 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy2);
+ // hash_init (&thread_current()->spt, spt_hash, spt_less, NULL);
+  //hash_init (&get_thread_by_tid(tid)->spt, spt_hash, spt_less, NULL);
+  
   /* Freeing process_name fn_copy */
   palloc_free_page(fn_copy);
 
@@ -147,10 +149,9 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-  struct thread *cur = thread_current();
-
-  /* Initialise the hash for virtual pages */
-  hash_init(&(&cur->spt)->table, spt_hash, spt_less, NULL);
+  struct thread *cur = thread_current ();
+ struct hash spt = cur->spt;
+  //hash_init (&spt, spt_hash, spt_less, NULL);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -299,10 +300,6 @@ process_exit (void)
     lock_release(list_entry(e, struct lock, lock_elem));
   }
 
-  /* Delete the virtual page hash table */
-  struct sup_page_table *spt = &cur->spt;
-  hash_destroy(&spt->table, free_spt);
-
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -420,6 +417,9 @@ static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
+static bool load_segment_lazily (struct file *file, off_t ofs, uint8_t *upage,
+                          uint32_t read_bytes, uint32_t zero_bytes,
+                          bool writable);
 
 /* Loads an ELF executable from FILE_NAME into the current thread.
    Stores the executable's entry point into *EIP
@@ -510,7 +510,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
             read_bytes = 0;
             zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
           }
-          if (!load_segment (file, file_page, (void *) mem_page,
+          if (!load_segment_lazily (file, file_page, (void *) mem_page,
                              read_bytes, zero_bytes, writable))
             goto done;
         }
@@ -531,7 +531,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+//  file_close (file);  //TODO need to close the file somewhere
   return success;
 }
 
@@ -584,6 +584,47 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
   return true;
 }
 
+// static void *allocate_user_frame(void) {
+//   void *frame = allocate_frame();
+//   if (frame == NULL) {
+//     process_exit();
+//   }
+//   return frame;
+// }
+
+static bool
+load_segment_lazily (struct file *file, off_t ofs, uint8_t *upage,
+    uint32_t read_bytes, uint32_t zero_bytes, bool writable)
+{
+  ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
+  ASSERT (pg_ofs (upage) == 0);
+  ASSERT (ofs % PGSIZE == 0);
+
+  while (read_bytes > 0 || zero_bytes > 0) {
+    size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+    size_t page_zero_bytes = PGSIZE - page_read_bytes;
+//printf("ready to insert one new page in lazy load for tid %d\n", thread_current()->tid);
+    if (!thread_current()->init_spt) {
+//	    printf("need to be init\n");
+      hash_init (&thread_current()->spt, spt_hash, spt_less, NULL);
+      thread_current()->init_spt = true;
+    }
+    if (!spt_insert_file (file, ofs, upage, page_read_bytes,
+                          page_zero_bytes, writable)) {
+    //  return false;
+    }
+
+  //  printf("insert spt file");
+    /* Advance */
+    read_bytes -= page_read_bytes;
+    zero_bytes -= page_zero_bytes;
+    ofs += page_read_bytes;
+    upage += PGSIZE;
+  }
+  //printf("end lazy while loop and file length %d\n", file_length(file));
+  return true;
+}
+
 /* Loads a segment starting at offset OFS in FILE at address
    UPAGE.  In total, READ_BYTES + ZERO_BYTES bytes of virtual
    memory are initialized, as follows:
@@ -607,6 +648,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
+//printf("the addr load is %d\n", (uint32_t) upage);
+
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0)
   {
@@ -618,32 +661,13 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
     /* Check if virtual page already allocated */
     struct thread *t = thread_current ();
+
     uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
 
-    /* Create virtual memory page entry */
-    struct spt_entry *spte = malloc(sizeof(struct spt_entry));
-    if (spte == NULL) {
-      exit(-1);
-    }
-
-    /* Initialise the virtual page entry */
-    spte->user_vaddr = (uint32_t)upage;
-    spte->file = file;
-    spte->file_offset = ofs;
-    spte->read_bytes = page_read_bytes;
-    spte->zero_bytes = page_zero_bytes;
-    spte->writable = writable;
-
-    /* Insert the virtual page entry to the hash table */
-    lock_acquire(&t->spt.spt_lock);
-    hash_insert(&t->spt.table, &spte->elem);
-    lock_release(&t->spt.spt_lock);
-
-    //TODO: Delete the physical page allocation
     if (kpage == NULL){
 
       /* Get a new page of memory. */
-      kpage = allocate_frame (PAL_USER);
+      kpage = allocate_frame();
       if (kpage == NULL){
         return false;
       }
@@ -651,7 +675,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable))
       {
-        free_frame ((struct spt_entry *)kpage);
+        deallocate_frame (kpage);
         return false;
       }
 
@@ -663,9 +687,10 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       }
 
     }
-
+//printf("kpage pointer: %p\n", (void *) kpage);
     /* Load data into the page. */
     if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes){
+    //  deallocate_frame(kpage);
       return false;
     }
     memset (kpage + page_read_bytes, 0, page_zero_bytes);
@@ -673,7 +698,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     /* Advance. */
     read_bytes -= page_read_bytes;
     zero_bytes -= page_zero_bytes;
-    ofs += page_read_bytes;
     upage += PGSIZE;
   }
   return true;
@@ -687,36 +711,15 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
 
-  kpage = (uint8_t *) allocate_frame (PAL_USER | PAL_ZERO);
+  kpage = allocate_frame();
   if (kpage != NULL)
   {
     success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-    if (success) 
-      *esp = PHYS_BASE - 12;
+    if (success)
+      *esp = PHYS_BASE;
     else
-      free_frame ((struct spt_entry *)kpage);
+      deallocate_frame (kpage);
   }
-
-  /* Create and initialise virtual page entry */
-  struct spt_entry *spte = malloc(sizeof(struct spt_entry));
-  if (spte == NULL) {
-    exit(-1);
-  }
-  spte->user_vaddr = (uint32_t) PHYS_BASE - PGSIZE;
-  spte->file = NULL;
-  spte->file_offset = 0;
-  spte->read_bytes = 0;
-  spte->zero_bytes = 0;
-  spte->writable = true;
-
-  //TODO: a function to insert hash elem into spt.table
-  //do we need lock?
-  struct thread *t = thread_current();
-  lock_acquire(&t->spt.spt_lock);
-  hash_insert(&t->spt.table, &spte->elem);
-  lock_release(&t->spt.spt_lock);
-
-
   return success;
 }
 
@@ -734,7 +737,7 @@ install_page (void *upage, void *kpage, bool writable)
 {
   struct thread *t = thread_current ();
 
-  /* Verify that there')s not already a page at that virtual
+  /* Verify that there's not already a page at that virtual
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
