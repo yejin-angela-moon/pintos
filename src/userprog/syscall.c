@@ -420,7 +420,7 @@ validate_mapping(void *addr, int length) {
   
  void *end_addr = addr + (length - 1);
   for (void *i = addr; i < end_addr; i += PGSIZE) {
-    if (pagedir_get_page(thread_current()->pagedir, addr) != NULL)  // page already in use
+    if (pagedir_get_page(thread_current()->pagedir, i) != NULL || spt_find_page(&thread_current()->spt, i) != NULL)  // page already in use
       return false;
   }
   
