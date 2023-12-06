@@ -404,10 +404,10 @@ close(int fd) {
 }
 
 
-mapid_t
+void
 add_mmap(struct map_file *mmap) {
-  mmap->mid = next_mmap_id++;  // alternative: could use  hash
-  list_push_back(thread_current()->mmap_files, mmap->elem);
+  mmap->mid = next_mmap_id++;  // alternative: could use hash
+  list_push_back(&thread_current()->mmap_files, &mmap->elem);
 }
 
 bool
@@ -415,14 +415,14 @@ validate_mapping(void *addr, int length) {
   if (length == 0 || (uint32_t) addr % PGSIZE != 0)  // checks if file is empty or address is unaligned
     return false;
   
- void *end_addr = addr + (length - 1)
+ void *end_addr = addr + (length - 1);
   for (void *i = addr; i < end_addr; i += PGSIZE) {
     if (pagedir_get_page(thread_current()->pagedir, addr) != NULL)  // page already in use
       return false;
   }
   
   // this is meant to return false if overlaps with stack growth region, probably needs to be tweaked: TODO
-  return !((PHYS_BASE - (uint32_t) addr) <= PGSIZE || (PHYS_BASE - (uint32_t) end_addr) <= PGSIZE);
+  return !((uint32_t)(PHYS_BASE - (uint32_t) addr) <= PGSIZE || (uint32_t)(PHYS_BASE - (uint32_t) end_addr) <= PGSIZE);
 
 }
 
@@ -446,7 +446,7 @@ mmap(int fd, void *addr) {
   
   list_init(&mmap->pages);
   
-  add_mmap(struct map_file *mmap);
+  add_mmap(mmap);
   // TODO do lazy load pages
   // then add the spt_entries of those pages to mmap->pages
   return mmap->mid;
@@ -457,24 +457,24 @@ munmap(mapid_t mapping) {
   struct list map_list = thread_current()->mmap_files;
   struct list_elem *e;
   struct map_file *mf;
-  for (e = list_begin (&map_list); e != list_end (&map_list);
-		  e = list_next (e)) {
+  for (e = list_begin (&map_list); e != list_end (&map_list); e = list_next (e)) {
     struct map_file *mmap = list_entry (e, struct map_file, elem);
     if (mmap->mid == mapping) {
       mf = mmap;
       list_remove(e);
       break;
+    }
   }
   if (mf == NULL)
     return;  // not found
   
   // TODO remove page from list of virtual pages
-  for (e = list_begin (&mf->pages); e != list_end (&mf->pages);
-                  e = list_next (e)) {
+  for (e = list_begin (&mf->pages); e != list_end (&mf->pages); e = list_next (e)) {
     struct spt_entry *page = list_entry (e, struct spt_entry, lelem);
-    if (page->is_dirty)
+    if (page->is_dirty) {
       // TODO write back to file
-      page->is_dirty = false  
+      page->is_dirty = false; 
+    }
   }
   free(mf);
 }
