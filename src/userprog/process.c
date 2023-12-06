@@ -603,9 +603,9 @@ load_segment_lazily (struct file *file, off_t ofs, uint8_t *upage,
   while (read_bytes > 0 || zero_bytes > 0) {
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
-printf("ready to insert one new page in lazy load for tid %d\n", thread_current()->tid);
+//printf("ready to insert one new page in lazy load for tid %d\n", thread_current()->tid);
     if (!thread_current()->init_spt) {
-	    printf("need to be init\n");
+//	    printf("need to be init\n");
       hash_init (&thread_current()->spt, spt_hash, spt_less, NULL);
       thread_current()->init_spt = true;
     }
@@ -621,7 +621,7 @@ printf("ready to insert one new page in lazy load for tid %d\n", thread_current(
     ofs += page_read_bytes;
     upage += PGSIZE;
   }
-  printf("end lazy while loop and file length %d\n", file_length(file));
+  //printf("end lazy while loop and file length %d\n", file_length(file));
   return true;
 }
 
@@ -648,7 +648,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
-printf("the addr load is %d\n", (uint32_t) upage);
+//printf("the addr load is %d\n", (uint32_t) upage);
 
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0)
@@ -687,7 +687,7 @@ printf("the addr load is %d\n", (uint32_t) upage);
       }
 
     }
-printf("kpage pointer: %p\n", (void *) kpage);
+//printf("kpage pointer: %p\n", (void *) kpage);
     /* Load data into the page. */
     if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes){
     //  deallocate_frame(kpage);

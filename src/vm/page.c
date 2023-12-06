@@ -80,12 +80,12 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
 //file_seek (spte->file, spte->ofs);
 //void * kp = palloc_get_page(PAL_USER);
 //printf("file read when insert %d\n ", file_read (spte->file, kp, spte->read_bytes));
-  printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d, writeable %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file), spte->writable);
+//  printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d, writeable %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file), spte->writable);
   e = hash_insert (&cur->spt, &spte->elem);
   //struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
   if (e != NULL) {
 	  struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
-	  printf("cannot insert\n");
+//	  printf("cannot insert\n");
 	  //free (spte);
 	  //result->user_vaddr = upage;
 	 // result->file = file;
@@ -96,20 +96,16 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
 	  result->writable = writable;  // return false;
   }
   //load_page_to_frame(spte);
-printf("inserted a new addr %d to the hash\n", (uint32_t) upage);
+//printf("inserted a new addr %d to the hash\n", (uint32_t) upage);
   return true;
 }
 
 
 bool load_page_to_frame(struct spt_entry *spte) {
-//	spte->in_memory = true;
 	struct thread *cur = thread_current ();
-printf("count of spte is %d, ofs %d, read %d, file %p, file length %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file));
-//file_close(spte->file);
-//ile = filesys_open (file_name);
-//file_reopen(spte->file);
-//file_seek (spte->file, spte->ofs);
-printf("file seek\n");
+//printf("count of spte is %d, ofs %d, read %d, file %p, file length %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file));
+
+//printf("file seek\n");
   uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
 
     if (kpage == NULL){
@@ -141,24 +137,24 @@ file_seek(spte->file, spte->ofs);
  //kpage+= 0x5000; 
   if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes)
     {
-	        printf("kpage pointer: %p\n", (void *) kpage);
-	    printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
+//	        printf("kpage pointer: %p\n", (void *) kpage);
+//	    printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
       deallocate_frame (kpage);
       return false;
     }
-  printf("file read\n");
+  //printf("file read\n");
   memset (kpage + spte->read_bytes, 0, spte->zero_bytes);
   
   if (pagedir_get_page(cur->pagedir, spte->user_vaddr) == NULL) {
-	  printf("not mapped\n");
+//	  printf("not mapped\n");
   if (!pagedir_set_page (cur->pagedir, spte->user_vaddr, kpage, spte->writable)) {
       deallocate_frame (kpage);
       return false;
     }
   } else {
-    printf("already mapped\n");
+  //  printf("already mapped\n");
   }
-  printf("end of the load page to frame function\n");
+  //printf("end of the load page to frame function\n");
   spte->in_memory = true;
   return true;
 

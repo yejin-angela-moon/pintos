@@ -160,7 +160,7 @@ page_fault (struct intr_frame *f)
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
 
-printf("PAGE FAULT\n\n");
+//printf("PAGE FAULT\n\n");
 
   /* Determine cause. */
   not_present = (f->error_code & PF_P) == 0;
@@ -171,22 +171,22 @@ printf("PAGE FAULT\n\n");
   void * fault_page = (void *) pg_round_down (fault_addr);
 
   if (!not_present) {
-	  printf("not present\n");
+//	  printf("not present\n");
     exit(-1);
   }
-printf("the fault addr is %p\n", fault_page);
+//printf("the fault addr is %p\n", fault_page);
   if (fault_addr == NULL){ //|| !not_present || !is_user_vaddr(fault_addr)) {
-	  printf("addr is NULL or not user vaddr");
+//	  printf("addr is NULL or not user vaddr");
     exit(-1);
   }
-printf("ready to find page with addr %d and after round down %d\n", (uint32_t) fault_page, (uint32_t) fault_addr);
+//printf("ready to find page with addr %d and after round down %d\n", (uint32_t) fault_page, (uint32_t) fault_addr);
 
   spte = spt_find_page(&cur->spt, fault_page);
   //struct frame * ffff = malloc(sizeof(struct frame));
-printf("page found\n");
+//printf("page found\n");
 
   if (spte == NULL) {
-    printf("spte is null and exit\n");
+  //  printf("spte is null and exit\n");
     exit(-1);
   }
 //printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
@@ -213,11 +213,11 @@ uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
 
   if (!spte->in_memory) {
     if (spte->file != NULL) {
-	    printf("load page from frame\n");
+//	    printf("load page from frame\n");
       load_page_to_frame(spte);
 //      return;
     } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
-	   printf("load page fromswap\n"); 
+//	   printf("load page fromswap\n"); 
    //   load_page_from_swap(spte, frame);
     } else {
       /* Page is an all-zero page. */
