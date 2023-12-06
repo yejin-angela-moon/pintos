@@ -35,9 +35,10 @@ struct spt_entry {
     uint32_t read_bytes;  /* Number of bytes to read from the file. */
     uint32_t zero_bytes;  /* Number of zero bytes to add to the end of the page. */
     bool writable;        /* Whether the page is writable. */
-    struct file *file;    /* File associated with the page. */
+    struct file * file;    /* File associated with the page. */
     bool is_dirty;
     bool is_valid;
+    int count;
     // swap
     size_t swap_slot;     /* Swap slot index. */
     struct frame *frame;  /* Pointer to the frame in memory. */
@@ -65,7 +66,7 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
     uint32_t read_bytes, uint32_t zero_bytes, bool writable);
 
 
-bool load_page_to_frame(struct spt_entry *spte, void * kpage);
+bool load_page_to_frame(struct spt_entry *spte);
 
 
 struct spt_entry* spt_find_page(struct hash *spt, void *vaddr);

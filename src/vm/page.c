@@ -16,7 +16,7 @@
 #include "userprog/exception.h"
 // could move to a header file
 
-
+static int count = 0;
 void spte_init(struct spt_entry *spte) {
   /*
   pg->frame = NULL;
@@ -71,6 +71,8 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
   spte->zero_bytes = zero_bytes;
   spte->writable = writable;
   spte->in_memory = false;
+  spte->count = count;
+  count++;
   //printf("set up the spte\n");
 //  struct hash spt = cur->spt;
  // printf("get the spt of the cur thread\n");
@@ -78,10 +80,11 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
 //file_seek (spte->file, spte->ofs);
 //void * kp = palloc_get_page(PAL_USER);
 //printf("file read herre%d\n ", file_read (spte->file, kp, spte->read_bytes));
+  printf("when insertedcount of spte is %d, ofs %d, read %d, file %p\n", spte->count, spte->ofs, spte->read_bytes, spte->file);
   result = hash_insert (&cur->spt, &spte->elem);
   if (result != NULL) {
 	  printf("cannot insert\n");
-	  free (spte);
+	 // free (spte);
   // return false;
   }
 printf("inserted a new addr %d to the hash\n", (uint32_t) upage);
@@ -89,19 +92,27 @@ printf("inserted a new addr %d to the hash\n", (uint32_t) upage);
 }
 
 
-bool load_page_to_frame(struct spt_entry *spte, void * kpagee) {
+bool load_page_to_frame(struct spt_entry *spte) {
 	struct thread *cur = thread_current ();
-
+printf("count of spte is %d, ofs %d, read %d, file %p\n", spte->count, spte->ofs, spte->read_bytes, spte->file);
   file_seek (spte->file, spte->ofs);
 printf("file seek\n");
-  uint8_t *kpage = allocate_frame ();
+uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
 
-  printf("allocated frame\n");
-  if (kpage == NULL) {
-    return false;
-  }
+    if (kpage == NULL){
+   //printf("kapge is null in pagea fault so need to allocate frame\n");
+      /* Get a new page of memory. */
+      kpage = allocate_frame();
+      if (kpage == NULL){
+  //      exit(-1);
+         return false;
+      }
+    } 
+
+
+
   printf("allocated frame not null\n");
- //kpage-= 0x1000; 
+ kpage+= 0x5000; 
   if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes)
     {
 	        printf("kpage pointer: %p\n", (void *) kpage);

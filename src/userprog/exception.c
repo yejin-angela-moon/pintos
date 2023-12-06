@@ -196,7 +196,7 @@ uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
 
     if (kpage == NULL){
 printf("kapge is null in pagea fault so need to allocate frame\n");
-      /* Get a new page of memory. */
+      
       kpage = allocate_frame();
       if (kpage == NULL){
         exit(-1);
@@ -207,7 +207,7 @@ printf("kapge is null in pagea fault so need to allocate frame\n");
   if (!spte->in_memory) {
     if (spte->file != NULL) {
 	    printf("load page from frame\n");
-      load_page_to_frame(spte, kpage);
+      load_page_to_frame(spte);
       return;
     } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
 	   printf("load page fromswap\n"); 
