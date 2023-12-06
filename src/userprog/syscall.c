@@ -25,6 +25,10 @@ unsigned fd_hash(const struct hash_elem *e, void *aux);
 
 bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
+void add_mmap(struct map_file *mmap);
+bool validate_mapping(void *addr, int length);
+int mmap_entry(struct file *file, void *addr);
+
 //static int next_mmap_id = 1;
 
 /* Hash function to generate a hash value from a file descriptor. */
