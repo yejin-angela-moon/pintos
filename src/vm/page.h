@@ -13,6 +13,8 @@
 #include <userprog/pagedir.h>
 #include <filesys/file.h>
 
+
+typedef int mapid_t;
 /*
 struct page {
   void *frame;
@@ -24,11 +26,17 @@ struct page {
 void* allocate_page(void);
 //void* deallocate_page(struct page *pg);
 
+enum spte_type {
+    File, 
+    Mmap
+};
+
 struct spt_entry {
     uint8_t * user_vaddr;  /* User virtual address.*/
     //uint32_t frame_addr; 
     bool in_memory;       /* Whether the page is currently in memory. */
     struct hash_elem elem;
+    struct list_elem lelem;
     // other potential fields: fd, file_offset, is_read_only, is_dirty, timestamp, swap slot, is_swapped_out
     // lazy loading fields
     off_t ofs;            /* Offset within the file. */
@@ -42,7 +50,7 @@ struct spt_entry {
     // swap
     size_t swap_slot;     /* Swap slot index. */
     struct frame *frame;  /* Pointer to the frame in memory. */
-
+    enum spte_type type;
 };
 
 // page table itself
@@ -51,6 +59,16 @@ struct sup_page_table {
   struct lock spt_lock;
   // other potential fields: owner_thread, spt_lock
 
+};
+
+/* Representation of memory-mapped file */
+struct map_file {
+  mapid_t mid;
+  struct file *file;
+  void *addr;  // should this be void* ?
+  size_t length;
+  struct list_elem elem;
+  struct list pages;
 };
 
 void spt_init (struct sup_page_table *spt);
@@ -65,9 +83,10 @@ bool
 spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
     uint32_t read_bytes, uint32_t zero_bytes, bool writable);
 
+bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read_bytes);
 
-bool load_page_to_frame(struct spt_entry *spte, void * kpage);
-
+bool load_page(struct spt_entry *spte, void * kpage);
+//bool load_page_mmap(struct spt_entry *spte, void * kpage);
 
 struct spt_entry* spt_find_page(struct hash *spt, void *vaddr);
 
