@@ -122,6 +122,9 @@ bool init_spt;
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
     
+    struct sup_page_table *spt;
+    void *esp;
+    
 #endif
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
