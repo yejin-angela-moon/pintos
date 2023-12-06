@@ -69,6 +69,7 @@ struct map_file {
   size_t length;
   struct list_elem elem;
   struct list pages;
+  int page_no;
 };
 
 void spt_init (struct sup_page_table *spt);

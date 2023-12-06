@@ -14,7 +14,6 @@
 struct hash frame_table;
 struct lock frame_lock;
 
-
 unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED) {
   struct frame *frame = hash_entry(e, struct frame, elem);
   return hash_bytes(&frame->page, sizeof frame->page);
