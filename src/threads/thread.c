@@ -125,7 +125,8 @@ thread_start(void) {
   sema_down(&idle_started);
 }
 
-/* Returns the number of threads currently in the ready list */
+/* Returns the number of threads currently in the ready list. 
+   Disables interrupts to avoid any race-conditions on the ready list. */
 size_t
 threads_ready(void) {
   return list_size(&ready_list);
@@ -177,6 +178,12 @@ void calculate_priority_all() {
     calculate_priority(list_entry(e,
     struct thread, allelem));
   }
+
+  //enum intr_level old_level = intr_disable ();
+  //return list_size (&ready_list);
+  //intr_set_level (old_level);
+  
+//>>>>>>> skeleton/master
 }
 
 /* Called by the timer interrupt handler at each timer tick.
@@ -597,10 +604,14 @@ init_thread(struct thread *t, const char *name, int priority) {
   list_init(&t->locks);
   t->init_fd = false;
   //spt_init(&t->spt);
+  //hash_init (&t->spt, spt_hash, spt_less, NULL);
+  t->init_spt = false;
+
   list_init (&t->cp_manager.children_list);
   lock_init (&t->cp_manager.children_lock);
   cond_init (&t->cp_manager.children_cond);
   t->cp_manager.load_result = 0;
+
 
   if (thread_mlfqs) {
     if (t != initial_thread) {

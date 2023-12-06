@@ -64,6 +64,7 @@ syscall_handler(struct intr_frame *f) {
 
   /* Casting syscall_num into an int */
   int syscall_num = *(int *) (f->esp);
+//  printf("the syscall is %d\n", syscall_num);
   switch (syscall_num) {
     case SYS_HALT: {      /* Halts Pintos */
       halt();

@@ -9,6 +9,9 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <vm/frame.h>
+#include <userprog/pagedir.h>
+#include <filesys/file.h>
 
 /*
 struct page {
@@ -18,11 +21,11 @@ struct page {
 };
 */
 
-// void* allocate_page(void);
-// void deallocate_page(struct page *pg);
+void* allocate_page(void);
+//void* deallocate_page(struct page *pg);
 
 struct spt_entry {
-    uint32_t user_vaddr;  /* User virtual address.*/
+    uint8_t * user_vaddr;  /* User virtual address.*/
     //uint32_t frame_addr; 
     bool in_memory;       /* Whether the page is currently in memory. */
     struct hash_elem elem;
@@ -32,12 +35,14 @@ struct spt_entry {
     uint32_t read_bytes;  /* Number of bytes to read from the file. */
     uint32_t zero_bytes;  /* Number of zero bytes to add to the end of the page. */
     bool writable;        /* Whether the page is writable. */
-    struct file *file;    /* File associated with the page. */
+    struct file * file;    /* File associated with the page. */
     bool is_dirty;
     bool is_valid;
+    int count;
     // swap
     size_t swap_slot;     /* Swap slot index. */
     struct frame *frame;  /* Pointer to the frame in memory. */
+
 };
 
 // page table itself
@@ -56,10 +61,15 @@ unsigned spt_hash (const struct hash_elem *e, void *aux);
 
 bool spt_less (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
-struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr);
-
-bool spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
+bool
+spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
     uint32_t read_bytes, uint32_t zero_bytes, bool writable);
+
+
+bool load_page_to_frame(struct spt_entry *spte, void * kpage);
+
+
+struct spt_entry* spt_find_page(struct hash *spt, void *vaddr);
 
 void free_spt(struct hash_elem *e, void *aux);
 

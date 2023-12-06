@@ -108,7 +108,10 @@ struct thread {
     tid_t parent_tid;
     struct child_parent_manager cp_manager;
 
-    //struct sup_page_table spt;
+   //struct sup_page_table spt;
+struct hash spt;
+bool init_spt;
+
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
