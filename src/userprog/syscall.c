@@ -415,10 +415,14 @@ validate_mapping(void *addr, int length) {
   if (length == 0 || (uint32_t) addr % PGSIZE != 0)  // checks if file is empty or address is unaligned
     return false;
   
-  for (void *i = addr; i < addr + (length - 1); i += PGSIZE) {
+ void *end_addr = addr + (length - 1)
+  for (void *i = addr; i < end_addr; i += PGSIZE) {
     if (pagedir_get_page(thread_current()->pagedir, addr) != NULL)  // page already in use
       return false;
   }
+  
+  // this is meant to return false if overlaps with stack growth region, probably needs to be tweaked: TODO
+  return !((PHYS_BASE - (uint32_t) addr) <= PGSIZE || (PHYS_BASE - (uint32_t) end_addr) <= PGSIZE);
 
 }
 
@@ -440,12 +444,11 @@ mmap(int fd, void *addr) {
   mmap->addr = addr;
   mmap->length = length;
   
-  list_init(&mmap->pages); // TODO add pages to list (spt_entry)
+  list_init(&mmap->pages);
   
-
-
   add_mmap(struct map_file *mmap);
-  // TODO do lazy loading stuff
+  // TODO do lazy load pages
+  // then add the spt_entries of those pages to mmap->pages
   return mmap->mid;
 }
 
