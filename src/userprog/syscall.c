@@ -407,12 +407,10 @@ close(int fd) {
   lock_release(&syscall_lock);
 }
 
-
-mapid_t
+void
 add_mmap(struct map_file *mmap) {
   mmap->mid = thread_current()->mmap_id++;  // alternative: could use  hash
   list_push_back(&thread_current()->mmap_files, &mmap->elem);
-  return mmap->mid;
 }
 
 bool
@@ -472,8 +470,7 @@ mmap(int fd, void *addr) {
   
   list_init(&mmap->pages);
 
-  mmap->mid = thread_current()->mmap_id++;  // alternative: could use  hash
-  list_push_back(&thread_current()->mmap_files, &mmap->elem);
+  add_mmap(mmap);
   lock_acquire (&syscall_lock);
   struct file* copy = file_reopen(file->file);
   lock_release (&syscall_lock); 
@@ -483,7 +480,6 @@ mmap(int fd, void *addr) {
     return -1;
   } else {
 
-  //add_mmap(mmap);
   // TODO do lazy load pages
   // then add the spt_entries of those pages to mmap->pages
     return mmap->mid;
@@ -502,6 +498,7 @@ munmap(mapid_t mapping) {
       mf = mmap;
       list_remove(e);
       break;
+    }
   }
   if (mf == NULL)
     return;  // not found
@@ -520,7 +517,7 @@ munmap(mapid_t mapping) {
   }
   free(mf);
 
-  }}
+}
 
 void
 check_user (void *ptr) {
