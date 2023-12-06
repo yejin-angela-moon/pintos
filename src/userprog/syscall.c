@@ -431,6 +431,24 @@ validate_mapping(void *addr, int length) {
 
 }
 
+int mmap_entry(struct file *file, void * addr) {
+  int length = file_length(file);
+  off_t ofs = 0;
+  int page_no = 0;
+  uint32_t read_bytes;
+  while (length > 0) {
+    read_bytes = length > PGSIZE ? PGSIZE : length;
+    if (!spt_insert_mmap(file, ofs, addr, read_bytes)) {
+      return -1;
+    }
+    length -= PGSIZE;
+    ofs += PGSIZE;
+    addr += PGSIZE;
+    page_no++;
+  }
+  return page_no;
+}
+
 mapid_t
 mmap(int fd, void *addr) {
   if (fd == 0 || fd == 1) {
@@ -450,17 +468,24 @@ mmap(int fd, void *addr) {
 
   mmap->file = file->file; 
   mmap->addr = addr;
-  mmap->length = length;
+//  mmap->length = length;
   
   list_init(&mmap->pages);
 
   mmap->mid = thread_current()->mmap_id++;  // alternative: could use  hash
   list_push_back(&thread_current()->mmap_files, &mmap->elem);
   
+  int page_no = mmap_entry(file->file, addr);
+ 
+  if (page_no == -1) {
+    return -1;
+  } else {
+
   //add_mmap(mmap);
   // TODO do lazy load pages
   // then add the spt_entries of those pages to mmap->pages
-  return mmap->mid;
+    return mmap->mid;
+  }
 }
 
 void

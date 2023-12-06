@@ -100,6 +100,29 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
+bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read_bytes) {
+   struct spt_entry *spte = malloc (sizeof(struct spt_entry));
+  //printf("calloc a new spte\n");
+  struct hash_elem *e;
+  struct thread *cur = thread_current ();
+  if (spte == NULL) {
+    return false;
+  }
+  spte->user_vaddr = upage;
+  spte->file = file;
+  spte->ofs = ofs;
+  spte->read_bytes = read_bytes;
+  spte->in_memory = false;
+//printf("file read when insert %d\n ", file_read (spte->file, kp, spte->read_bytes));
+//  printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d, writeable %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file), spte->writable);
+  e = hash_insert (&cur->spt, &spte->elem);
+  if (e != NULL) {
+          struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
+          result->read_bytes = read_bytes;
+  }
+//printf("inserted a new addr %d to the hash\n", (uint32_t) upage);
+  return true;
+}
 
 bool load_page_file(struct spt_entry *spte, void * kpage) {
 	struct thread *cur = thread_current ();
@@ -108,14 +131,14 @@ bool load_page_file(struct spt_entry *spte, void * kpage) {
 //printf("file seek\n");
 //  uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
 
-    if (kpage == NULL){
+    /*if (kpage == NULL){
    //printf("kapge is null in pagea fault so need to allocate frame\n");
-      /* Get a new page of memory. */
+      
       kpage = allocate_frame();
       if (kpage == NULL){
   //      exit(-1);
          return false;
-      }
+      }*/
      /*if (!install_page (spte->user_vaddr, kpage, spte->writable))
       {
         deallocate_frame (kpage);
@@ -129,7 +152,7 @@ bool load_page_file(struct spt_entry *spte, void * kpage) {
         pagedir_set_writable(cur->pagedir, spte->user_vaddr, spte->writable);
       }
 */
-    } 
+    //} 
 
 
   file_seek(spte->file, spte->ofs);
@@ -159,6 +182,8 @@ bool load_page_file(struct spt_entry *spte, void * kpage) {
   return true;
 
 }
+
+//bool spt_insert_mmap(struct file *file, off_t ofs, void *addr, read_bytes)
 
 struct spt_entry* spt_find_page(struct hash *spt, void *vaddr) {
   struct spt_entry tmp;
