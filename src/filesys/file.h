@@ -33,12 +33,12 @@ unsigned file_hash (struct file *);
 
 
 /* Representation of memory-mapped file */
-struct map_file {
+/*struct map_file {
   mapid_t mid;
   struct file *file;
   void *addr;  // should this be void* ?
   size_t length;
   struct list_elem elem;
 }
-
+*/
 #endif /* filesys/file.h */

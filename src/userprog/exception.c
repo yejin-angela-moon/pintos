@@ -217,24 +217,25 @@ page_fault (struct intr_frame *f)
     //exit(-1);
 
  if (!spte->in_memory) {
-    if (spte->file != NULL) {
-uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
-
-    if (kpage == NULL){
-//printf("kapge is null in pagea fault so need to allocate frame\n");
-      
-      kpage = allocate_frame();
-      if (kpage == NULL){
-        exit(-1);
+   if (spte->file != NULL) { // && spte->type == File) {
+//			     printf("spte not null ready to load\n");
+     uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
+     if (kpage == NULL){
+        kpage = allocate_frame();
+        if (kpage == NULL){
+          exit(-1);
+        }
+      } 
+      load_page(spte, kpage);
+/*    } else if (spte->file != NULL && spte->type == Mmap) {
+      uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
+     if (kpage == NULL){
+        kpage = allocate_frame();
+        if (kpage == NULL){
+          exit(-1);
+        }
       }
-    } 
-//printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
-
-//  if (!spte->in_memory) {
-  //  if (spte->file != NULL) {
-//	    printf("load page from frame\n");
-      load_page_to_frame(spte, kpage);
-//      return;
+      load_page_mmap(spte, kpage);*/
     } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
 //	   printf("load page fromswap\n"); 
    //   load_page_from_swap(spte, frame);
