@@ -604,10 +604,12 @@ init_thread(struct thread *t, const char *name, int priority) {
   list_init(&t->locks);
   t->init_fd = false;
   //spt_init(&t->spt);
+   list_init(&t->mmap_files);  // not sure if this should be a hashmap instead
+ 
   //hash_init (&t->spt, spt_hash, spt_less, NULL);
   t->init_spt = false;
 
-  list_init (&t->cp_manager.children_list);
+   list_init (&t->cp_manager.children_list);
   lock_init (&t->cp_manager.children_lock);
   cond_init (&t->cp_manager.children_cond);
   t->cp_manager.load_result = 0;
