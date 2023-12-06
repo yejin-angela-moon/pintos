@@ -71,8 +71,8 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
   spte->zero_bytes = zero_bytes;
   spte->writable = writable;
   spte->in_memory = false;
-  spte->count = count;
-  count++;
+ // spte->count = count;
+  //count++;
   //printf("set up the spte\n");
 //  struct hash spt = cur->spt;
  // printf("get the spt of the cur thread\n");
@@ -101,7 +101,7 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
 }
 
 
-bool load_page_to_frame(struct spt_entry *spte, void * kpage) {
+bool load_page_file(struct spt_entry *spte, void * kpage) {
 	struct thread *cur = thread_current ();
 //printf("count of spte is %d, ofs %d, read %d, file %p, file length %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file));
 
@@ -132,7 +132,7 @@ bool load_page_to_frame(struct spt_entry *spte, void * kpage) {
     } 
 
 
-file_seek(spte->file, spte->ofs);
+  file_seek(spte->file, spte->ofs);
   //printf("allocated frame not null\n");
  //kpage+= 0x5000; 
   if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes)

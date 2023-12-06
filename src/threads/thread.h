@@ -113,19 +113,19 @@ struct thread {
     //struct sup_page_table spt;
 struct hash spt;
 bool init_spt;
-
+    mapid_t mmap_id; 
  
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
     fixed_t recent_cpu;
     int nice;
+    void *esp;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
     
 //    struct sup_page_table *spt;
-    void *esp;
     
 #endif
     /* Owned by thread.c. */

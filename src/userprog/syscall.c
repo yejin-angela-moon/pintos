@@ -25,7 +25,7 @@ unsigned fd_hash(const struct hash_elem *e, void *aux);
 
 bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
-static int next_mmap_id = 1;
+//static int next_mmap_id = 1;
 
 /* Hash function to generate a hash value from a file descriptor. */
 unsigned
@@ -410,7 +410,7 @@ close(int fd) {
 
 mapid_t
 add_mmap(struct map_file *mmap) {
-  mmap->mid = next_mmap_id++;  // alternative: could use  hash
+  mmap->mid = thread_current()->mmap_id++;  // alternative: could use  hash
   list_push_back(&thread_current()->mmap_files, &mmap->elem);
   return mmap->mid;
 }
@@ -433,6 +433,9 @@ validate_mapping(void *addr, int length) {
 
 mapid_t
 mmap(int fd, void *addr) {
+  if (fd == 0 || fd == 1) {
+    return -1;
+  }
   struct file_descriptor *file = process_get_fd(fd);
   if (file == NULL || addr == 0)  // check for invalid file or addr
     return -1; 
@@ -450,8 +453,11 @@ mmap(int fd, void *addr) {
   mmap->length = length;
   
   list_init(&mmap->pages);
+
+  mmap->mid = thread_current()->mmap_id++;  // alternative: could use  hash
+  list_push_back(&thread_current()->mmap_files, &mmap->elem);
   
-  add_mmap(mmap);
+  //add_mmap(mmap);
   // TODO do lazy load pages
   // then add the spt_entries of those pages to mmap->pages
   return mmap->mid;

@@ -79,7 +79,7 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
     uint32_t read_bytes, uint32_t zero_bytes, bool writable);
 
 
-bool load_page_to_frame(struct spt_entry *spte, void * kpage);
+bool load_page_file(struct spt_entry *spte, void * kpage);
 
 
 struct spt_entry* spt_find_page(struct hash *spt, void *vaddr);
