@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include "lib/kernel/hash.h"
 #include "threads/malloc.h"
+#include "threads/palloc.h"
 #include "vm/page.h"
 #include "threads/thread.h"
 #include <string.h>
@@ -74,6 +75,9 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
 //  struct hash spt = cur->spt;
  // printf("get the spt of the cur thread\n");
 //  hash_init (&spt, spt_hash, spt_less, NULL);
+//file_seek (spte->file, spte->ofs);
+//void * kp = palloc_get_page(PAL_USER);
+//printf("file read herre%d\n ", file_read (spte->file, kp, spte->read_bytes));
   result = hash_insert (&cur->spt, &spte->elem);
   if (result != NULL) {
 	  printf("cannot insert\n");
@@ -85,21 +89,22 @@ printf("inserted a new addr %d to the hash\n", (uint32_t) upage);
 }
 
 
-bool load_page_to_frame(struct spt_entry *spte, void * kpage) {
+bool load_page_to_frame(struct spt_entry *spte, void * kpagee) {
 	struct thread *cur = thread_current ();
 
- file_seek (spte->file, spte->ofs);
+  file_seek (spte->file, spte->ofs);
 printf("file seek\n");
-//  uint8_t *kpage = allocate_frame ();
+  uint8_t *kpage = allocate_frame ();
 
   printf("allocated frame\n");
   if (kpage == NULL) {
     return false;
   }
   printf("allocated frame not null\n");
-  
+ //kpage-= 0x1000; 
   if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes)
     {
+	        printf("kpage pointer: %p\n", (void *) kpage);
 	    printf("the read byte is not equal\n");
       deallocate_frame (kpage);
       return false;
@@ -112,8 +117,8 @@ printf("file seek\n");
       deallocate_frame (kpage);
       return false;
     }
-printf("end of the load page to frame function\n");
-  //spte->in_memory = true;
+  printf("end of the load page to frame function\n");
+  spte->in_memory = true;
   return true;
 
 }

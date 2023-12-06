@@ -687,7 +687,7 @@ printf("the addr load is %d\n", (uint32_t) upage);
       }
 
     }
-
+printf("kpage pointer: %p\n", (void *) kpage);
     /* Load data into the page. */
     if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes){
     //  deallocate_frame(kpage);
