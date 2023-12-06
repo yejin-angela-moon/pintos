@@ -189,7 +189,8 @@ page_fault (struct intr_frame *f)
 //printf("page found\n");
 
   //stack growth code:
-  if (spte == NULL && stack_valid(fault_addr, f->esp)) {
+  void *esp = user ? f->esp : cur->esp;
+  if (spte == NULL && stack_valid(fault_addr, esp)) {
 //	  printf("time to grow stack\n");
    // void *esp = user ? f->esp : cur->esp;
 
@@ -203,9 +204,9 @@ page_fault (struct intr_frame *f)
     return;
   }
 
-  /*if (spte == NULL) {
+  if (spte == NULL) {
     exit(-1);
-  }*/
+  }
 //printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
 /*if (spte->writable && !write) {
 	 printf("spte is writable but cant write and exit\n");
@@ -301,7 +302,6 @@ bool install_page(void *upage, void *kpage, bool writable) {
 }
 
 static bool stack_valid(void *vaddr, void *esp){
-  return  (PHYS_BASE - vaddr <= MAX_STACK_SIZE) &&
-          (vaddr >= esp - PUSHA_SIZE || vaddr >= esp); 
+  return  (PHYS_BASE - vaddr <= MAX_STACK_SIZE) && (vaddr >= esp - PUSHA_SIZE); 
 
 }
