@@ -217,7 +217,8 @@ page_fault (struct intr_frame *f)
     //exit(-1);
 
  if (!spte->in_memory) {
-   if (spte->file != NULL && spte->type == File) {
+   if (spte->file != NULL) { // && spte->type == File) {
+//			     printf("spte not null ready to load\n");
      uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
      if (kpage == NULL){
         kpage = allocate_frame();

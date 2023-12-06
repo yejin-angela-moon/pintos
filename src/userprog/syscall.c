@@ -474,8 +474,10 @@ mmap(int fd, void *addr) {
 
   mmap->mid = thread_current()->mmap_id++;  // alternative: could use  hash
   list_push_back(&thread_current()->mmap_files, &mmap->elem);
-  
-  int page_no = mmap_entry(file->file, addr);
+  lock_acquire (&syscall_lock);
+  struct file* copy = file_reopen(file->file);
+  lock_release (&syscall_lock); 
+  int page_no = mmap_entry(copy, addr);
  
   if (page_no == -1) {
     return -1;
@@ -492,7 +494,7 @@ void
 munmap(mapid_t mapping) {
   struct list map_list = thread_current()->mmap_files;
   struct list_elem *e;
-  struct map_file *mf;
+  struct map_file *mf = NULL;
   for (e = list_begin (&map_list); e != list_end (&map_list);
 		  e = list_next (e)) {
     struct map_file *mmap = list_entry (e, struct map_file, elem);
@@ -508,9 +510,13 @@ munmap(mapid_t mapping) {
   for (e = list_begin (&mf->pages); e != list_end (&mf->pages);
                   e = list_next (e)) {
     struct spt_entry *page = list_entry (e, struct spt_entry, lelem);
-    if (page->is_dirty)
-      // TODO write back to file
-      page->is_dirty = false;  
+    if (page->in_memory && pagedir_is_dirty (thread_current()->pagedir, page->user_vaddr)) {
+      lock_acquire(&syscall_lock);
+      file_seek(page->file, page->ofs);
+      file_write(page->file, page->user_vaddr, page->read_bytes);
+      lock_release(&syscall_lock);
+    }
+    free(page);
   }
   free(mf);
 

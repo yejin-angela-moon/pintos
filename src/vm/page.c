@@ -116,13 +116,14 @@ bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read
   spte->in_memory = false;
   spte->type = Mmap;
 //printf("file read when insert %d\n ", file_read (spte->file, kp, spte->read_bytes));
-//  printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d, writeable %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file), spte->writable);
+  //printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file));
   e = hash_insert (&cur->spt, &spte->elem);
   if (e != NULL) {
           struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
           result->read_bytes = read_bytes;
   }
-//printf("inserted a new addr %d to the hash\n", (uint32_t) upage);
+//  void * kpage = allocate_frame();
+  //printf("try load page rn %d\n", load_page(spte, kpage));
   return true;
 }
 
