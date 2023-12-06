@@ -424,7 +424,7 @@ validate_mapping(void *addr, int length) {
   
  void *end_addr = addr + (length - 1);
   for (void *i = addr; i < end_addr; i += PGSIZE) {
-    if (pagedir_get_page(thread_current()->pagedir, addr) != NULL)  // page already in use
+    if (pagedir_get_page(thread_current()->pagedir, i) != NULL || spt_find_page(&thread_current()->spt, i) != NULL)  // page already in use
       return false;
   }
   
@@ -479,8 +479,9 @@ mmap(int fd, void *addr) {
   lock_acquire (&syscall_lock);
   struct file* copy = file_reopen(file->file);
   lock_release (&syscall_lock); 
-  mmap->page_no = mmap_entry(copy, addr, mmap);
-  if (mmap->page_no == -1) { 
+  mmap->page_no = mmap_entry(copy, addr);
+ 
+  if (mmap->page_no == -1) {
     return -1;
   } else {
 
@@ -488,6 +489,34 @@ mmap(int fd, void *addr) {
   // then add the spt_entries of those pages to mmap->pages
     return mmap->mid;
   }
+}
+
+/* Free the mmap files. */
+void free_mmap (struct map_file * mf) {
+  if (mf == NULL)
+    return;  // not found
+  void *uaddr = mf->addr;
+  // TODO remove page from list of virtual pages
+  for (int count = 0 ; count < mf->page_no; count++) {
+
+    struct spt_entry *page =  spt_find_page(&thread_current()->spt, uaddr);
+    if (page->in_memory && pagedir_is_dirty (thread_current()->pagedir, page->user_vaddr)) {
+      lock_acquire(&syscall_lock);
+      file_seek(page->file, page->ofs);
+      file_write(page->file, page->user_vaddr, page->read_bytes);
+      lock_release(&syscall_lock);
+    }
+    uaddr += PGSIZE;
+    hash_delete(&thread_current()->spt, &page->elem);
+   lock_acquire(&syscall_lock);
+   file_close(page->file);
+   lock_release(&syscall_lock); 
+    free(page);
+  }
+ // lock_acquire(&syscall_lock);
+ // file_close(mf->file);
+  //lock_release(&syscall_lock);
+  free(mf);
 }
 
 void
@@ -504,29 +533,7 @@ munmap(mapid_t mapping) {
       break;
     }
   }
-  if (mf == NULL)
-    return;  // not found
-  
-  // TODO remove page from list of virtual pages
-  struct list_elem *es = list_begin (&mf->pages);
-  struct list_elem *esn;
-  while (es != list_end (&mf->pages)) {
-    esn = list_next(es);
-    struct spt_entry *page = list_entry (es, struct spt_entry, lelem);
-    if (page->in_memory && pagedir_is_dirty (thread_current()->pagedir, page->user_vaddr)) {
-      lock_acquire(&syscall_lock);
-      file_seek(page->file, page->ofs);
-      file_write(page->file, page->user_vaddr, page->read_bytes);
-      lock_release(&syscall_lock);
-    }
-
-    list_remove(es);
-    free(page);
-    es = esn;
-  }
-  
-  free(mf);
-
+  free_mmap(mf);
 }
 
 void

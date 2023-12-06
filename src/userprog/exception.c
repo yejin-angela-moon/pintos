@@ -198,13 +198,18 @@ page_fault (struct intr_frame *f)
   //    exit(-1);
    // }
     void *kpage = allocate_frame();
+    if (kpage == NULL) {
+      exit(-1);
+    }
+
     if (kpage != NULL && !pagedir_set_page (cur->pagedir, fault_page, kpage, true)) {
       deallocate_frame (kpage); 
+      exit(-1);
     }
     return;
   }
 
-  if (spte == NULL) {
+  if (spte == NULL) { // || (PHYS_BASE - fault_page > MAX_STACK_SIZE)) {
     exit(-1);
   }
 //printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
@@ -304,6 +309,6 @@ bool install_page(void *upage, void *kpage, bool writable) {
 }
 
 static bool stack_valid(void *vaddr, void *esp){
-  return  (PHYS_BASE - vaddr <= MAX_STACK_SIZE) && (vaddr >= esp - PUSHA_SIZE); 
+  return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && (vaddr >= esp - PUSHA_SIZE); 
 
 }
