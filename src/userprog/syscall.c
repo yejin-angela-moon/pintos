@@ -474,9 +474,9 @@ mmap(int fd, void *addr) {
   lock_acquire (&syscall_lock);
   struct file* copy = file_reopen(file->file);
   lock_release (&syscall_lock); 
-  int page_no = mmap_entry(copy, addr);
+  mmap->page_no = mmap_entry(copy, addr);
  
-  if (page_no == -1) {
+  if (mmap->page_no == -1) {
     return -1;
   } else {
 
@@ -503,16 +503,19 @@ munmap(mapid_t mapping) {
   if (mf == NULL)
     return;  // not found
   
+  void *uaddr = mf->addr;
   // TODO remove page from list of virtual pages
-  for (e = list_begin (&mf->pages); e != list_end (&mf->pages);
-                  e = list_next (e)) {
-    struct spt_entry *page = list_entry (e, struct spt_entry, lelem);
+  for (int count = 0 ; count < mf->page_no; count++) {
+    
+    struct spt_entry *page =  spt_find_page(&thread_current()->spt, uaddr);
     if (page->in_memory && pagedir_is_dirty (thread_current()->pagedir, page->user_vaddr)) {
       lock_acquire(&syscall_lock);
       file_seek(page->file, page->ofs);
       file_write(page->file, page->user_vaddr, page->read_bytes);
       lock_release(&syscall_lock);
     }
+    uaddr += PGSIZE;
+    
     free(page);
   }
   free(mf);
