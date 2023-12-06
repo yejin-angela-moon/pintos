@@ -178,11 +178,12 @@ printf("ready to find page with addr %d and after round down %d\n", (uint32_t) f
   spte = spt_find_page(&cur->spt, fault_page);
   //struct frame * ffff = malloc(sizeof(struct frame));
 printf("page found\n");
+
   if (spte == NULL) {
     printf("spte is null and exit\n");
     exit(-1);
   }
-
+//printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
   if (spte->writable && !write) {
 	 printf("spte is writable but cant write and exit\n");
     exit(-1);
@@ -195,14 +196,14 @@ printf("page found\n");
 uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
 
     if (kpage == NULL){
-printf("kapge is null in pagea fault so need to allocate frame\n");
+//printf("kapge is null in pagea fault so need to allocate frame\n");
       
       kpage = allocate_frame();
       if (kpage == NULL){
         exit(-1);
       }
     } 
-
+//printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
 
   if (!spte->in_memory) {
     if (spte->file != NULL) {
@@ -244,10 +245,10 @@ printf("kapge is null in pagea fault so need to allocate frame\n");
 }
 
 static void load_page_from_file (struct spt_entry *spte, void *frame) {
-  off_t bytes_read = file_read_at(spte->file, frame, spte->read_bytes, spte->ofs);
-  if (bytes_read != (off_t) spte->read_bytes) {
-    exit(-1);
-  }
+//  off_t bytes_read = file_read_at(spte->file, frame, spte->read_bytes, spte->ofs);
+ // if (bytes_read != (off_t) spte->read_bytes) {
+  //  exit(-1);
+ // }
 
   if (spte->zero_bytes > 0) {
     memset(frame + spte->read_bytes, 0, spte->zero_bytes);

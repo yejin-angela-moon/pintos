@@ -531,7 +531,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+//  file_close (file);  //TODO need to close the file somewhere
   return success;
 }
 
@@ -621,7 +621,7 @@ printf("ready to insert one new page in lazy load for tid %d\n", thread_current(
     ofs += page_read_bytes;
     upage += PGSIZE;
   }
-  printf("end lazy while loop \n");
+  printf("end lazy while loop and file length %d\n", file_length(file));
   return true;
 }
 
