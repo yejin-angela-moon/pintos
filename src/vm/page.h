@@ -13,6 +13,8 @@
 #include <userprog/pagedir.h>
 #include <filesys/file.h>
 
+
+typedef int mapid_t;
 /*
 struct page {
   void *frame;
@@ -52,6 +54,16 @@ struct sup_page_table {
   struct lock spt_lock;
   // other potential fields: owner_thread, spt_lock
 
+};
+
+/* Representation of memory-mapped file */
+struct map_file {
+  mapid_t mid;
+  struct file *file;
+  void *addr;  // should this be void* ?
+  size_t length;
+  struct list_elem elem;
+  struct list pages;
 };
 
 void spt_init (struct sup_page_table *spt);

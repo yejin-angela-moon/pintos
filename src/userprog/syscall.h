@@ -2,6 +2,8 @@
 #define USERPROG_SYSCALL_H
 #include <stdbool.h>
 #include <stdint.h>
+#include <vm/page.h>
+
 
 #define FAIL -1
 #define MAX_CONSOLE_WRITE 200
