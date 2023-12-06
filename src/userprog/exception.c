@@ -214,7 +214,7 @@ uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
   if (!spte->in_memory) {
     if (spte->file != NULL) {
 //	    printf("load page from frame\n");
-      load_page_to_frame(spte);
+      load_page_to_frame(spte, kpage);
 //      return;
     } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
 //	   printf("load page fromswap\n"); 

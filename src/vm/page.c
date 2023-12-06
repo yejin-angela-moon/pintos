@@ -101,12 +101,12 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
 }
 
 
-bool load_page_to_frame(struct spt_entry *spte) {
+bool load_page_to_frame(struct spt_entry *spte, void * kpage) {
 	struct thread *cur = thread_current ();
 //printf("count of spte is %d, ofs %d, read %d, file %p, file length %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file));
 
 //printf("file seek\n");
-  uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
+//  uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
 
     if (kpage == NULL){
    //printf("kapge is null in pagea fault so need to allocate frame\n");
