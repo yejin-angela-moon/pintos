@@ -433,14 +433,15 @@ validate_mapping(void *addr, int length) {
 
 }
 
-int mmap_entry(struct file *file, void * addr) {
+int 
+mmap_entry(struct file *file, void * addr, struct map_file *mmap) {
   int length = file_length(file);
   off_t ofs = 0;
   int page_no = 0;
   uint32_t read_bytes;
   while (length > 0) {
     read_bytes = length > PGSIZE ? PGSIZE : length;
-    if (!spt_insert_mmap(file, ofs, addr, read_bytes)) {
+    if (!spt_insert_mmap(file, ofs, addr, read_bytes, mmap)) {
       return -1;
     }
     length -= PGSIZE;
@@ -478,9 +479,8 @@ mmap(int fd, void *addr) {
   lock_acquire (&syscall_lock);
   struct file* copy = file_reopen(file->file);
   lock_release (&syscall_lock); 
-  int page_no = mmap_entry(copy, addr);
- 
-  if (page_no == -1) {
+  mmap->page_no = mmap_entry(copy, addr, mmap);
+  if (mmap->page_no == -1) { 
     return -1;
   } else {
 
@@ -508,17 +508,23 @@ munmap(mapid_t mapping) {
     return;  // not found
   
   // TODO remove page from list of virtual pages
-  for (e = list_begin (&mf->pages); e != list_end (&mf->pages);
-                  e = list_next (e)) {
-    struct spt_entry *page = list_entry (e, struct spt_entry, lelem);
+  struct list_elem *es = list_begin (&mf->pages);
+  struct list_elem *esn;
+  while (es != list_end (&mf->pages)) {
+    esn = list_next(es);
+    struct spt_entry *page = list_entry (es, struct spt_entry, lelem);
     if (page->in_memory && pagedir_is_dirty (thread_current()->pagedir, page->user_vaddr)) {
       lock_acquire(&syscall_lock);
       file_seek(page->file, page->ofs);
       file_write(page->file, page->user_vaddr, page->read_bytes);
       lock_release(&syscall_lock);
     }
+
+    list_remove(es);
     free(page);
+    es = esn;
   }
+  
   free(mf);
 
 }
