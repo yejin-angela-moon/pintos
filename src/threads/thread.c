@@ -15,6 +15,7 @@
 #include "devices/timer.h"
 #include <inttypes.h>
 #include "userprog/process.h"
+#include "vm/page.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -593,6 +594,8 @@ init_thread(struct thread *t, const char *name, int priority) {
   lock_init(&t->wait_lock);
   list_init(&t->locks);
   t->init_fd = false;
+  //spt_init(&t->spt);
+  list_init(&t->mmap_files);  // not sure if this should be a hashmap instead
   list_init (&t->cp_manager.children_list);
   lock_init (&t->cp_manager.children_lock);
   cond_init (&t->cp_manager.children_cond);

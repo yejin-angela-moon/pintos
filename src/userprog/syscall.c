@@ -25,6 +25,8 @@ unsigned fd_hash(const struct hash_elem *e, void *aux);
 
 bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
+static int next_mmap_id = 1;
+
 /* Hash function to generate a hash value from a file descriptor. */
 unsigned
 fd_hash(const struct hash_elem *e, void *aux UNUSED) {
@@ -127,7 +129,7 @@ syscall_handler(struct intr_frame *f) {
       check_user(f->esp + 12);
       int fd = *((int *) (f->esp + 4));
       const void *buffer = *((const void **)(f->esp + 8));
-      unsigned size = *((unsigned *)(f->esp + 12));
+      unsigned size = *((unsigned *) (f->esp + 12));
       f->eax = (uint32_t) write(fd, buffer, size);
       break;
     }
@@ -151,6 +153,19 @@ syscall_handler(struct intr_frame *f) {
       close(fd);
       break;
     }
+    case SYS_MMAP: {  /* memory map a file */
+      check_user(f->esp + 4);
+      check_user(f->esp + 8);
+      int fd = *((int *) (f->esp + 4));
+      void *addr = *((void **) (f->esp + 8));
+      f->eax = (uint32_t) mmap(fd, addr);
+      break;
+    }
+    case SYS_MUNMAP: {  /* unmaps a file */
+      check_user(f->esp + 4);
+      mapid_t mid = *((mapid_t *) (f->esp + 4));
+      munmap(mid);
+      break;
     default: {
       exit(-1);
       break;
@@ -388,6 +403,82 @@ close(int fd) {
   lock_release(&syscall_lock);
 }
 
+
+mapid_t
+add_mmap(struct map_file *mmap) {
+  mmap->mid = next_mmap_id++;  // alternative: could use  hash
+  list_push_back(thread_current()->mmap_files, mmap->elem);
+}
+
+bool
+validate_mapping(void *addr, int length) {
+  if (length == 0 || (uint32_t) addr % PGSIZE != 0)  // checks if file is empty or address is unaligned
+    return false;
+  
+ void *end_addr = addr + (length - 1)
+  for (void *i = addr; i < end_addr; i += PGSIZE) {
+    if (pagedir_get_page(thread_current()->pagedir, addr) != NULL)  // page already in use
+      return false;
+  }
+  
+  // this is meant to return false if overlaps with stack growth region, probably needs to be tweaked: TODO
+  return !((PHYS_BASE - (uint32_t) addr) <= PGSIZE || (PHYS_BASE - (uint32_t) end_addr) <= PGSIZE);
+
+}
+
+mapid_t
+mmap(int fd, void *addr) {
+  struct file_descriptor *file = process_get_fd(fd);
+  if (file == NULL || addr == 0)  // check for invalid file or addr
+    return -1; 
+ 
+  int length = file_length(file->file);
+  if (!validate_mapping(addr, length))
+    return -1;
+
+  struct map_file *mmap = malloc(sizeof(struct map_file));
+  if (mmap == NULL)
+    return -1;
+
+  mmap->file = file->file; 
+  mmap->addr = addr;
+  mmap->length = length;
+  
+  list_init(&mmap->pages);
+  
+  add_mmap(struct map_file *mmap);
+  // TODO do lazy load pages
+  // then add the spt_entries of those pages to mmap->pages
+  return mmap->mid;
+}
+
+void
+munmap(mapid_t mapping) {
+  struct list map_list = thread_current()->mmap_files;
+  struct list_elem *e;
+  struct map_file *mf;
+  for (e = list_begin (&map_list); e != list_end (&map_list);
+		  e = list_next (e)) {
+    struct map_file *mmap = list_entry (e, struct map_file, elem);
+    if (mmap->mid == mapping) {
+      mf = mmap;
+      list_remove(e);
+      break;
+  }
+  if (mf == NULL)
+    return;  // not found
+  
+  // TODO remove page from list of virtual pages
+  for (e = list_begin (&mf->pages); e != list_end (&mf->pages);
+                  e = list_next (e)) {
+    struct spt_entry *page = list_entry (e, struct spt_entry, lelem);
+    if (page->is_dirty)
+      // TODO write back to file
+      page->is_dirty = false  
+  }
+  free(mf);
+}
+
 void
 check_user (void *ptr) {
 /* Don't need to worry about code running after as it kills the process */
@@ -396,6 +487,7 @@ check_user (void *ptr) {
     if (!is_user_vaddr((void *) ptr) || (pagedir_get_page(t->pagedir, uaddr) == NULL)) {
         exit(-1);
     }
+
 }
 
 /* Credit to pintos manual: */

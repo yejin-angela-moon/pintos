@@ -7,6 +7,7 @@
 #include <threads/synch.h>
 #include <threads/fixed-point.h>
 #include <lib/kernel/hash.h>
+#include <vm/page.h>
 
 /* States in a thread's life cycle. */
 enum thread_status {
@@ -106,6 +107,9 @@ struct thread {
 
     tid_t parent_tid;
     struct child_parent_manager cp_manager;
+
+    struct sup_page_table spt;
+    struct list mmap_files;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
