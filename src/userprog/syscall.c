@@ -410,20 +410,33 @@ add_mmap(struct map_file *mmap) {
   list_push_back(thread_current()->mmap_files, mmap->elem);
 }
 
+bool
+validate_mapping(void *addr, int length) {
+  if (length == 0 || (uint32_t) addr % PGSIZE != 0)  // checks if file is empty or address is unaligned
+    return false;
+  
+  for (void *i = addr; i < addr + (length - 1); i += PGSIZE) {
+    if (pagedir_get_page(thread_current()->pagedir, addr) != NULL)  // page already in use
+      return false;
+  }
+
+}
+
 mapid_t
 mmap(int fd, void *addr) {
   struct file_descriptor *file = process_get_fd(fd);
-  if (file == NULL || addr == 0)
-    return -1;  // exit(-1); spec says to return -1 which is an invalid mapping id?
+  if (file == NULL || addr == 0)  // check for invalid file or addr
+    return -1; 
  
   int length = file_length(file->file);
-  // validate mapping, exit(-1)/return if false
+  if (!validate_mapping(addr, length))
+    return -1;
 
   struct map_file *mmap = malloc(sizeof(struct map_file));
   if (mmap == NULL)
-    return -1;  // exit(-1);
+    return -1;
 
-  mmap->file = file->file;  // or just file?
+  mmap->file = file->file; 
   mmap->addr = addr;
   mmap->length = length;
   

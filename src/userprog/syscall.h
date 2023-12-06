@@ -37,6 +37,10 @@ unsigned tell(int fd);
 
 void close(int fd); 
 
+mapid_t mmap(int fd, void *addr);
+
+void munmap(mapid_t mapping);
+
 bool hash_less(int a, int b);
 
 struct file_descriptor *process_get_fd(int fd);
