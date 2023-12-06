@@ -486,6 +486,34 @@ mmap(int fd, void *addr) {
   }
 }
 
+/* Free the mmap files. */
+void free_mmap (struct map_file * mf) {
+  if (mf == NULL)
+    return;  // not found
+  void *uaddr = mf->addr;
+  // TODO remove page from list of virtual pages
+  for (int count = 0 ; count < mf->page_no; count++) {
+
+    struct spt_entry *page =  spt_find_page(&thread_current()->spt, uaddr);
+    if (page->in_memory && pagedir_is_dirty (thread_current()->pagedir, page->user_vaddr)) {
+      lock_acquire(&syscall_lock);
+      file_seek(page->file, page->ofs);
+      file_write(page->file, page->user_vaddr, page->read_bytes);
+      lock_release(&syscall_lock);
+    }
+    uaddr += PGSIZE;
+    hash_delete(&thread_current()->spt, &page->elem);
+   lock_acquire(&syscall_lock);
+   file_close(page->file);
+   lock_release(&syscall_lock); 
+    free(page);
+  }
+ // lock_acquire(&syscall_lock);
+ // file_close(mf->file);
+  //lock_release(&syscall_lock);
+  free(mf);
+}
+
 void
 munmap(mapid_t mapping) {
   struct list map_list = thread_current()->mmap_files;
@@ -500,7 +528,8 @@ munmap(mapid_t mapping) {
       break;
     }
   }
-  if (mf == NULL)
+  free_mmap(mf);
+ /* if (mf == NULL)
     return;  // not found
   
   void *uaddr = mf->addr;
@@ -519,7 +548,7 @@ munmap(mapid_t mapping) {
     free(page);
   }
   free(mf);
-
+*/
 }
 
 void
