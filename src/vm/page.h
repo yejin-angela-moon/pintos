@@ -26,6 +26,11 @@ struct page {
 void* allocate_page(void);
 //void* deallocate_page(struct page *pg);
 
+enum spte_type {
+    File, 
+    Mmap
+};
+
 struct spt_entry {
     uint8_t * user_vaddr;  /* User virtual address.*/
     //uint32_t frame_addr; 
@@ -45,7 +50,7 @@ struct spt_entry {
     // swap
     size_t swap_slot;     /* Swap slot index. */
     struct frame *frame;  /* Pointer to the frame in memory. */
-
+    enum spte_type type;
 };
 
 // page table itself
@@ -80,8 +85,8 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
 
 bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read_bytes);
 
-bool load_page_file(struct spt_entry *spte, void * kpage);
-
+bool load_page(struct spt_entry *spte, void * kpage);
+//bool load_page_mmap(struct spt_entry *spte, void * kpage);
 
 struct spt_entry* spt_find_page(struct hash *spt, void *vaddr);
 

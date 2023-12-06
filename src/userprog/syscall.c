@@ -427,7 +427,7 @@ validate_mapping(void *addr, int length) {
   }
   
   // this is meant to return false if overlaps with stack growth region, probably needs to be tweaked: TODO
-  return !((PHYS_BASE - (uint32_t) addr) <= PGSIZE || (PHYS_BASE - (uint32_t) end_addr) <= PGSIZE);
+  return !(((uint32_t)PHYS_BASE - (uint32_t) addr) <= PGSIZE || ((uint32_t)PHYS_BASE - (uint32_t) end_addr) <= PGSIZE);
 
 }
 
