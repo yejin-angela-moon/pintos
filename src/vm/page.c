@@ -85,12 +85,12 @@ printf("inserted a new addr %d to the hash\n", (uint32_t) upage);
 }
 
 
-bool load_page_to_frame(struct spt_entry *spte) {
+bool load_page_to_frame(struct spt_entry *spte, void * kpage) {
 	struct thread *cur = thread_current ();
 
  file_seek (spte->file, spte->ofs);
 printf("file seek\n");
-  uint8_t *kpage = allocate_frame ();
+//  uint8_t *kpage = allocate_frame ();
 
   printf("allocated frame\n");
   if (kpage == NULL) {

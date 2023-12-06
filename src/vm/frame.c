@@ -12,6 +12,8 @@
 #include <stddef.h>
 
 struct hash frame_table;
+struct lock frame_lock;
+
 
 unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED) {
   struct frame *frame = hash_entry(e, struct frame, elem);
@@ -27,6 +29,7 @@ bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux 
 /* Initialise the frame table, set all frames as free. */
 void frame_table_init(void) {
   hash_init(&frame_table, frame_hash, frame_less, NULL);
+  lock_init(&frame_lock);
 }
 
 /* Allocate a free frame and return its address */
@@ -36,7 +39,9 @@ void *allocate_frame(void) {
     frame->page = palloc_get_page(PAL_USER);
     if (frame->page != NULL) {
       frame->is_free = false;
+      lock_acquire(&frame_lock);
       hash_insert(&frame_table, &frame->elem);
+      lock_release(&frame_lock);
       return frame->page;
     } else {
       free(frame);
