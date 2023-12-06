@@ -26,7 +26,7 @@ static void page_fault (struct intr_frame *);
 static void load_page_from_swap(struct spt_entry *spte, void *frame);
 static void load_page_from_file(struct spt_entry *spte, void *frame);
 
-static bool install_page(void *upage, void *kpage, bool writable);
+bool install_page(void *upage, void *kpage, bool writable);
 static bool stack_valid(void *vaddr, void *esp);
 
 /* Registers handlers for interrupts that can be caused by user
@@ -189,20 +189,23 @@ page_fault (struct intr_frame *f)
 //printf("page found\n");
 
   //stack growth code:
-  if (/*is this a stack access?*/) {
-    void *esp = user ? f->esp : cur->esp;
+  if (spte == NULL && stack_valid(fault_addr, f->esp)) {
+//	  printf("time to grow stack\n");
+   // void *esp = user ? f->esp : cur->esp;
 
-    if (!stack_valid(fault_addr, esp)) {
-      exit(-1)
-    }
-
+//    if (!stack_valid(fault_addr, esp)) {
+  //    exit(-1);
+   // }
     void *kpage = allocate_frame();
-    install_page(fault_page, kpage, true);
+    if (kpage != NULL && !pagedir_set_page (cur->pagedir, fault_page, kpage, true)) {
+      deallocate_frame (kpage); 
+    }
+    return;
   }
 
-  if (spte == NULL)
+  /*if (spte == NULL) {
     exit(-1);
-  }
+  }*/
 //printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
 /*if (spte->writable && !write) {
 	 printf("spte is writable but cant write and exit\n");
@@ -298,7 +301,7 @@ bool install_page(void *upage, void *kpage, bool writable) {
 }
 
 static bool stack_valid(void *vaddr, void *esp){
-  return  (vaddr >= PHYS_BASE - MAX_STACK_SIZE) &&
-          (vaddr == esp - PUSH_SIZE || vaddr = esp - PUSHA_SIZE || vaddr >= esp);
+  return  (PHYS_BASE - vaddr <= MAX_STACK_SIZE) &&
+          (vaddr >= esp - PUSHA_SIZE || vaddr >= esp); 
 
 }
