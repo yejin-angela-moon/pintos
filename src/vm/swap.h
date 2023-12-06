@@ -11,3 +11,4 @@ void swap_in(size_t swap_slot, void *frame);
 void swap_free(size_t swap_slot);
 
 #endif /* vm/swap.h */
+

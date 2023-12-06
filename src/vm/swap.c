@@ -27,3 +27,4 @@ void swap_read(size_t swap_slot, void *frame) {
         block_read(swap_block, start_sector + i, frame + i * BLOCK_SECTOR_SIZE);
     }
 }
+

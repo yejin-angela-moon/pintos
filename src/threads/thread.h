@@ -108,7 +108,10 @@ struct thread {
     tid_t parent_tid;
     struct child_parent_manager cp_manager;
 
-    //struct sup_page_table spt;
+   //struct sup_page_table spt;
+struct hash spt;
+bool init_spt;
+
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -118,8 +121,6 @@ struct thread {
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-    
-    struct sup_page_table *spt;
     
 #endif
     /* Owned by thread.c. */

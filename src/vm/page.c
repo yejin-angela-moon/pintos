@@ -1,7 +1,7 @@
 #include "vm/page.h"
 #include <stddef.h>
 #include <stdbool.h>
-#include "threads/thread.h"
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -9,8 +9,10 @@
 #include "lib/kernel/hash.h"
 #include "threads/malloc.h"
 #include "vm/page.h"
-#include "threads/pte.h"
+#include "threads/thread.h"
 #include <string.h>
+#include "threads/vaddr.h"
+#include "userprog/exception.h"
 // could move to a header file
 
 
@@ -22,7 +24,6 @@ void spte_init(struct spt_entry *spte) {
   */
   spte->frame = NULL;
   spte->is_dirty = false;
-
 }
 
 unsigned spt_hash(const struct hash_elem *elem, void *aux UNUSED) {
@@ -46,43 +47,81 @@ struct sup_page_table *spt_create (void) {
 */
 
 
+void spt_init (struct sup_page_table *spt) {
+  hash_init(&spt->table, spt_hash, spt_less, NULL);
+}
 
 bool
 spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
     uint32_t read_bytes, uint32_t zero_bytes, bool writable)
-{
-  struct spt_entry *spte = calloc (1, sizeof(struct spt_entry));
+{ //return true;
+	//printf("indide the spt insrt function\n");
+  struct spt_entry *spte = malloc (sizeof(struct spt_entry));
+  //printf("calloc a new spte\n");
   struct hash_elem *result;
   struct thread *cur = thread_current ();
-  if (spte != NULL) {
+  if (spte == NULL) {
     return false;
   }
-  spte->user_vaddr = (uint32_t) upage;
+  spte->user_vaddr = upage;
   spte->file = file;
   spte->ofs = ofs;
   spte->read_bytes = read_bytes;
   spte->zero_bytes = zero_bytes;
   spte->writable = writable;
   spte->in_memory = false;
-
-  struct sup_page_table *spt = cur->spt;
-  result = hash_insert (&spt->table, &spte->elem);
-  if (result != NULL)
-    return false;
-
+  //printf("set up the spte\n");
+//  struct hash spt = cur->spt;
+ // printf("get the spt of the cur thread\n");
+//  hash_init (&spt, spt_hash, spt_less, NULL);
+  result = hash_insert (&cur->spt, &spte->elem);
+  if (result != NULL) {
+	  printf("cannot insert\n");
+	  free (spte);
+  // return false;
+  }
+printf("inserted a new addr %d to the hash\n", (uint32_t) upage);
   return true;
 }
 
 
-void spt_init (struct sup_page_table *spt) {
-  hash_init(&spt->table, spt_hash, spt_less, NULL);
-  lock_init(&spt->spt_lock);
+bool load_page_to_frame(struct spt_entry *spte) {
+	struct thread *cur = thread_current ();
+
+ file_seek (spte->file, spte->ofs);
+printf("file seek\n");
+  uint8_t *kpage = allocate_frame ();
+
+  printf("allocated frame\n");
+  if (kpage == NULL) {
+    return false;
+  }
+  printf("allocated frame not null\n");
+  
+  if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes)
+    {
+	    printf("the read byte is not equal\n");
+      deallocate_frame (kpage);
+      return false;
+    }
+  printf("file read\n");
+  memset (kpage + spte->read_bytes, 0, spte->zero_bytes);
+
+  if (!pagedir_set_page (cur->pagedir, (void *) spte->user_vaddr, kpage, spte->writable))
+    {
+      deallocate_frame (kpage);
+      return false;
+    }
+printf("end of the load page to frame function\n");
+  //spte->in_memory = true;
+  return true;
+
 }
 
-struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr) {
+struct spt_entry* spt_find_page(struct hash *spt, void *vaddr) {
   struct spt_entry tmp;
-  tmp.user_vaddr = (uint32_t)vaddr;
-  struct hash_elem *e = hash_find(&spt->table, &tmp.elem);
+  tmp.user_vaddr = vaddr;
+  struct hash_elem *e = hash_find(spt, &tmp.elem);
   return e != NULL ? hash_entry(e, struct spt_entry, elem) : NULL;
 }
 

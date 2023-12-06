@@ -19,10 +19,9 @@
 #include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "lib/kernel/hash.h"
-#ifdef VM
+
 #include "vm/frame.h"
-#endif
+
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -70,6 +69,9 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy2);
+ // hash_init (&thread_current()->spt, spt_hash, spt_less, NULL);
+  //hash_init (&get_thread_by_tid(tid)->spt, spt_hash, spt_less, NULL);
+  
   /* Freeing process_name fn_copy */
   palloc_free_page(fn_copy);
 
@@ -148,8 +150,8 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
   struct thread *cur = thread_current ();
-  struct sup_page_table *spt = cur->spt;
-  hash_init (&spt->table, spt_hash, spt_less, NULL);
+ struct hash spt = cur->spt;
+  //hash_init (&spt, spt_hash, spt_less, NULL);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -601,17 +603,25 @@ load_segment_lazily (struct file *file, off_t ofs, uint8_t *upage,
   while (read_bytes > 0 || zero_bytes > 0) {
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
-
+printf("ready to insert one new page in lazy load for tid %d\n", thread_current()->tid);
+    if (!thread_current()->init_spt) {
+	    printf("need to be init\n");
+      hash_init (&thread_current()->spt, spt_hash, spt_less, NULL);
+      thread_current()->init_spt = true;
+    }
     if (!spt_insert_file (file, ofs, upage, page_read_bytes,
-                          page_zero_bytes, writable))
-      return false;
+                          page_zero_bytes, writable)) {
+    //  return false;
+    }
 
+  //  printf("insert spt file");
     /* Advance */
     read_bytes -= page_read_bytes;
     zero_bytes -= page_zero_bytes;
     ofs += page_read_bytes;
     upage += PGSIZE;
   }
+  printf("end lazy while loop \n");
   return true;
 }
 
@@ -638,6 +648,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
+printf("the addr load is %d\n", (uint32_t) upage);
+
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0)
   {
@@ -647,17 +659,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-//#ifdef VM
     /* Check if virtual page already allocated */
     struct thread *t = thread_current ();
-//#else
-    //uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
- /*   uint8_t *kpage = allocate_user_frame();
 
-    if (kpage == NULL){
-      return false;
-    }
-*/
     uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
 
     if (kpage == NULL){
@@ -684,12 +688,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
     }
 
-      /* Check if writable flag for the page should be updated */
-      /*
-      if(writable && !pagedir_is_writable(t->pagedir, upage)){
-        pagedir_set_writable(t->pagedir, upage, writable);
-      }*/
-
     /* Load data into the page. */
     if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes){
     //  deallocate_frame(kpage);
@@ -697,12 +695,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     }
     memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
-    /* Add the page to the process's address space. */
- //   if (!install_page (upage, kpage, writable)) {
-   //   vm_free_frame (kpage);
-     // return false;
-   // }
-//#endif
     /* Advance. */
     read_bytes -= page_read_bytes;
     zero_bytes -= page_zero_bytes;
@@ -750,4 +742,5 @@ install_page (void *upage, void *kpage, bool writable)
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
+
 
