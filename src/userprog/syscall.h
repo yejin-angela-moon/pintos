@@ -2,7 +2,7 @@
 #define USERPROG_SYSCALL_H
 #include <stdbool.h>
 #include <stdint.h>
-
+#include "lib/user/syscall.h"
 #define FAIL -1
 #define MAX_CONSOLE_WRITE 200
 #define FIRST_FD_NUMBER 2

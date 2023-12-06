@@ -1,8 +1,10 @@
 #ifndef FILESYS_FILE_H
 #define FILESYS_FILE_H
 
-#include "filesys/off_t.h"
 #include <stdbool.h>
+#include <list.h>
+#include "filesys/off_t.h"
+#include "lib/user/syscall.h"
 
 struct inode;
 
@@ -36,9 +38,10 @@ unsigned file_hash (struct file *);
 struct map_file {
   mapid_t mid;
   struct file *file;
-  void *addr;  // should this be void* ?
+  void *addr; 
   size_t length;
   struct list_elem elem;
-}
+  struct list pages;
+};
 
 #endif /* filesys/file.h */
