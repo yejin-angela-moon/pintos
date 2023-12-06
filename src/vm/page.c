@@ -80,19 +80,19 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
 //file_seek (spte->file, spte->ofs);
 //void * kp = palloc_get_page(PAL_USER);
 //printf("file read when insert %d\n ", file_read (spte->file, kp, spte->read_bytes));
-  printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file));
+  printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d, writeable %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file), spte->writable);
   e = hash_insert (&cur->spt, &spte->elem);
   //struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
   if (e != NULL) {
 	  struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
 	  printf("cannot insert\n");
-	  free (spte);
-	  result->user_vaddr = upage;
-	  result->file = file;
-	  result->ofs = ofs;
+	  //free (spte);
+	  //result->user_vaddr = upage;
+	 // result->file = file;
+	  //result->ofs = ofs;
 	  result->read_bytes = read_bytes;
 	  result->zero_bytes = zero_bytes;
-	  result->in_memory = false;
+	  //result->in_memory = false;
 	  result->writable = writable;  // return false;
   }
   //load_page_to_frame(spte);

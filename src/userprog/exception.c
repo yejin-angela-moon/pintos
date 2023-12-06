@@ -190,10 +190,10 @@ printf("page found\n");
     exit(-1);
   }
 //printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
-  if (spte->writable && !write) {
+/*if (spte->writable && !write) {
 	 printf("spte is writable but cant write and exit\n");
     exit(-1);
-  }
+  }*/
   //void *frame = frame_get_page(spte);
   //if (frame == NULL)
     //exit(-1);
