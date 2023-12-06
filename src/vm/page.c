@@ -59,7 +59,7 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
 	//printf("indide the spt insrt function\n");
   struct spt_entry *spte = malloc (sizeof(struct spt_entry));
   //printf("calloc a new spte\n");
-  struct hash_elem *result;
+  struct hash_elem *e;
   struct thread *cur = thread_current ();
   if (spte == NULL) {
     return false;
@@ -81,11 +81,19 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
 //void * kp = palloc_get_page(PAL_USER);
 //printf("file read when insert %d\n ", file_read (spte->file, kp, spte->read_bytes));
   printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file));
-  result = hash_insert (&cur->spt, &spte->elem);
-  if (result != NULL) {
+  e = hash_insert (&cur->spt, &spte->elem);
+  //struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
+  if (e != NULL) {
+	  struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
 	  printf("cannot insert\n");
-	 // free (spte);
-  // return false;
+	  free (spte);
+	  result->user_vaddr = upage;
+	  result->file = file;
+	  result->ofs = ofs;
+	  result->read_bytes = read_bytes;
+	  result->zero_bytes = zero_bytes;
+	  result->in_memory = false;
+	  result->writable = writable;  // return false;
   }
   //load_page_to_frame(spte);
 printf("inserted a new addr %d to the hash\n", (uint32_t) upage);
@@ -112,7 +120,7 @@ printf("file seek\n");
   //      exit(-1);
          return false;
       }
-     if (!install_page (spte->user_vaddr, kpage, spte->writable))
+     /*if (!install_page (spte->user_vaddr, kpage, spte->writable))
       {
         deallocate_frame (kpage);
         return false;
@@ -124,7 +132,7 @@ printf("file seek\n");
       if(spte->writable && !pagedir_is_writable(cur->pagedir, spte->user_vaddr)){
         pagedir_set_writable(cur->pagedir, spte->user_vaddr, spte->writable);
       }
-
+*/
     } 
 
 
@@ -140,12 +148,16 @@ file_seek(spte->file, spte->ofs);
     }
   printf("file read\n");
   memset (kpage + spte->read_bytes, 0, spte->zero_bytes);
-/*
-  if (!pagedir_set_page (cur->pagedir, (void *) spte->user_vaddr, kpage, spte->writable))
-    {
+  
+  if (pagedir_get_page(cur->pagedir, spte->user_vaddr) == NULL) {
+	  printf("not mapped\n");
+  if (!pagedir_set_page (cur->pagedir, spte->user_vaddr, kpage, spte->writable)) {
       deallocate_frame (kpage);
       return false;
-    }*/
+    }
+  } else {
+    printf("already mapped\n");
+  }
   printf("end of the load page to frame function\n");
   spte->in_memory = true;
   return true;

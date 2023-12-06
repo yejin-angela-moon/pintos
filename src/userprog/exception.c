@@ -160,6 +160,8 @@ page_fault (struct intr_frame *f)
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
 
+printf("PAGE FAULT\n\n");
+
   /* Determine cause. */
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
@@ -168,11 +170,15 @@ page_fault (struct intr_frame *f)
   struct thread *cur = thread_current();
   void * fault_page = (void *) pg_round_down (fault_addr);
 
-  if (!not_present)
+  if (!not_present) {
+	  printf("not present\n");
     exit(-1);
-
-  if (fault_addr == NULL || !not_present || !is_user_vaddr(fault_addr))
+  }
+printf("the fault addr is %p\n", fault_page);
+  if (fault_addr == NULL){ //|| !not_present || !is_user_vaddr(fault_addr)) {
+	  printf("addr is NULL or not user vaddr");
     exit(-1);
+  }
 printf("ready to find page with addr %d and after round down %d\n", (uint32_t) fault_page, (uint32_t) fault_addr);
 
   spte = spt_find_page(&cur->spt, fault_page);
@@ -209,7 +215,7 @@ uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
     if (spte->file != NULL) {
 	    printf("load page from frame\n");
       load_page_to_frame(spte);
-      return;
+//      return;
     } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
 	   printf("load page fromswap\n"); 
    //   load_page_from_swap(spte, frame);
@@ -220,8 +226,8 @@ uint8_t *kpage = pagedir_get_page (cur->pagedir, spte->user_vaddr);
       spte->in_memory = true;
   }
 
-//  if (!install_page((void *) spte->user_vaddr, frame, spte->writable)) {
-  //  exit(-1);
+  //if (!install_page((void *) spte->user_vaddr, frame, spte->writable)) {
+  // exit(-1);
  // }
 
   /* (3.1.5) a page fault in the kernel merely sets eax to 0xffffffff
