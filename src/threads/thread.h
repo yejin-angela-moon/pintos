@@ -111,6 +111,7 @@ struct thread {
    //struct sup_page_table spt;
 struct hash spt;
 bool init_spt;
+struct lock spt_lock;
 
 
     /* Shared between thread.c and synch.c. */

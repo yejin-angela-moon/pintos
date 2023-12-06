@@ -78,19 +78,20 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
   if (result != NULL) {
 	  printf("cannot insert\n");
 	  free (spte);
-  // return false;
+   return false;
   }
 printf("inserted a new addr %d to the hash\n", (uint32_t) upage);
+//printf("the read byte after inserted is not equalwith %d and %d \n", file_read (spte->file, kpage, spte->read_bytes), (int) spte->read_bytes);
   return true;
 }
 
 
-bool load_page_to_frame(struct spt_entry *spte) {
+bool load_page_to_frame(struct spt_entry *spte, void * kpage) {
 	struct thread *cur = thread_current ();
-
- file_seek (spte->file, spte->ofs);
+/*
+ file_seek (spte->file, 0);
 printf("file seek\n");
-  uint8_t *kpage = allocate_frame ();
+  //uint8_t *kpage = allocate_frame (PAL_USER);
 
   printf("allocated frame\n");
   if (kpage == NULL) {
@@ -98,9 +99,10 @@ printf("file seek\n");
   }
   printf("allocated frame not null\n");
   
-  if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes)
+  int readcount = file_read (spte->file, kpage, spte->read_bytes);
+  if (readcount != (int) spte->read_bytes)
     {
-	    printf("the read byte is not equal\n");
+	    printf("the read byte is not equalwith %d and %d \n", readcount, (int) spte->read_bytes);
       deallocate_frame (kpage);
       return false;
     }
@@ -113,7 +115,38 @@ printf("file seek\n");
       return false;
     }
 printf("end of the load page to frame function\n");
-  //spte->in_memory = true;
+  spte->in_memory = true;
+  return true;
+*/
+	file_seek (spte->file, spte->ofs);
+  while (spte->read_bytes > 0 || spte->zero_bytes > 0)
+  {
+    size_t page_read_bytes = spte->read_bytes < PGSIZE ? spte->read_bytes : PGSIZE;
+    size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+//#ifdef VM
+    /* Check if virtual page already allocated */
+    struct thread *t = thread_current ();
+
+    /* Load data into the page. */
+    if (file_read (spte->file, kpage, page_read_bytes) != (int) page_read_bytes){
+    //  deallocate_frame(kpage);
+    printf("the read byte is not equalwith %d and %d \n", file_read (spte->file, kpage, page_read_bytes), (int) spte->read_bytes);
+      return false;
+    }
+    memset (kpage + page_read_bytes, 0, page_zero_bytes);
+
+    /* Add the page to the process's address space. */
+ //   if (!install_page (upage, kpage, writable)) {
+   //   vm_free_frame (kpage);
+     // return false;
+   // }
+//#endif
+    /* Advance. */
+    spte->read_bytes -= page_read_bytes;
+    spte->zero_bytes -= page_zero_bytes;
+    spte->user_vaddr += PGSIZE;
+  }
   return true;
 
 }
@@ -122,6 +155,8 @@ struct spt_entry* spt_find_page(struct hash *spt, void *vaddr) {
   struct spt_entry tmp;
   tmp.user_vaddr = vaddr;
   struct hash_elem *e = hash_find(spt, &tmp.elem);
+  //struct spt_entry spte = hash_entry(e, struct spt_entry, elem);
+//  printf("the read byte when finding the spte is not equalwith %d and %d \n", file_read (spte->file, kpage, spte->read_bytes), (int) spte->read_bytes);
   return e != NULL ? hash_entry(e, struct spt_entry, elem) : NULL;
 }
 

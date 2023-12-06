@@ -510,7 +510,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
             read_bytes = 0;
             zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
           }
-          if (!load_segment_lazily (file, file_page, (void *) mem_page,
+          if (!load_segment (file, file_page, (void *) mem_page,
                              read_bytes, zero_bytes, writable))
             goto done;
         }
@@ -667,7 +667,7 @@ printf("the addr load is %d\n", (uint32_t) upage);
     if (kpage == NULL){
 
       /* Get a new page of memory. */
-      kpage = allocate_frame();
+      kpage = allocate_frame(PAL_USER);
       if (kpage == NULL){
         return false;
       }
@@ -691,8 +691,10 @@ printf("the addr load is %d\n", (uint32_t) upage);
     /* Load data into the page. */
     if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes){
     //  deallocate_frame(kpage);
+     printf("the file read no is %d\n", file_read (file, kpage, page_read_bytes));
       return false;
     }
+    printf("the file read no is %d and they are the same\n", file_read (file, kpage, page_read_bytes));
     memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
     /* Advance. */
@@ -711,7 +713,7 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
 
-  kpage = allocate_frame();
+  kpage = allocate_frame(PAL_USER | PAL_ZERO);
   if (kpage != NULL)
   {
     success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
