@@ -263,9 +263,11 @@ page_fault (struct intr_frame *f)
                     exit(-1); // Or handle the memory allocation failure appropriately.
                 }
             }
+	    //printf("spte type is %d\n", spte->type);
 	    if (spte->type == File || spte->type == Mmap) {
 	      load_page (spte, kpage);
 	    } else {
+              printf("haha swap time\n");
               load_page_swap(spte, kpage);
 	    }
             // If page is read-only, consider sharing it.

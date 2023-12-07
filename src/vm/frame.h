@@ -17,6 +17,7 @@ struct frame {
   bool pinned;
   struct hash_elem elem;
   struct list_elem lelem;
+  int no;
   // other fields if needed
 };
 
@@ -29,5 +30,5 @@ bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux)
 void frame_table_init(void);
 void* allocate_frame(void);
 void deallocate_frame(void* frame_addr);
-
+void frame_set_status (void *kpage, uint32_t *pte UNUSED, void *upage);
 #endif /* vm/frame.h */

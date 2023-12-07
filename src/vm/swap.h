@@ -8,7 +8,7 @@
 #include <list.h>
 
 #define INVALID_SWAP_SLOT SIZE_MAX
-#define SWAP_ERROR -1
+#define SWAP_ERROR (size_t) -1
 
 struct swap_store {
   struct list_elem elem;

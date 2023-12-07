@@ -10,6 +10,7 @@
 #include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "vm/page.h"
+#include "vm/swap.h"
 #include "threads/thread.h"
 #include <string.h>
 #include "threads/vaddr.h"
