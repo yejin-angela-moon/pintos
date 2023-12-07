@@ -5,7 +5,7 @@
 #include "vm/page.h"
 
 struct frame {
-  struct page *page;
+  void *page;
   bool is_free;
   struct hash_elem elem;
   // other fields if needed

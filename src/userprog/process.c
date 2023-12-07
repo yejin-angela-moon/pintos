@@ -19,7 +19,7 @@
 #include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-
+#include "userprog/syscall.h"
 #include "vm/frame.h"
 
 
@@ -276,13 +276,41 @@ process_wait(tid_t child_tid)
   }
 }
 
+/* Free the mmap files. */
+/*void free_mmap (struct map_file * mf) {
+  if (mf == NULL)
+    return;  // not found
+  void *uaddr = mf->addr;
+  // TODO remove page from list of virtual pages
+  for (int count = 0 ; count < mf->page_no; count++) {
+
+    struct spt_entry *page =  spt_find_page(&thread_current()->spt, uaddr);
+    if (page->in_memory && pagedir_is_dirty (thread_current()->pagedir, page->user_vaddr)) {
+      lock_acquire(&syscall_lock);
+      file_seek(page->file, page->ofs);
+      file_write(page->file, page->user_vaddr, page->read_bytes);
+      lock_release(&syscall_lock);
+    }
+    uaddr += PGSIZE;
+
+    free(page);
+  }
+  free(mf);
+
+}*/
+
 /* Close the file and free the file_descriptor. */
-static void free_fd(struct hash_elem *e, void *aux UNUSED) {
+/*void free_fd(struct hash_elem *e, void *aux UNUSED) {
   struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
   file_close(fd->file);
   free(fd);
 }
-
+*/
+static void free_spte (struct hash_elem *e, void *aux UNUSED)
+{
+  struct spt_entry *spte = hash_entry (e, struct spt_entry, elem);
+  free (spte);
+}
 
 /* Free the current process's resources. */
 void
@@ -293,6 +321,21 @@ process_exit (void)
 
   /* Destroy the fd_table with free_fd. */
   hash_destroy(&cur->fd_table, free_fd);
+
+  struct list_elem *me = list_begin(&cur->mmap_files);
+  struct list_elem *nme;
+  while (me != list_end(&cur->mmap_files)){
+    nme = list_next(me);
+    struct map_file *mmap = list_entry (me, struct map_file, elem);
+    list_remove(me);
+    free_mmap (mmap);
+    me = nme;
+  }
+
+  hash_destroy(&cur->spt, free_spte);
+
+  /* Destroy the fd_table with free_fd. */
+  //hash_destroy(&cur->fd_table, free_fd);
 
   /* Free all the locks that current thread hold. */
   for (struct list_elem *e = list_begin(&cur->locks); e != list_end(&cur->locks);

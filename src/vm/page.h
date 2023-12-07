@@ -49,7 +49,7 @@ struct spt_entry {
     int count;
     // swap
     size_t swap_slot;     /* Swap slot index. */
-    struct frame *frame;  /* Pointer to the frame in memory. */
+    void *frame_page;  /* Pointer to the frame in memory. */
     enum spte_type type;
     // shared
     bool is_shared;
@@ -71,6 +71,7 @@ struct map_file {
   size_t length;
   struct list_elem elem;
   struct list pages;
+  int page_no;
 };
 
 struct shared_page {
