@@ -45,6 +45,8 @@ void munmap(mapid_t mapping);
 
 void free_mmap (struct map_file * mf);
 
+void free_fd(struct hash_elem *e, void *aux UNUSED);
+
 bool hash_less(int a, int b);
 
 struct file_descriptor *process_get_fd(int fd);

@@ -19,7 +19,7 @@
 #include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-
+#include "userprog/syscall.h"
 #include "vm/frame.h"
 
 
@@ -300,12 +300,12 @@ process_wait(tid_t child_tid)
 }*/
 
 /* Close the file and free the file_descriptor. */
-void free_fd(struct hash_elem *e, void *aux UNUSED) {
+/*void free_fd(struct hash_elem *e, void *aux UNUSED) {
   struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
   file_close(fd->file);
   free(fd);
 }
-
+*/
 static void free_spte (struct hash_elem *e, void *aux UNUSED)
 {
   struct spt_entry *spte = hash_entry (e, struct spt_entry, elem);

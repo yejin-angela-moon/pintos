@@ -552,6 +552,15 @@ munmap(mapid_t mapping) {
 */
 }
 
+/* Close the file and free the file_descriptor. */
+void free_fd(struct hash_elem *e, void *aux UNUSED) {
+  struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
+  //lock_acquire(&syscall_lock);
+  file_close(fd->file);
+  //lock_release(&syscall_lock);
+  free(fd);
+}
+
 void
 check_user (void *ptr) {
 /* Don't need to worry about code running after as it kills the process */
