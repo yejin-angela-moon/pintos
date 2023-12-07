@@ -22,7 +22,7 @@ void spte_init(struct spt_entry *spte) {
   pg->frame = NULL;
   pg->present = false;
   pg->dirty = false;
-  */
+  */ 
   //spte->frame = NULL;
   //spte->is_dirty = false;
 }
@@ -141,7 +141,8 @@ bool load_page(struct spt_entry *spte, void * kpage) {
       return false;
     }
   //printf("file read\n");
-  memset (kpage + spte->read_bytes, 0, spte->zero_bytes);
+  uint32_t size = spte->type == File ? spte->zero_bytes : PGSIZE - spte->read_bytes;
+  memset (kpage + spte->read_bytes, 0, size);
   
   if (pagedir_get_page(cur->pagedir, spte->user_vaddr) == NULL) {
 //	  printf("not mapped\n");

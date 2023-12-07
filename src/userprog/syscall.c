@@ -475,7 +475,7 @@ mmap(int fd, void *addr) {
   struct file* copy = file_reopen(file->file);
   lock_release (&syscall_lock); 
   mmap->page_no = mmap_entry(copy, addr);
- 
+//printf("befere return will return %d\n", mmap->mid); 
   if (mmap->page_no == -1) {
     return -1;
   } else {
