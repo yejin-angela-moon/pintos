@@ -14,7 +14,14 @@
 #include <string.h>
 #include "threads/vaddr.h"
 #include "userprog/exception.h"
+#include "threads/synch.h"
 // could move to a header file
+
+// Define a hash table to store shared pages.
+// Define a lock for page sharing.
+
+bool share_page(struct spt_entry *spte);
+void unshare_page(struct spt_entry *spte);
 
 static int count = 0;
 void spte_init(struct spt_entry *spte) {
@@ -130,18 +137,6 @@ bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read
 bool load_page(struct spt_entry *spte, void * kpage) {
 	struct thread *cur = thread_current ();
 
-  // Check if the page is eligible for sharing.
-  if (spte->type == File && !spte->is_dirty) {
-      // Page is read-only and not modified, eligible for sharing.
-      bool first_page;
-      first_page = share_page(spte);
-
-      if (!first_page) {
-        return true;
-      }
-      
-  }
-
   file_seek(spte->file, spte->ofs);
   bool writable = spte->type == File ? spte->writable : true;
   if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes)
@@ -214,34 +209,20 @@ free_spt(struct hash_elem *e, void *aux UNUSED) {
   free(spte);
 }
 
-// Define a hash table to store shared pages.
-static struct hash shared_pages;
-
 // Initialize the lock and hash table in your system initialization code.
 void init_page_sharing(void) {
     lock_init(&page_sharing_lock);
     hash_init(&shared_pages, shared_page_hash, shared_page_less, NULL);
 }
 
-// Define a lock for page sharing.
-static struct lock page_sharing_lock;
-
-// Define a custom data structure for tracking shared pages.
-struct shared_page {
-    struct hash_elem elem;
-    struct spt_entry *spte;
-    int shared_count;
-    // Add any other necessary fields here.
-};
-
 // Hash function for the shared pages hash table.
-static unsigned shared_page_hash(const struct hash_elem *e, void *aux UNUSED) {
+unsigned shared_page_hash(const struct hash_elem *e, void *aux UNUSED) {
     struct shared_page *spage = hash_entry(e, struct shared_page, elem);
     return hash_int((int)spage->spte->user_vaddr);
 }
 
 // Comparison function for shared pages.
-static bool shared_page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
+bool shared_page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
     struct shared_page *sa = hash_entry(a, struct shared_page, elem);
     struct shared_page *sb = hash_entry(b, struct shared_page, elem);
     return sa->spte->user_vaddr < sb->spte->user_vaddr;
@@ -249,7 +230,7 @@ static bool shared_page_less(const struct hash_elem *a, const struct hash_elem *
 
 // Function to share a page.
 bool share_page(struct spt_entry *spte) {
-    acquire_shared_page_lock();
+    lock_acquire(&page_sharing_lock);
 
     struct shared_page spage;
     spage.spte = spte;
@@ -261,16 +242,16 @@ bool share_page(struct spt_entry *spte) {
     if (existing != NULL) {
         struct shared_page *existing_spage = hash_entry(existing, struct shared_page, elem);
         existing_spage->shared_count++;
-        release_shared_page_lock();
+        lock_release(&page_sharing_lock);
         return false;
     }
-    release_shared_page_lock();
+    lock_release(&page_sharing_lock);
     return true;
 }
 
 // Function to unshare a page.
 void unshare_page(struct spt_entry *spte) {
-    acquire_shared_page_lock();
+    lock_acquire(&page_sharing_lock);
 
     struct shared_page spage;
     spage.spte = spte;
@@ -288,7 +269,7 @@ void unshare_page(struct spt_entry *spte) {
         }
     }
 
-    release_shared_page_lock();
+    lock_release(&page_sharing_lock);
 }
 
 
@@ -315,4 +296,3 @@ void deallocate_page(struct page *pg) {
  *
  * bool is_page_present(struct page *pg)
  * */
-

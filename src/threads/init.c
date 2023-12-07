@@ -139,6 +139,7 @@ main (void)
   /* Initialise the swap disk */  
   swap_init ();
   frame_table_init ();
+  init_page_sharing (); 
 #endif
 
   printf ("Boot complete.\n");
