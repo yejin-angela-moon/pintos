@@ -232,7 +232,7 @@ page_fault (struct intr_frame *f)
         //lock_acquire(&page_sharing_lock);
         //struct hash_elem *found_elem = hash_find(&shared_pages, &spage_lookup.elem);
         //if (found_elem != NULL) {
-           found_shared_page = get_shared_page(&spte);//hash_entry(found_elem, struct shared_page, elem);
+           found_shared_page = get_shared_page(spte);//hash_entry(found_elem, struct shared_page, elem);
        // }
         ///lock_release(&page_sharing_lock);
 
@@ -263,10 +263,10 @@ page_fault (struct intr_frame *f)
                     exit(-1); // Or handle the memory allocation failure appropriately.
                 }
             }
-	    if (spte->type == Swap) {
-	      load_page_swap (spte, kpage);
+	    if (spte->type == File || spte->type == Mmap) {
+	      load_page (spte, kpage);
 	    } else {
-              load_page(spte, kpage);
+              load_page_swap(spte, kpage);
 	    }
             // If page is read-only, consider sharing it.
             if (!spte->writable) {

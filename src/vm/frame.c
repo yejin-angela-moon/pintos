@@ -172,12 +172,12 @@ save_evicted_frame (struct frame *frame) {
   size_t swap_slot;
 
   if (pagedir_is_dirty (t->pagedir, spte->user_vaddr) && (spte->type == Mmap)) {
-   // write_page_back_to_file_without_lock (spte);
+     file_seek (spte->file, spte->ofs);
+     file_write (spte->file, spte->user_vaddr,spte->read_bytes);
   } else if (pagedir_is_dirty (t->pagedir, spte->user_vaddr) || (spte->type != File)) {
     swap_slot = swap_out_memory (spte->user_vaddr);
     if (swap_slot == SWAP_ERROR)
       return false;
-
     spte->type = spte->type | Swap;
   }
 
