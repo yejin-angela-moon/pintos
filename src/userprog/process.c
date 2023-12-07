@@ -718,7 +718,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable))
       {
-        deallocate_frame (kpage);
+        free_frame (kpage);
         return false;
       }
 
@@ -761,7 +761,7 @@ setup_stack (void **esp)
     if (success)
       *esp = PHYS_BASE;
     else
-      deallocate_frame (kpage);
+      free_frame (kpage);
   }
   return success;
 }

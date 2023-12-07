@@ -9,6 +9,7 @@
 #define SECTORS_PER_PAGE (PGSIZE / BLOCK_SECTOR_SIZE)
 
 struct block *swap_block;  // Block device for the swap space
+static struct bitmap *swap_map; // Bitmap of swap slot availabilities
 
 void swap_init(void) {
     swap_block = block_get_role(BLOCK_SWAP);
@@ -27,4 +28,5 @@ void swap_read(size_t swap_slot, void *frame) {
         block_read(swap_block, start_sector + i, frame + i * BLOCK_SECTOR_SIZE);
     }
 }
+
 

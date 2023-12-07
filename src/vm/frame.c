@@ -8,6 +8,8 @@
 #include "threads/palloc.h"
 #include "userprog/pagedir.h"
 #include "userprog/syscall.h"
+#include "vm/swap.h"
+#include "devices/swap.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
@@ -19,7 +21,7 @@ static struct list_elem *hand;
 
 static struct frame *frame_to_evict_v (void);
 static bool save_evicted_frame (struct frame *);
-struct frame_table_entry* clock_frame_next(void);
+static struct frame *clock_frame_next (void);
 
 unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED) {
   struct frame *frame = hash_entry(e, struct frame, elem);
@@ -56,6 +58,11 @@ void *allocate_frame(void) {
                  || pagedir_is_dirty(evicted->t->pagedir, evicted->kpage);
 
     //TODO: get swap slot index, set swap and dirty for spt, free frame
+
+    size_t swap_slot = swap_out (evicted->kpage);
+    spt_set_swap (evicted->t->spt, evicted->user_vaddr, swap_slot);
+    spt_set_dirty (evicted->t->spt, evicted->user_vaddr, dirty);
+    free_frame(evicted->kpage);
    
     frame_page = palloc_get_page (PAL_USER);
     ASSERT (frame_page != NULL);
@@ -84,11 +91,25 @@ void *allocate_frame(void) {
 void *frame_get_page(struct spt_entry *spte) {
 void *frame = palloc_get_page(PAL_USER);
   return frame;
-} 
+}
+
+void 
+free_frame (void *kpage) {
+  lock_acquire (&frame_lock);
+  deallocate_frame (kpage, true);
+  lock_release (&frame_lock);
+}
+
+void 
+frame_remove_entry (void *kpage) {
+  lock_acquire (&frame_lock);
+  deallocate_frame (kpage, false);
+  lock_release (&frame_lock);
+}
 
 
 /* Deallocate a frame by marking it as free */
-void deallocate_frame(void *page_addr) {  
+void deallocate_frame(void *page_addr, bool free_page) {  
   //struct page *page = (struct page *)page_addr;
   /*struct hash_iterator i;
   struct frame *frame;
@@ -100,12 +121,17 @@ void deallocate_frame(void *page_addr) {
 	break;
     }
   }*/
+  //ASSERT (pg_ofs(kpage) == 0);
   struct frame tmp;
   tmp.kpage = page_addr;
   struct hash_elem *e = hash_find(&frame_table, &tmp.elem);
+  ASSERT (e != NULL);
+
   struct frame *frame = hash_entry(e, struct frame, elem);
   hash_delete(&frame_table, &frame->elem);
-  palloc_free_page(frame->kpage);
+
+  if (free_page) 
+    palloc_free_page(frame->kpage);
   free(frame);
 }
 
@@ -206,6 +232,8 @@ frame_pin (void *kpage) {
   frame_set_pinned (kpage, true);
 }
 
+//static struct frame* clock_frame_next (void);
+
 struct frame*
 frame_to_evict (uint32_t *pagedir) {
   size_t n = hash_size(&frame_table);
@@ -213,7 +241,7 @@ frame_to_evict (uint32_t *pagedir) {
 
   size_t i;
   for(i = 0; i <= n * 2; ++i)  {
-    struct frame *e;// = clock_frame_next();
+    struct frame *e = clock_frame_next();
     if(e->pinned) {
       continue;
     } else if (pagedir_is_accessed(pagedir, e->user_vaddr)) {
@@ -227,17 +255,18 @@ frame_to_evict (uint32_t *pagedir) {
   PANIC ("Can't evict any frame, not enough memory");
 }
 
-/*struct frame_table_entry* clock_frame_next(void) {
+static struct frame* 
+clock_frame_next(void) {
   ASSERT (!list_empty(&frame_list));
 
-  if (clock_ptr == NULL || hand == list_end(&frame_list))
-    clock_ptr = list_begin (&frame_list);
+  if (hand == NULL || hand == list_end(&frame_list))
+    hand = list_begin (&frame_list);
   else
-    clock_ptr = list_next (hand);
+    hand = list_next (hand);
 
-  struct frame_table_entry *e = list_entry(hand, struct frame_table_entry, lelem);
+  struct frame *e = list_entry(hand, struct frame, lelem);
   return e;
 }
-*/
+
 
 

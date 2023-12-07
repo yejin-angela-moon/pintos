@@ -147,7 +147,7 @@ bool load_page(struct spt_entry *spte, void * kpage) {
     {
 //	        printf("kpage pointer: %p\n", (void *) kpage);
 //	    printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
-      deallocate_frame (kpage);
+      frame_remove_entry (kpage);
       return false;
     }
   //printf("file read\n");
@@ -157,7 +157,7 @@ bool load_page(struct spt_entry *spte, void * kpage) {
   if (pagedir_get_page(cur->pagedir, spte->user_vaddr) == NULL) {
 //	  printf("not mapped\n");
   if (!pagedir_set_page (cur->pagedir, spte->user_vaddr, kpage, writable)) {
-      deallocate_frame (kpage);
+      frame_remove_entry (kpage);
       return false;
     }
   } else {

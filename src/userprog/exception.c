@@ -203,7 +203,7 @@ page_fault (struct intr_frame *f)
     }
 
     if (kpage != NULL && !pagedir_set_page (cur->pagedir, fault_page, kpage, true)) {
-      deallocate_frame (kpage); 
+      free_frame (kpage); 
       exit(-1);
     }
     return;
