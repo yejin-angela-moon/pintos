@@ -177,7 +177,7 @@ page_fault (struct intr_frame *f)
 //	  printf("not present\n");
     exit(-1);
   }
-printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
+//printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
   if (fault_addr == NULL){ //|| !not_present || !is_user_vaddr(fault_addr)) {
 //	  printf("addr is NULL or not user vaddr");
     exit(-1);
@@ -206,13 +206,12 @@ printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
       deallocate_frame (kpage); 
       exit(-1);
     }
-    //return;
+    return;
   }
 
-  //if (spte == NULL) { // || (PHYS_BASE - fault_page > MAX_STACK_SIZE)) {
-    //printf("spte is null exit\n");
-      //exit(-1);
- // }
+  if (spte == NULL) { // || (PHYS_BASE - fault_page > MAX_STACK_SIZE)) {
+    exit(-1);
+  }
 //printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
 /*if (spte->writable && !write) {
 	 printf("spte is writable but cant write and exit\n");
@@ -222,7 +221,7 @@ printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
   //if (frame == NULL)
     //exit(-1);
 //printf("the thread cur is %d \n", thread_current()->tid);
- if (spte != NULL && !spte->in_memory) {
+ if (!spte->in_memory) {
    if (spte->file != NULL) {
         struct thread *cur = thread_current();
 
@@ -264,13 +263,13 @@ printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
                     exit(-1); // Or handle the memory allocation failure appropriately.
                 }
             }
-//	    printf("spte type is %d\n", spte->type);
 	    if (spte->type == File || spte->type == Mmap) {
 	      load_page (spte, kpage);
 	    } else {
               printf("haha swap time\n");
               load_page_swap(spte, kpage);
 	    }
+
             // If page is read-only, consider sharing it.
             if (!spte->writable) {
                 // Here you can either use the share_page function or write the logic directly.
@@ -290,7 +289,7 @@ printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
 		create_shared_page (spte, kpage);
             }
         }
-  //  } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
+    } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
 //	   printf("load page fromswap\n"); 
    //   load_page_from_swap(spte, frame);
     } else {
