@@ -52,22 +52,24 @@ void *allocate_frame(void) {
 
   void *frame_page = palloc_get_page (PAL_USER);
   if (frame_page == NULL) {
-  printf("no page at all time to evict\n");
+  //printf("no page at all time to evict\n");
     struct frame *evicted = frame_to_evict (thread_current()->pagedir, &hand);
-    printf("run frame to evict\n");
-if (evicted == NULL) {
-  printf("the evicted chose is NULL");
-}
+    //printf("run frame to evict\n");
+
     ASSERT (evicted != NULL && evicted->t != NULL);
     ASSERT (evicted->t->pagedir != (void *)0xcccccccc);
     if (pagedir_is_dirty(evicted->t->pagedir, evicted->user_vaddr)) {
-      printf("that evict frame is dirty\n");
+  //    printf("that evict frame is dirty\n");
       save_evicted_frame(evicted);
     }
-    printf("delete the frame from the table\n");
-    hash_delete(&frame_table, &evicted->elem);
+    struct spt_entry *evi_spte = spt_find_page(&evicted->t->spt, evicted->user_vaddr);
+    evi_spte->in_memory = false;
+//    printf("delete the frame from the table\n");
+    list_remove(&evicted->lelem);
+//    hash_delete(&frame_table, &evicted->elem);
     pagedir_clear_page (evicted->t->pagedir, evicted->user_vaddr);
-  
+    palloc_free_page(evicted->kpage);
+
 
   //  free(evicted);
     //bool dirty = false
@@ -249,8 +251,8 @@ frame_pin (void *kpage) {
 
 struct frame*
 frame_to_evict (uint32_t *pagedir, struct list_elem **hand) {
-  size_t n = hash_size(&frame_table);
-printf("size of table is %d\n", n);
+  size_t n = list_size(&frame_list);
+//printf("size of table is %d\n", n);
   size_t i;
   struct frame *e;
 //  struct list_elem *hand = NULL;
@@ -284,7 +286,7 @@ struct frame* clock_frame_next(struct list_elem **hand) {
   }
 //printf("get hand\n");
   struct frame *e = list_entry(*hand, struct frame, lelem);
-  printf("frame user addr is %p\n", e->user_vaddr);
+//  printf("frame user addr is %p\n", e->user_vaddr);
 //  printf("the first ua is %p\n", list_entry(list_begin(&frame_list), struct frame, lelem)->user_vaddr);
   return e;
 }
