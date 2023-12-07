@@ -306,6 +306,12 @@ void free_fd(struct hash_elem *e, void *aux UNUSED) {
   free(fd);
 }
 
+static void free_spte (struct hash_elem *e, void *aux UNUSED)
+{
+  struct spt_entry *spte = hash_entry (e, struct spt_entry, elem);
+  free (spte);
+}
+
 /* Free the current process's resources. */
 void
 process_exit (void)
@@ -325,6 +331,8 @@ process_exit (void)
     free_mmap (mmap);
     me = nme;
   }
+
+  hash_destroy(&cur->spt, free_spte);
 
   /* Destroy the fd_table with free_fd. */
   //hash_destroy(&cur->fd_table, free_fd);

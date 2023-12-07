@@ -142,7 +142,7 @@ bool load_page(struct spt_entry *spte, void * kpage) {
     }
   //printf("file read\n");
   uint32_t size = spte->type == File ? spte->zero_bytes : PGSIZE - spte->read_bytes;
-  memset (kpage + spte->read_bytes, 0, size);
+  memset (kpage + spte->read_bytes, 0, size); 
   
   if (pagedir_get_page(cur->pagedir, spte->user_vaddr) == NULL) {
 //	  printf("not mapped\n");
