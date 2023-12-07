@@ -253,7 +253,7 @@ page_fault (struct intr_frame *f)
   //printf("end of the load page to frame function\n");
   spte->in_memory = true;
 
-	    printf("shared page\n");
+//	    printf("shared page\n");
         } else {
             // Allocate a new frame if page not shared or writable.
             kpage = pagedir_get_page(cur->pagedir, spte->user_vaddr);
@@ -263,8 +263,11 @@ page_fault (struct intr_frame *f)
                     exit(-1); // Or handle the memory allocation failure appropriately.
                 }
             }
-            load_page(spte, kpage);
-
+	    if (spte->type == Swap) {
+	      load_page_swap (spte, kpage);
+	    } else {
+              load_page(spte, kpage);
+	    }
             // If page is read-only, consider sharing it.
             if (!spte->writable) {
                 // Here you can either use the share_page function or write the logic directly.

@@ -5,16 +5,26 @@
 #include "threads/vaddr.h"
 #include "devices/block.h"
 #include "lib/debug.h"
+#include "threads/synch.h"
+#include <threads/malloc.h>
+#include <threads/palloc.h>
 
 #define SECTORS_PER_PAGE (PGSIZE / BLOCK_SECTOR_SIZE)
 
 struct block *swap_block;  // Block device for the swap space
 
-void swap_init(void) {
-    swap_block = block_get_role(BLOCK_SWAP);
-    if (swap_block == NULL) {
-        return false;
-    }
+struct lock swap_lock;
+
+struct list swap_list;
+
+void swap_vm_init(void) {
+  list_init(&swap_list);
+  lock_init(&swap_lock);  
+  swap_block = block_get_role(BLOCK_SWAP);
+
+  if (swap_block == NULL) {
+    return;
+  }
 }
 
 void swap_read(size_t swap_slot, void *frame) {
@@ -28,3 +38,46 @@ void swap_read(size_t swap_slot, void *frame) {
     }
 }
 
+size_t swap_out_memory(void *user_vaddr) {
+  if (swap_block == NULL || list_empty(&swap_list)) {
+    return SWAP_ERROR;
+  }
+
+
+  if (list_size(&swap_list) < (block_size(swap_block) / SECTORS_PER_PAGE)) {
+    struct swap_store *ss = malloc(sizeof(struct swap_store));
+    if (ss == NULL) {
+      return SWAP_ERROR;
+    }
+    ss->ssid = list_size(&swap_list);
+    lock_acquire(&swap_lock);
+    list_push_back(&swap_list, &ss->elem);
+    lock_release(&swap_lock);
+    for (int i = 0; i < SECTORS_PER_PAGE; i++) {
+      block_write (swap_block, ss->ssid * SECTORS_PER_PAGE + i, (uint8_t *) user_vaddr + i * BLOCK_SECTOR_SIZE);
+    }
+    lock_release(&swap_lock);
+    return ss->ssid;
+  } else {
+    return SWAP_ERROR;
+  } 
+}
+
+void swap_in_memory(size_t swap_slot, void *user_vaddr) {
+  struct swap_store tmp;
+  tmp.ssid = swap_slot;
+  lock_acquire(&swap_lock);
+  struct swap_store *ss = list_entry(&tmp.elem, struct swap_store, elem);
+  if (ss == NULL) {
+    lock_release(&swap_lock);
+    return;
+  }
+
+  list_remove(&ss->elem);
+
+  for (int i = 0; i < SECTORS_PER_PAGE; i++) {
+    block_read (swap_block, swap_slot * SECTORS_PER_PAGE + i, (uint8_t *) user_vaddr + i * BLOCK_SECTOR_SIZE);
+  }
+
+  lock_release(&swap_lock);
+}

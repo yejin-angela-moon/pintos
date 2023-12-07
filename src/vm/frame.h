@@ -3,17 +3,18 @@
 
 #include "lib/kernel/hash.h"
 #include "vm/page.h"
-#include "threads/thread.h"
+//#include "threads/thread.h"
 #include "threads/vaddr.h"
 #include <stdint.h>
 #include "threads/malloc.h"
+
 
 struct frame {
   void *kpage;       /* Pointer to the kernel virtual page */
   struct thread *t; /* Pointer to the thread */
   struct spt_entry *spte;
-  void *user_vaddr; /* User virtual address */
-  //bool is_free;
+  uint8_t *user_vaddr; /* User virtual address */
+  bool pinned;
   struct hash_elem elem;
   struct list_elem lelem;
   // other fields if needed
