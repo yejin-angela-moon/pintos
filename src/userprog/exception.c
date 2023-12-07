@@ -237,10 +237,13 @@ page_fault (struct intr_frame *f)
         lock_release(&page_sharing_lock);
 
         uint8_t *kpage = NULL;
-        if (found_shared_page != NULL && !spte->writable) {
+        if (found_shared_page != NULL && !spte->writable && spte->type == File) {
             // If page is shared and read-only, use existing kpage.
-            spte->frame_page = found_shared_page->kpage;
-	    printf("shared page\n");
+            kpage = pagedir_get_page(found_shared_page->pagedir, spte->user_vaddr);
+            spte->frame_page = kpage;
+            pagedir_set_page(cur->pagedir, spte->user_vaddr, kpage, false);
+            found_shared_page->shared_count += 1;
+
         } else {
             // Allocate a new frame if page not shared or writable.
             kpage = pagedir_get_page(cur->pagedir, spte->user_vaddr);
@@ -253,13 +256,13 @@ page_fault (struct intr_frame *f)
             load_page(spte, kpage);
 
             // If page is read-only, consider sharing it.
-            if (!spte->writable) {
+            if (!spte->writable && spte->type == File) {
                 // Here you can either use the share_page function or write the logic directly.
                 // Ensure to update the shared_page struct with kpage and pagedir.
                 struct shared_page *new_shared_page = malloc(sizeof (struct shared_page));
-		if (new_shared_page == NULL) {
-		  return;
-		}
+		            if (new_shared_page == NULL) {
+		              return;
+		            }
                 new_shared_page->spte = spte;
                 new_shared_page->kpage = kpage;
                 new_shared_page->pagedir = cur->pagedir;
