@@ -1,20 +1,22 @@
 #include "vm/page.h"
 #include <stddef.h>
 #include <stdbool.h>
-#include "threads/thread.h"
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include "lib/kernel/hash.h"
 #include "threads/malloc.h"
+#include "threads/palloc.h"
 #include "vm/page.h"
-#include "threads/pte.h"
+#include "threads/thread.h"
 #include <string.h>
+#include "threads/vaddr.h"
+#include "userprog/exception.h"
 // could move to a header file
 
-static void spte_destroy (struct hash_elem *elem, void *aux);
-
+static int count = 0;
 void spte_init(struct spt_entry *spte) {
   /*
   pg->frame = NULL;
@@ -23,7 +25,6 @@ void spte_init(struct spt_entry *spte) {
   */
   spte->frame = NULL;
   spte->is_dirty = false;
-
 }
 
 unsigned spt_hash(const struct hash_elem *elem, void *aux UNUSED) {
@@ -38,94 +39,160 @@ bool spt_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UN
     return spte_a->user_vaddr < spte_b->user_vaddr;  
 }
 
-
-struct sup_page_table *
-spt_create (void) {
+/*
+struct sup_page_table *spt_create (void) {
   struct sup_page_table *spt = malloc(sizeof(struct sup_page_table));
   hash_init (&spt->table, spt_hash, spt_less, NULL);
   return spt;
 }
+*/
 
-void
-spt_destroy (struct sup_page_table *spt) {
-  ASSERT (spt != NULL);
 
-  hash_destroy (&spt->table, spte_destroy);
+void spt_init (struct sup_page_table *spt) {
+  hash_init(&spt->table, spt_hash, spt_less, NULL);
 }
-
-static void 
-spte_destroy (struct hash_elem *elem, void *aux UNUSED) {
-  struct spt_entry *spte = hash_entry (elem, struct spt_entry, elem);
-
-  if (spte->page != NULL) {
-    // assert entry is on frame
-    frame_remove_entry (spte->page);
-  }
-  // else if entry is on swap
-  // free the entry in swap
-
-  /* Clean up sup page table entry */
-  free(spte);
-}
-
 
 bool
 spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
     uint32_t read_bytes, uint32_t zero_bytes, bool writable)
-{
-  struct spt_entry *spte = calloc (1, sizeof(struct spt_entry));
-  struct hash_elem *result;
+{ //return true;
+	//printf("indide the spt insrt function\n");
+  struct spt_entry *spte = malloc (sizeof(struct spt_entry));
+  //printf("calloc a new spte\n");
+  struct hash_elem *e;
   struct thread *cur = thread_current ();
-  if (spte != NULL) {
+  if (spte == NULL) {
     return false;
   }
-  spte->user_vaddr = (uint32_t) upage;
+  spte->user_vaddr = upage;
   spte->file = file;
   spte->ofs = ofs;
   spte->read_bytes = read_bytes;
   spte->zero_bytes = zero_bytes;
   spte->writable = writable;
   spte->in_memory = false;
-
-  struct sup_page_table *spt = cur->spt;
-  result = hash_insert (&spt->table, &spte->elem);
-  if (result != NULL)
-    return false;
-
+  spte->type = File;
+ // spte->count = count;
+  //count++;
+  //printf("set up the spte\n");
+//  struct hash spt = cur->spt;
+ // printf("get the spt of the cur thread\n");
+//  hash_init (&spt, spt_hash, spt_less, NULL);
+//file_seek (spte->file, spte->ofs);
+//void * kp = palloc_get_page(PAL_USER);
+//printf("file read when insert %d\n ", file_read (spte->file, kp, spte->read_bytes));
+//  printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d, writeable %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file), spte->writable);
+  e = hash_insert (&cur->spt, &spte->elem);
+  //struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
+  if (e != NULL) {
+	  struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
+//	  printf("cannot insert\n");
+	  //free (spte);
+	  //result->user_vaddr = upage;
+	 // result->file = file;
+	  //result->ofs = ofs;
+	  result->read_bytes = read_bytes;
+	  result->zero_bytes = zero_bytes;
+	  //result->in_memory = false;
+	  result->writable = writable;  // return false;
+  }
+  //load_page_to_frame(spte);
+//printf("inserted a new addr %d to the hash\n", (uint32_t) upage);
   return true;
 }
 
-bool
-spt_install_frame (struct sup_page_table *spt, void *user_vaddr, void *kpage) {
-  struct spt_entry *spte = (struct spt_entry *) malloc(sizeof(struct spt_entry));
-
-  spte->user_vaddr = user_vaddr;
-  spte->page = kpage;
-  spte->is_dirty = false;
-  
-  struct hash_elem *prev_elem = hash_insert (&spt->table, &spte->elem);
-  if (prev_elem == NULL) {
-    return true;
-  } else {
-    // There is already an entry
-    free(spte);
+bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read_bytes) {
+   struct spt_entry *spte = malloc (sizeof(struct spt_entry));
+  //printf("calloc a new spte\n");
+  struct hash_elem *e;
+  struct thread *cur = thread_current ();
+  if (spte == NULL) {
     return false;
   }
-
+  spte->user_vaddr = upage;
+  spte->file = file;
+  spte->ofs = ofs;
+  spte->read_bytes = read_bytes;
+  spte->in_memory = false;
+  spte->type = Mmap;
+//printf("file read when insert %d\n ", file_read (spte->file, kp, spte->read_bytes));
+  //printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file));
+  e = hash_insert (&cur->spt, &spte->elem);
+  if (e != NULL) {
+          struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
+          result->read_bytes = read_bytes;
+  }
+//  void * kpage = allocate_frame();
+  //printf("try load page rn %d\n", load_page(spte, kpage));
+  return true;
 }
 
+bool load_page(struct spt_entry *spte, void * kpage) {
+	struct thread *cur = thread_current ();
 
-void spt_init (void) {
-  struct thread *cur = thread_current();
-  cur->spt = (struct sup_page_table *)malloc(sizeof(struct sup_page_table));
-  hash_init(&cur->spt->table, spt_hash, spt_less, NULL);
-  lock_init(&cur->spt->spt_lock);
+  file_seek(spte->file, spte->ofs);
+  bool writable = spte->type == File ? spte->writable : true;
+  if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes)
+    {
+//	        printf("kpage pointer: %p\n", (void *) kpage);
+//	    printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
+      deallocate_frame (kpage);
+      return false;
+    }
+  //printf("file read\n");
+  memset (kpage + spte->read_bytes, 0, spte->zero_bytes);
+  
+  if (pagedir_get_page(cur->pagedir, spte->user_vaddr) == NULL) {
+//	  printf("not mapped\n");
+  if (!pagedir_set_page (cur->pagedir, spte->user_vaddr, kpage, writable)) {
+      deallocate_frame (kpage);
+      return false;
+    }
+  } else {
+  //  printf("already mapped\n");
+  }
+  //printf("end of the load page to frame function\n");
+  spte->in_memory = true;
+  return true;
+
 }
+/*
+bool load_page_mmap(struct spt_entry *spte, void * kpage) {
+        struct thread *cur = thread_current ();
 
-struct spt_entry* spt_find_page(struct sup_page_table *spt, void *vaddr) {
+  file_seek(spte->file, spte->ofs);
+
+  if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes)
+    {
+//              printf("kpage pointer: %p\n", (void *) kpage);
+//          printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
+      deallocate_frame (kpage);
+      return false;
+    }
+  //printf("file read\n");
+  memset (kpage + spte->read_bytes, 0, spte->zero_bytes);
+
+  if (pagedir_get_page(cur->pagedir, spte->user_vaddr) == NULL) {
+//        printf("not mapped\n");
+  if (!pagedir_set_page (cur->pagedir, spte->user_vaddr, kpage, true)) {
+      deallocate_frame (kpage);
+      return false;
+    }
+  } else {
+  //  printf("already mapped\n");
+  }
+  //printf("end of the load page to frame function\n");
+  spte->in_memory = true;
+  return true;
+
+}*/
+
+//bool spt_insert_mmap(struct file *file, off_t ofs, void *addr, read_bytes)
+
+struct spt_entry* spt_find_page(struct hash *spt, void *vaddr) {
   struct spt_entry tmp;
-  tmp.user_vaddr = (uint32_t)vaddr;
-  struct hash_elem *e = hash_find(&spt->table, &tmp.elem);
+  tmp.user_vaddr = vaddr;
+  struct hash_elem *e = hash_find(spt, &tmp.elem);
   return e != NULL ? hash_entry(e, struct spt_entry, elem) : NULL;
 }
 
@@ -159,4 +226,5 @@ void deallocate_page(struct page *pg) {
  *
  * bool is_page_present(struct page *pg)
  * */
+
 

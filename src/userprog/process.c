@@ -19,10 +19,9 @@
 #include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "lib/kernel/hash.h"
-#ifdef VM
+#include "userprog/syscall.h"
 #include "vm/frame.h"
-#endif
+
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -70,6 +69,9 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (process_name, PRI_DEFAULT, start_process, fn_copy2);
+ // hash_init (&thread_current()->spt, spt_hash, spt_less, NULL);
+  //hash_init (&get_thread_by_tid(tid)->spt, spt_hash, spt_less, NULL);
+  
   /* Freeing process_name fn_copy */
   palloc_free_page(fn_copy);
 
@@ -148,8 +150,8 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
   struct thread *cur = thread_current ();
-  //struct sup_page_table *spt = cur->spt;
-  //spt_init(spt);
+ struct hash spt = cur->spt;
+  //hash_init (&spt, spt_hash, spt_less, NULL);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -274,13 +276,41 @@ process_wait(tid_t child_tid)
   }
 }
 
+/* Free the mmap files. */
+/*void free_mmap (struct map_file * mf) {
+  if (mf == NULL)
+    return;  // not found
+  void *uaddr = mf->addr;
+  // TODO remove page from list of virtual pages
+  for (int count = 0 ; count < mf->page_no; count++) {
+
+    struct spt_entry *page =  spt_find_page(&thread_current()->spt, uaddr);
+    if (page->in_memory && pagedir_is_dirty (thread_current()->pagedir, page->user_vaddr)) {
+      lock_acquire(&syscall_lock);
+      file_seek(page->file, page->ofs);
+      file_write(page->file, page->user_vaddr, page->read_bytes);
+      lock_release(&syscall_lock);
+    }
+    uaddr += PGSIZE;
+
+    free(page);
+  }
+  free(mf);
+
+}*/
+
 /* Close the file and free the file_descriptor. */
-static void free_fd(struct hash_elem *e, void *aux UNUSED) {
+/*void free_fd(struct hash_elem *e, void *aux UNUSED) {
   struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
   file_close(fd->file);
   free(fd);
 }
-
+*/
+static void free_spte (struct hash_elem *e, void *aux UNUSED)
+{
+  struct spt_entry *spte = hash_entry (e, struct spt_entry, elem);
+  free (spte);
+}
 
 /* Free the current process's resources. */
 void
@@ -292,16 +322,26 @@ process_exit (void)
   /* Destroy the fd_table with free_fd. */
   hash_destroy(&cur->fd_table, free_fd);
 
+  struct list_elem *me = list_begin(&cur->mmap_files);
+  struct list_elem *nme;
+  while (me != list_end(&cur->mmap_files)){
+    nme = list_next(me);
+    struct map_file *mmap = list_entry (me, struct map_file, elem);
+    list_remove(me);
+    free_mmap (mmap);
+    me = nme;
+  }
+
+  hash_destroy(&cur->spt, free_spte);
+
+  /* Destroy the fd_table with free_fd. */
+  //hash_destroy(&cur->fd_table, free_fd);
+
   /* Free all the locks that current thread hold. */
   for (struct list_elem *e = list_begin(&cur->locks); e != list_end(&cur->locks);
           e = list_next(e)){
     lock_release(list_entry(e, struct lock, lock_elem));
   }
-
-#ifdef VM
-  spt_destroy(cur->spt);
-  cur->spt = NULL;
-#endif
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -440,9 +480,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
-#ifdef VM
-  t->spt = spt_create();
-#endif
   if (t->pagedir == NULL)
     goto done;
   process_activate ();
@@ -537,7 +574,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+//  file_close (file);  //TODO need to close the file somewhere
   return success;
 }
 
@@ -609,17 +646,25 @@ load_segment_lazily (struct file *file, off_t ofs, uint8_t *upage,
   while (read_bytes > 0 || zero_bytes > 0) {
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
-
+//printf("ready to insert one new page in lazy load for tid %d\n", thread_current()->tid);
+    if (!thread_current()->init_spt) {
+//	    printf("need to be init\n");
+      hash_init (&thread_current()->spt, spt_hash, spt_less, NULL);
+      thread_current()->init_spt = true;
+    }
     if (!spt_insert_file (file, ofs, upage, page_read_bytes,
-                          page_zero_bytes, writable))
-      return false;
+                          page_zero_bytes, writable)) {
+    //  return false;
+    }
 
+  //  printf("insert spt file");
     /* Advance */
     read_bytes -= page_read_bytes;
     zero_bytes -= page_zero_bytes;
     ofs += page_read_bytes;
     upage += PGSIZE;
   }
+  //printf("end lazy while loop and file length %d\n", file_length(file));
   return true;
 }
 
@@ -646,6 +691,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
+//printf("the addr load is %d\n", (uint32_t) upage);
+
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0)
   {
@@ -655,17 +702,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-//#ifdef VM
     /* Check if virtual page already allocated */
     struct thread *t = thread_current ();
-//#else
-    //uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
- /*   uint8_t *kpage = allocate_user_frame();
 
-    if (kpage == NULL){
-      return false;
-    }
-*/
     uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
 
     if (kpage == NULL){
@@ -691,13 +730,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       }
 
     }
-
-      /* Check if writable flag for the page should be updated */
-      /*
-      if(writable && !pagedir_is_writable(t->pagedir, upage)){
-        pagedir_set_writable(t->pagedir, upage, writable);
-      }*/
-
+//printf("kpage pointer: %p\n", (void *) kpage);
     /* Load data into the page. */
     if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes){
     //  deallocate_frame(kpage);
@@ -705,12 +738,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
     }
     memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
-    /* Add the page to the process's address space. */
- //   if (!install_page (upage, kpage, writable)) {
-   //   vm_free_frame (kpage);
-     // return false;
-   // }
-//#endif
     /* Advance. */
     read_bytes -= page_read_bytes;
     zero_bytes -= page_zero_bytes;
@@ -758,4 +785,6 @@ install_page (void *upage, void *kpage, bool writable)
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
+
+
 

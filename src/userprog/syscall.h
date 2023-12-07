@@ -2,6 +2,8 @@
 #define USERPROG_SYSCALL_H
 #include <stdbool.h>
 #include <stdint.h>
+#include <vm/page.h>
+
 
 #define FAIL -1
 #define MAX_CONSOLE_WRITE 200
@@ -36,6 +38,10 @@ void seek(int fd, unsigned position);
 unsigned tell(int fd);
 
 void close(int fd); 
+
+mapid_t mmap(int fd, void *addr);
+
+void munmap(mapid_t mapping);
 
 bool hash_less(int a, int b);
 
