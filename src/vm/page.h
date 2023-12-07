@@ -15,20 +15,14 @@
 
 
 typedef int mapid_t;
-/*
-struct page {
-  void *frame;
-  bool present;
-  bool dirty;
-};
-*/
 
 void* allocate_page(void);
 //void* deallocate_page(struct page *pg);
 
 enum spte_type {
-    File, 
-    Mmap
+  SWAP,
+  FILESYS,
+  MMAP
 };
 
 struct spt_entry {
@@ -44,7 +38,8 @@ struct spt_entry {
     uint32_t zero_bytes;  /* Number of zero bytes to add to the end of the page. */
     bool writable;        /* Whether the page is writable. */
     struct file * file;    /* File associated with the page. */
-    bool is_dirty;
+    bool is_dirty;        /* Set to 1 on any write. */
+    bool is_accessed;     /* Set to 1 on any read or write. */
     bool is_valid;
     int count;
     // swap
@@ -118,5 +113,6 @@ bool shared_page_less(const struct hash_elem *a, const struct hash_elem *b, void
 
 
 #endif /* vm/page.h */
+
 
 
