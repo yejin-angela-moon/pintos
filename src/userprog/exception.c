@@ -177,7 +177,7 @@ page_fault (struct intr_frame *f)
 //	  printf("not present\n");
     exit(-1);
   }
-//printf("the fault addr is %p\n", fault_page);
+//printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
   if (fault_addr == NULL){ //|| !not_present || !is_user_vaddr(fault_addr)) {
 //	  printf("addr is NULL or not user vaddr");
     exit(-1);
@@ -232,7 +232,7 @@ page_fault (struct intr_frame *f)
         //lock_acquire(&page_sharing_lock);
         //struct hash_elem *found_elem = hash_find(&shared_pages, &spage_lookup.elem);
         //if (found_elem != NULL) {
-           found_shared_page = get_shared_page(&spte);//hash_entry(found_elem, struct shared_page, elem);
+           found_shared_page = get_shared_page(spte);//hash_entry(found_elem, struct shared_page, elem);
        // }
         ///lock_release(&page_sharing_lock);
 
@@ -263,11 +263,13 @@ page_fault (struct intr_frame *f)
                     exit(-1); // Or handle the memory allocation failure appropriately.
                 }
             }
-	    if (spte->type == Swap) {
-	      load_page_swap (spte, kpage);
+	    if (spte->type == File || spte->type == Mmap) {
+	      load_page (spte, kpage);
 	    } else {
-              load_page(spte, kpage);
+              printf("haha swap time\n");
+              load_page_swap(spte, kpage);
 	    }
+
             // If page is read-only, consider sharing it.
             if (!spte->writable) {
                 // Here you can either use the share_page function or write the logic directly.
