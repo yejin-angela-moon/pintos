@@ -64,6 +64,7 @@ void *allocate_frame(void) {
     }
     struct spt_entry *evi_spte = spt_find_page(&evicted->t->spt, evicted->user_vaddr);
     evi_spte->in_memory = false;
+    //evi_spte->frame_page = NULL;
     //printf("delete the frame from the table\n");
     list_remove(&evicted->lelem);
 //    hash_delete(&frame_table, &evicted->elem);
@@ -192,6 +193,7 @@ save_evicted_frame (struct frame *frame) {
   struct spt_entry *spte = spt_find_page (&t->spt, frame->user_vaddr);
 
   if (spte == NULL) {
+	  printf("create new spt with type swap\n");
     spte = malloc (sizeof (struct spt_entry));
     spte->user_vaddr = frame->user_vaddr;
     spte->type = Swap;

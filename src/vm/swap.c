@@ -39,10 +39,10 @@ void swap_read(size_t swap_slot, void *frame) {
 }
 
 size_t swap_out_memory(void *user_vaddr) {
-  if (swap_block == NULL || list_empty(&swap_list)) {
+  if (swap_block == NULL) {
     return SWAP_ERROR;
   }
-
+//return -1;
 
   if (list_size(&swap_list) < (block_size(swap_block) / SECTORS_PER_PAGE)) {
     struct swap_store *ss = malloc(sizeof(struct swap_store));
@@ -56,7 +56,8 @@ size_t swap_out_memory(void *user_vaddr) {
     for (int i = 0; i < SECTORS_PER_PAGE; i++) {
       block_write (swap_block, ss->ssid * SECTORS_PER_PAGE + i, (uint8_t *) user_vaddr + i * BLOCK_SECTOR_SIZE);
     }
-    lock_release(&swap_lock);
+    printf("the size of swap list is %d\n", ss->ssid);
+    //lock_release(&swap_lock);
     return ss->ssid;
   } else {
     return SWAP_ERROR;
