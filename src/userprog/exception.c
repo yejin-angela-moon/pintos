@@ -206,12 +206,13 @@ printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
       deallocate_frame (kpage); 
       exit(-1);
     }
-    return;
+    //return;
   }
 
-  if (spte == NULL) { // || (PHYS_BASE - fault_page > MAX_STACK_SIZE)) {
-    exit(-1);
-  }
+  //if (spte == NULL) { // || (PHYS_BASE - fault_page > MAX_STACK_SIZE)) {
+    //printf("spte is null exit\n");
+      //exit(-1);
+ // }
 //printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
 /*if (spte->writable && !write) {
 	 printf("spte is writable but cant write and exit\n");
@@ -221,7 +222,7 @@ printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
   //if (frame == NULL)
     //exit(-1);
 //printf("the thread cur is %d \n", thread_current()->tid);
- if (!spte->in_memory) {
+ if (spte != NULL && !spte->in_memory) {
    if (spte->file != NULL) {
         struct thread *cur = thread_current();
 
@@ -289,7 +290,7 @@ printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
 		create_shared_page (spte, kpage);
             }
         }
-    } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
+  //  } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
 //	   printf("load page fromswap\n"); 
    //   load_page_from_swap(spte, frame);
     } else {

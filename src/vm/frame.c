@@ -64,7 +64,7 @@ void *allocate_frame(void) {
     }
     struct spt_entry *evi_spte = spt_find_page(&evicted->t->spt, evicted->user_vaddr);
     evi_spte->in_memory = false;
-//    printf("delete the frame from the table\n");
+    //printf("delete the frame from the table\n");
     list_remove(&evicted->lelem);
 //    hash_delete(&frame_table, &evicted->elem);
     pagedir_clear_page (evicted->t->pagedir, evicted->user_vaddr);
