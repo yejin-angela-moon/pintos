@@ -14,7 +14,14 @@
 #include <string.h>
 #include "threads/vaddr.h"
 #include "userprog/exception.h"
+#include "threads/synch.h"
 // could move to a header file
+
+// Define a hash table to store shared pages.
+// Define a lock for page sharing.
+
+bool share_page(struct spt_entry *spte);
+void unshare_page(struct spt_entry *spte);
 
 static int count = 0;
 void spte_init(struct spt_entry *spte) {
@@ -205,6 +212,69 @@ free_spt(struct hash_elem *e, void *aux UNUSED) {
   free(spte);
 }
 
+// Initialize the lock and hash table in your system initialization code.
+void init_page_sharing(void) {
+    lock_init(&page_sharing_lock);
+    hash_init(&shared_pages, shared_page_hash, shared_page_less, NULL);
+}
+
+// Hash function for the shared pages hash table.
+unsigned shared_page_hash(const struct hash_elem *e, void *aux UNUSED) {
+    struct shared_page *spage = hash_entry(e, struct shared_page, elem);
+    return hash_int((int)spage->spte->user_vaddr);
+}
+
+// Comparison function for shared pages.
+bool shared_page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
+    struct shared_page *sa = hash_entry(a, struct shared_page, elem);
+    struct shared_page *sb = hash_entry(b, struct shared_page, elem);
+    return sa->spte->user_vaddr < sb->spte->user_vaddr;
+}
+
+// Function to share a page.
+bool share_page(struct spt_entry *spte) {
+    lock_acquire(&page_sharing_lock);
+
+    struct shared_page spage;
+    spage.spte = spte;
+    spage.shared_count = 1;
+
+    struct hash_elem *existing = hash_insert(&shared_pages, &spage.elem);
+    spte->is_shared = true;
+
+    if (existing != NULL) {
+        struct shared_page *existing_spage = hash_entry(existing, struct shared_page, elem);
+        existing_spage->shared_count++;
+        lock_release(&page_sharing_lock);
+        return false;
+    }
+    lock_release(&page_sharing_lock);
+    return true;
+}
+
+// Function to unshare a page.
+void unshare_page(struct spt_entry *spte) {
+    lock_acquire(&page_sharing_lock);
+
+    struct shared_page spage;
+    spage.spte = spte;
+
+    struct hash_elem *existing = hash_find(&shared_pages, &spage.elem);
+
+    if (existing != NULL) {
+        struct shared_page *existing_spage = hash_entry(existing, struct shared_page, elem);
+
+        if (existing_spage->shared_count > 1) {
+            existing_spage->shared_count--;
+        } else {
+            // Remove the shared page entry when shared_count becomes 0.
+            hash_delete(&shared_pages, existing);
+        }
+    }
+
+    lock_release(&page_sharing_lock);
+}
+
 
 /* Allocate a new virtual page and return its address */
 /*
@@ -229,4 +299,3 @@ void deallocate_page(struct page *pg) {
  *
  * bool is_page_present(struct page *pg)
  * */
-

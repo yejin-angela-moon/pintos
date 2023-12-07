@@ -51,6 +51,8 @@ struct spt_entry {
     size_t swap_slot;     /* Swap slot index. */
     void *frame_page;  /* Pointer to the frame in memory. */
     enum spte_type type;
+    // shared
+    bool is_shared;
 };
 
 // page table itself
@@ -72,6 +74,17 @@ struct map_file {
   int page_no;
 };
 
+struct shared_page {
+    struct hash_elem elem;
+    struct spt_entry *spte;
+    int shared_count;
+    uint8_t *kpage;           // Pointer to the kernel page.
+    uint32_t *pagedir;        // Pointer to the page directory.
+};
+
+struct lock page_sharing_lock;
+struct hash shared_pages;
+
 void spt_init (struct sup_page_table *spt);
 
 struct sup_page_table *spt_create(void);
@@ -92,6 +105,11 @@ bool load_page(struct spt_entry *spte, void * kpage);
 struct spt_entry* spt_find_page(struct hash *spt, void *vaddr);
 
 void free_spt(struct hash_elem *e, void *aux);
+
+void init_page_sharing(void) ;
+
+unsigned shared_page_hash(const struct hash_elem *e, void *aux);
+bool shared_page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux ); 
 
 
 #endif /* vm/page.h */
