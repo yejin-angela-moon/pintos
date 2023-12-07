@@ -221,7 +221,7 @@ struct shared_page *get_shared_page(struct spt_entry *spte) {
       break;
     }
   }
-  sp->shared_count++;lock_release(&page_sharing_lock);
+  //sp->shared_count++;//lock_release(&page_sharing_lock);
   lock_release(&page_sharing_lock);
   return sp;
 }
