@@ -49,7 +49,7 @@ struct spt_entry {
     int count;
     // swap
     size_t swap_slot;     /* Swap slot index. */
-    struct frame *frame;  /* Pointer to the frame in memory. */
+    void *frame_page;  /* Pointer to the frame in memory. */
     enum spte_type type;
 };
 

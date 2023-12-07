@@ -303,7 +303,7 @@ bool install_page(void *upage, void *kpage, bool writable) {
   if (!pagedir_set_page(cur->pagedir, upage, kpage, writable))
     return false;
 
-  spte->frame = kpage;
+ // spte->frame = kpage;
 
   return true;
 }

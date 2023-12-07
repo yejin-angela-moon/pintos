@@ -23,8 +23,8 @@ void spte_init(struct spt_entry *spte) {
   pg->present = false;
   pg->dirty = false;
   */
-  spte->frame = NULL;
-  spte->is_dirty = false;
+  //spte->frame = NULL;
+  //spte->is_dirty = false;
 }
 
 unsigned spt_hash(const struct hash_elem *elem, void *aux UNUSED) {
@@ -115,6 +115,7 @@ bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read
   spte->read_bytes = read_bytes;
   spte->in_memory = false;
   spte->type = Mmap;
+  
 //printf("file read when insert %d\n ", file_read (spte->file, kp, spte->read_bytes));
   //printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file));
   e = hash_insert (&cur->spt, &spte->elem);
@@ -153,6 +154,7 @@ bool load_page(struct spt_entry *spte, void * kpage) {
   }
   //printf("end of the load page to frame function\n");
   spte->in_memory = true;
+  spte->frame_page = kpage;
   return true;
 
 }

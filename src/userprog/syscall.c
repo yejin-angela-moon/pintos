@@ -422,7 +422,7 @@ validate_mapping(void *addr, int length) {
   for (void *i = addr; i < end_addr; i += PGSIZE) {
     if (pagedir_get_page(thread_current()->pagedir, i) != NULL || spt_find_page(&thread_current()->spt, i) != NULL)  // page already in use
       return false;
-  }
+  }  
   
   // this is meant to return false if overlaps with stack growth region, probably needs to be tweaked: TODO
   return !(((uint32_t)PHYS_BASE - (uint32_t) addr) <= PGSIZE || ((uint32_t)PHYS_BASE - (uint32_t) end_addr) <= PGSIZE);
@@ -503,8 +503,9 @@ void free_mmap (struct map_file * mf) {
     }
     uaddr += PGSIZE;
     hash_delete(&thread_current()->spt, &page->elem);
+ //   deallocate_frame(page->frame_page);
    lock_acquire(&syscall_lock);
-   file_close(page->file);
+   //file_close(page->file);
    lock_release(&syscall_lock); 
     free(page);
   }
