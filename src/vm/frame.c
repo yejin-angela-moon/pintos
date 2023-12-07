@@ -86,17 +86,21 @@ void *frame = palloc_get_page(PAL_USER);
 
 /* Deallocate a frame by marking it as free */
 void deallocate_frame(void *page_addr) {  
-  struct page *page = (struct page *)page_addr;
-  struct hash_iterator i;
+  //struct page *page = (struct page *)page_addr;
+  /*struct hash_iterator i;
   struct frame *frame;
   hash_first(&i, &frame_table);
   while (hash_next(&i)) {
     struct hash_elem *e = hash_cur(&i);
-    if (hash_entry(e, struct frame, elem)->page == page) {  //not sure if == is suitable
+    if (hash_entry(e, struct frame, elem)->page == page_addr) {  //not sure if == is suitable
         frame = hash_entry(e, struct frame, elem);
 	break;
     }
-  }
+  }*/
+  struct frame tmp;
+  tmp.page = page_addr;
+  struct hash_elem *e = hash_find(&frame_table, &tmp.elem);
+  struct frame *frame = hash_entry(e, struct frame, elem);
   hash_delete(&frame_table, &frame->elem);
   palloc_free_page(frame->page);
   free(frame);

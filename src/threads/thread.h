@@ -114,7 +114,7 @@ struct thread {
 struct hash spt;
 bool init_spt;
     mapid_t mmap_id; 
- 
+    bool unmap; 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
     fixed_t recent_cpu;

@@ -605,7 +605,8 @@ init_thread(struct thread *t, const char *name, int priority) {
   t->init_fd = false;
   //spt_init(&t->spt);
    list_init(&t->mmap_files);  // not sure if this should be a hashmap instead
-  t->mmap_id = 0; 
+  t->mmap_id = 0;
+  t->unmap = false;  
   //hash_init (&t->spt, spt_hash, spt_less, NULL);
   t->init_spt = false;
 
