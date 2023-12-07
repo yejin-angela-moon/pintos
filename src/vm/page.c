@@ -207,7 +207,7 @@ bool is_equal_spt(struct spt_entry * this, struct spt_entry * other) {
   if (this->type == Mmap && this->type == other->type) {
     return equal_mmap;
   }
-  return equal_mmap && (this->zero_bytes == other->zero_bytes) && (this->writable == other->writable);
+  return equal_mmap && (this->zero_bytes == other->zero_bytes) && (this->writable == other->writable) && (this->type == other->type);
 }
 
 struct shared_page *get_shared_page(struct spt_entry *spte) {
@@ -221,6 +221,7 @@ struct shared_page *get_shared_page(struct spt_entry *spte) {
       break;
     }
   }
+  sp->shared_count++;lock_release(&page_sharing_lock);
   lock_release(&page_sharing_lock);
   return sp;
 }
