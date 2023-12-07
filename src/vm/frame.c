@@ -36,6 +36,7 @@ bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux 
 void frame_table_init(void) {
   hash_init(&frame_table, frame_hash, frame_less, NULL);
   lock_init(&frame_lock);
+  list_init(&frame_list);
 }
 
 /* Allocate a free frame and return its address */
@@ -69,7 +70,7 @@ void *allocate_frame(void) {
   }
 
   frame->t = thread_current();
-  frame->user_vaddr = is_user_vaddr;
+ // frame->user_vaddr = is_user_vaddr;
   frame->kpage = frame_page;
   frame->pinned = true; // can't be evicted yet
   
@@ -77,7 +78,7 @@ void *allocate_frame(void) {
   list_push_back (&frame_list, &frame->lelem);
 
   lock_release (&frame_lock);
-  return NULL;
+  return frame->kpage;
 }
 
 void *frame_get_page(struct spt_entry *spte) {
@@ -152,14 +153,14 @@ save_evicted_frame (struct frame *frame) {
     spte = calloc (1, sizeof (struct spt_entry));
     spte->user_vaddr = frame->user_vaddr;
     spte->type = Swap;
-    if (!insert_spt_entry (&t->spt, spte))
-      return false;
+    //if (!insert_spt_entry (&t->spt, spte))
+      //return false;
   }
 
   size_t swap_slot;
 
   if (pagedir_is_dirty (t->pagedir, spte->user_vaddr) && (spte->type == Mmap)) {
-    write_page_back_to_file_without_lock (spte);
+   // write_page_back_to_file_without_lock (spte);
   } else if (pagedir_is_dirty (t->pagedir, spte->user_vaddr) || (spte->type != File)) {
     swap_slot = swap_out (spte->user_vaddr);
     if (swap_slot == SWAP_ERROR)
@@ -212,7 +213,7 @@ frame_to_evict (uint32_t *pagedir) {
 
   size_t i;
   for(i = 0; i <= n * 2; ++i)  {
-    struct frame *e = clock_frame_next();
+    struct frame *e;// = clock_frame_next();
     if(e->pinned) {
       continue;
     } else if (pagedir_is_accessed(pagedir, e->user_vaddr)) {
