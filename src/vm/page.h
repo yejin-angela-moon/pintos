@@ -75,15 +75,16 @@ struct map_file {
 };
 
 struct shared_page {
-    struct hash_elem elem;
+//    struct hash_elem elem;
+    struct list_elem elem;
     struct spt_entry *spte;
     int shared_count;
     uint8_t *kpage;           // Pointer to the kernel page.
     uint32_t *pagedir;        // Pointer to the page directory.
 };
 
-struct lock page_sharing_lock;
-struct hash shared_pages;
+//struct lock page_sharing_lock;
+//struct hash shared_pages;
 
 void spt_init (struct sup_page_table *spt);
 
@@ -101,6 +102,10 @@ bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read
 
 bool load_page(struct spt_entry *spte, void * kpage);
 //bool load_page_mmap(struct spt_entry *spte, void * kpage);
+
+struct shared_page *get_shared_page(struct spt_entry *spte);
+
+void create_shared_page (struct spt_entry *spte, void *kpage);
 
 struct spt_entry* spt_find_page(struct hash *spt, void *vaddr);
 
