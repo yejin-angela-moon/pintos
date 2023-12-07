@@ -97,7 +97,7 @@ bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read
 
 bool load_page(struct spt_entry *spte, void * kpage);
 //bool load_page_mmap(struct spt_entry *spte, void * kpage);
-
+bool load_page_swap (struct spt_entry *spte, void *kpage);
 struct shared_page *get_shared_page(struct spt_entry *spte);
 
 void create_shared_page (struct spt_entry *spte, void *kpage);

@@ -53,9 +53,31 @@ size_t swap_out_memory(void *user_vaddr) {
     lock_acquire(&swap_lock);
     list_push_back(&swap_list, &ss->elem);
     lock_release(&swap_lock);
+    for (int i = 0; i < SECTORS_PER_PAGE; i++) {
+      block_write (swap_block, ss->ssid * SECTORS_PER_PAGE + i, (uint8_t *) user_vaddr + i * BLOCK_SECTOR_SIZE);
+    }
+    lock_release(&swap_lock);
     return ss->ssid;
   } else {
     return SWAP_ERROR;
   } 
+}
 
+void swap_in_memory(size_t swap_slot, void *user_vaddr) {
+  struct swap_store tmp;
+  tmp.ssid = swap_slot;
+  lock_acquire(&swap_lock);
+  struct swap_store *ss = list_entry(&tmp.elem, struct swap_store, elem);
+  if (ss == NULL) {
+    lock_release(&swap_lock);
+    return;
+  }
+
+  list_remove(&ss->elem);
+
+  for (int i = 0; i < SECTORS_PER_PAGE; i++) {
+    block_read (swap_block, swap_slot * SECTORS_PER_PAGE + i, (uint8_t *) user_vaddr + i * BLOCK_SECTOR_SIZE);
+  }
+
+  lock_release(&swap_lock);
 }

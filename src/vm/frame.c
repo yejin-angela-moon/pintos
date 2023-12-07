@@ -49,7 +49,7 @@ void *allocate_frame(void) {
 
   void *frame_page = palloc_get_page (PAL_USER);
   if (frame_page == NULL) {
-	  printf("no page at all time to evict\n");
+  printf("no page at all time to evict\n");
     struct frame *evicted = frame_to_evict (thread_current()->pagedir);
 
     ASSERT (evicted != NULL && evicted->t != NULL);
@@ -57,7 +57,7 @@ void *allocate_frame(void) {
     if (pagedir_is_dirty(evicted->t->pagedir, evicted->user_vaddr)) {
       save_evicted_frame(evicted);
     }
-    hash_delete(&frame_table, &evicted->elem);
+   // hash_delete(&frame_table, &evicted->elem);
     pagedir_clear_page (evicted->t->pagedir, evicted->user_vaddr);
 
     //bool dirty = false
@@ -161,7 +161,7 @@ save_evicted_frame (struct frame *frame) {
   struct spt_entry *spte = spt_find_page (&t->spt, frame->user_vaddr);
 
   if (spte == NULL) {
-    spte = calloc (1, sizeof (struct spt_entry));
+    spte = malloc (sizeof (struct spt_entry));
     spte->user_vaddr = frame->user_vaddr;
     spte->type = Swap;
     struct hash_elem *he = hash_insert(&t->spt, &spte->elem);

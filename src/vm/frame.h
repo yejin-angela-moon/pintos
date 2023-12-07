@@ -8,7 +8,6 @@
 #include <stdint.h>
 #include "threads/malloc.h"
 
-#define SWAP_ERROR SIZE_MAX
 
 struct frame {
   void *kpage;       /* Pointer to the kernel virtual page */
