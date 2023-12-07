@@ -10,24 +10,26 @@
 #include "userprog/syscall.h"
 #include <stdbool.h>
 #include <stddef.h>
+#include <string.h>
 
 struct hash frame_table;
 static struct lock frame_lock; 
 static struct list frame_list;
 static struct list_elem *hand;
 
-static struct frame *frame_to_evict (void);
+static struct frame *frame_to_evict_v (void);
 static bool save_evicted_frame (struct frame *);
+struct frame_table_entry* clock_frame_next(void);
 
 unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED) {
   struct frame *frame = hash_entry(e, struct frame, elem);
-  return hash_bytes(&frame->page, sizeof frame->page);
+  return hash_bytes(&frame->kpage, sizeof frame->kpage);
 }
 
 bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
   struct frame *frame_a = hash_entry(a, struct frame, elem);
   struct frame *frame_b = hash_entry(b, struct frame, elem);
-  return frame_a->page < frame_b->page;
+  return frame_a->kpage < frame_b->kpage;
 }
 
 /* Initialise the frame table, set all frames as free. */
@@ -42,9 +44,9 @@ void *allocate_frame(void) {
 
   void *frame_page = palloc_get_page (PAL_USER);
   if (frame_page == NULL) {
-    struct frame *evicted = frame_to_evict (thread_current ()->pagedir);
+    struct frame *evicted = frame_to_evict_v ();
 
-    ASSERT (eviced != NULL && evicted->t != NULL);
+    ASSERT (evicted != NULL && evicted->t != NULL);
     ASSERT (evicted->t->pagedir != (void *)0xcccccccc);
     pagedir_clear_page (evicted->t->pagedir, evicted->user_vaddr);
 
@@ -67,7 +69,7 @@ void *allocate_frame(void) {
   }
 
   frame->t = thread_current();
-  frame->user_vaddr = user_vaddr;
+  frame->user_vaddr = is_user_vaddr;
   frame->kpage = frame_page;
   frame->pinned = true; // can't be evicted yet
   
@@ -98,11 +100,11 @@ void deallocate_frame(void *page_addr) {
     }
   }*/
   struct frame tmp;
-  tmp.page = page_addr;
+  tmp.kpage = page_addr;
   struct hash_elem *e = hash_find(&frame_table, &tmp.elem);
   struct frame *frame = hash_entry(e, struct frame, elem);
   hash_delete(&frame_table, &frame->elem);
-  palloc_free_page(frame->page);
+  palloc_free_page(frame->kpage);
   free(frame);
 }
 
@@ -110,13 +112,13 @@ void *
 evict_frame() {
   bool result;
   //TODO: The struct should be a wrapper for void* frame
-  struct frame *victim_frame; 
+  struct frame *frame; 
   struct thread *cur = thread_current();
 
   /* To ensure eviction is atomic */
   lock_acquire (&frame_lock);
 
-  victim_frame = frame_to_evict();
+  frame = frame_to_evict_v();
 
   if (frame == NULL)
     PANIC ("No frame to evict");
@@ -128,13 +130,13 @@ evict_frame() {
   lock_release (&frame_lock);
 
   /* Should return v*/
-  return frame->frame;
+  return frame->kpage;
 }
 
 /* Use hash iterator to choose the frame to evict. */
 // maybe list instead?
 static struct frame *
-frame_to_evict (void) {
+frame_to_evict_v (void) {
   struct hash_iterator i;
   hash_first (&i, &frame_table);
   struct frame *victim_frame = hash_entry (hash_next(&i), struct frame, elem);
@@ -147,29 +149,29 @@ save_evicted_frame (struct frame *frame) {
   struct spt_entry *spte = spt_find_page (&t->spt, frame->user_vaddr);
 
   if (spte == NULL) {
-    spte = calloc (1, sieof *spte);
+    spte = calloc (1, sizeof (struct spt_entry));
     spte->user_vaddr = frame->user_vaddr;
-    spte->type = SWAP;
+    spte->type = Swap;
     if (!insert_spt_entry (&t->spt, spte))
       return false;
   }
 
   size_t swap_slot;
 
-  if (pagedir_is_dirty (t->pagedir, spte->user_vaddr) && (spte->type == MMAP)) {
+  if (pagedir_is_dirty (t->pagedir, spte->user_vaddr) && (spte->type == Mmap)) {
     write_page_back_to_file_without_lock (spte);
-  } else if (pagedir_is_dirty (t->pagedir, spte->user_vaddr) || (spte->type != FILESYS)) {
+  } else if (pagedir_is_dirty (t->pagedir, spte->user_vaddr) || (spte->type != File)) {
     swap_slot = swap_out (spte->user_vaddr);
     if (swap_slot == SWAP_ERROR)
       return false;
 
-    spte->status = spte->status | SWAP;
+    spte->type = spte->type | Swap;
   }
 
-  memset (frame->frame, 0, PGSIZE);
+  memset (frame->kpage, 0, PGSIZE);
 
   spte->swap_slot = swap_slot;
-  spte->writable = *(frame->page_addr) & PTE_W;
+//  spte->writable = *(frame->user_vaddr) & PTE_W;
   spte->in_memory = false;
 
   pagedir_clear_page (t->pagedir, spte->user_vaddr);
@@ -182,9 +184,9 @@ frame_set_pinned (void *kpage, bool new_pinned) {
   lock_acquire (&frame_lock);
 
   struct frame tmp;
-  tmp.page = kpage;
+  tmp.kpage = kpage;
   struct hash_elem *e = hash_find (&frame_table, &(tmp.elem));
-  if (h == NULL) 
+  if (e == NULL) 
     PANIC ("The frame does not exist");
 
   struct frame *frame = hash_entry (e, struct frame, elem);
@@ -205,7 +207,7 @@ frame_pin (void *kpage) {
 
 struct frame*
 frame_to_evict (uint32_t *pagedir) {
-  size_t n = hash_size(&frame_map);
+  size_t n = hash_size(&frame_table);
   ASSERT (n > 0);
 
   size_t i;
@@ -224,7 +226,7 @@ frame_to_evict (uint32_t *pagedir) {
   PANIC ("Can't evict any frame, not enough memory");
 }
 
-struct frame_table_entry* clock_frame_next(void) {
+/*struct frame_table_entry* clock_frame_next(void) {
   ASSERT (!list_empty(&frame_list));
 
   if (clock_ptr == NULL || hand == list_end(&frame_list))
@@ -235,6 +237,6 @@ struct frame_table_entry* clock_frame_next(void) {
   struct frame_table_entry *e = list_entry(hand, struct frame_table_entry, lelem);
   return e;
 }
-
+*/
 
 

@@ -20,9 +20,9 @@ void* allocate_page(void);
 //void* deallocate_page(struct page *pg);
 
 enum spte_type {
-  SWAP,
-  FILESYS,
-  MMAP
+  Swap,
+  File,
+  Mmap
 };
 
 struct spt_entry {
