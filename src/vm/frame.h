@@ -14,7 +14,7 @@ struct frame {
   void *kpage;       /* Pointer to the kernel virtual page */
   struct thread *t; /* Pointer to the thread */
   struct spt_entry *spte;
-  void *user_vaddr; /* User virtual address */
+  uint8_t *user_vaddr; /* User virtual address */
   bool pinned;
   struct hash_elem elem;
   struct list_elem lelem;

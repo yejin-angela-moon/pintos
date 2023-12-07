@@ -11,6 +11,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
+#include "threads/pte.h"
+#include "vm/swap.h"
 
 struct hash frame_table;
 static struct lock frame_lock; 
@@ -20,6 +22,8 @@ static struct list_elem *hand;
 static struct frame *frame_to_evict_v (void);
 static bool save_evicted_frame (struct frame *);
 struct frame_table_entry* clock_frame_next(void);
+struct frame* frame_to_evict (uint32_t *pagedir);
+
 
 unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED) {
   struct frame *frame = hash_entry(e, struct frame, elem);
@@ -45,18 +49,25 @@ void *allocate_frame(void) {
 
   void *frame_page = palloc_get_page (PAL_USER);
   if (frame_page == NULL) {
-    struct frame *evicted = frame_to_evict_v ();
+	  printf("no page at all time to evict\n");
+    struct frame *evicted = frame_to_evict (thread_current()->pagedir);
 
     ASSERT (evicted != NULL && evicted->t != NULL);
     ASSERT (evicted->t->pagedir != (void *)0xcccccccc);
+    if (pagedir_is_dirty(evicted->t->pagedir, evicted->user_vaddr)) {
+      save_evicted_frame(evicted);
+    }
+    hash_delete(&frame_table, &evicted->elem);
     pagedir_clear_page (evicted->t->pagedir, evicted->user_vaddr);
 
-    bool dirty = false
-                 || pagedir_is_dirty(evicted->t->pagedir, evicted->user_vaddr)
-                 || pagedir_is_dirty(evicted->t->pagedir, evicted->kpage);
+    //bool dirty = false
+    //             || pagedir_is_dirty(evicted->t->pagedir, evicted->user_vaddr);
+   //              || pagedir_is_dirty(evicted->t->pagedir, evicted->kpage);
 
     //TODO: get swap slot index, set swap and dirty for spt, free frame
-   
+    
+
+
     frame_page = palloc_get_page (PAL_USER);
     ASSERT (frame_page != NULL);
   }
@@ -153,8 +164,9 @@ save_evicted_frame (struct frame *frame) {
     spte = calloc (1, sizeof (struct spt_entry));
     spte->user_vaddr = frame->user_vaddr;
     spte->type = Swap;
-    //if (!insert_spt_entry (&t->spt, spte))
-      //return false;
+    struct hash_elem *he = hash_insert(&t->spt, &spte->elem);
+    if (he != NULL)
+      return false;
   }
 
   size_t swap_slot;
@@ -162,7 +174,7 @@ save_evicted_frame (struct frame *frame) {
   if (pagedir_is_dirty (t->pagedir, spte->user_vaddr) && (spte->type == Mmap)) {
    // write_page_back_to_file_without_lock (spte);
   } else if (pagedir_is_dirty (t->pagedir, spte->user_vaddr) || (spte->type != File)) {
-    swap_slot = swap_out (spte->user_vaddr);
+    swap_slot = swap_out_memory (spte->user_vaddr);
     if (swap_slot == SWAP_ERROR)
       return false;
 
@@ -172,10 +184,10 @@ save_evicted_frame (struct frame *frame) {
   memset (frame->kpage, 0, PGSIZE);
 
   spte->swap_slot = swap_slot;
-//  spte->writable = *(frame->user_vaddr) & PTE_W;
+  spte->writable = ((int) frame->user_vaddr) & PTE_W;
   spte->in_memory = false;
 
-  pagedir_clear_page (t->pagedir, spte->user_vaddr);
+  //pagedir_clear_page (t->pagedir, spte->user_vaddr);
 
   return true;
 }
