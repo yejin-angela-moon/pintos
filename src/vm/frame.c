@@ -18,9 +18,9 @@ struct hash frame_table;
 struct lock frame_lock; 
 struct list frame_list;
 struct list_elem *hand;
-int counting;
+//int counting;
 
-static struct frame *frame_to_evict_v (void);
+//static struct frame *frame_to_evict_v (void);
 static bool save_evicted_frame (struct frame *);
 struct frame* clock_frame_next(struct list_elem **hand);
 struct frame* frame_to_evict (uint32_t *pagedir, struct list_elem **hand);
@@ -43,7 +43,7 @@ void frame_table_init(void) {
   lock_init(&frame_lock);
   list_init(&frame_list);
   hand = NULL;
-  counting = 0;
+  //counting = 0;
 }
 
 /* Allocate a free frame and return its address */
@@ -107,7 +107,7 @@ void *allocate_frame(void) {
     lock_release(&frame_lock);
     return NULL;
   }
-frame->no = counting++;
+//frame->no = counting++;
   frame->tid = thread_current()->tid;
  // frame->user_vaddr = is_user_vaddr;
   frame->kpage = frame_page;
@@ -137,23 +137,19 @@ void remove_frame_for_thread() {
   }
 }
 
-void *frame_get_page(struct spt_entry *spte) {
-  void *frame = palloc_get_page(PAL_USER);
-  return frame;
-} 
 
 
 void frame_set_status (void *kpage, uint32_t *pte, void *upage) {
   struct frame *frame = NULL; 
+  lock_acquire(&frame_lock);
   for (struct list_elem *e = list_begin(&frame_list); e != list_end(&frame_list); e = list_next(e)) {
      frame = list_entry(e, struct frame, lelem);
      if (frame->kpage == kpage) {
        break;
      }
    }
-  //struct frame tmp;
-  //tmp.kpage = kpage;
-  //struct frame *frame = hash_entry(&tmp.elem, struct frame, elem);
+  lock_release(&frame_lock); 
+ 
   if (frame != NULL) {
 	  //printf("not null and set the uv to %p for frame no %d\n", upage, frame->no);
       frame->pte = pte;
@@ -175,7 +171,7 @@ void deallocate_frame(void *page_addr) {
 	break;
     }
   }*/
-  struct frame tmp;
+  struct frame tmp;  //TODO try to change to list and remove the whole hash
   tmp.kpage = page_addr;
   struct hash_elem *e = hash_find(&frame_table, &tmp.elem);
   struct frame *frame = hash_entry(e, struct frame, elem);
@@ -210,13 +206,15 @@ evict_frame() {
 
 /* Use hash iterator to choose the frame to evict. */
 // maybe list instead?
+//
+/*
 static struct frame *
 frame_to_evict_v (void) {
   struct hash_iterator i;
   hash_first (&i, &frame_table);
   struct frame *victim_frame = hash_entry (hash_next(&i), struct frame, elem);
   return victim_frame;
-}
+}*/
 
 static bool
 save_evicted_frame (struct frame *frame) {
@@ -228,10 +226,13 @@ save_evicted_frame (struct frame *frame) {
     spte = malloc (sizeof (struct spt_entry));
     spte->user_vaddr = frame->user_vaddr;
     spte->type = Swap;
+    lock_acquire(&frame_lock);
     struct hash_elem *he = hash_insert(&t->spt, &spte->elem);
     list_push_back(&frame_list, &spte->lelem);
+    
     if (he != NULL)
       return false;
+    lock_release(&frame_lock);
   }
 
   size_t swap_slot = 0;
@@ -279,6 +280,7 @@ save_evicted_frame (struct frame *frame) {
 }
 
 struct frame * get_frame_by_kpage (void *kpage) {
+	lock_acquire(&frame_lock);
   struct frame *frame = NULL; 
   for (struct list_elem *e = list_begin(&frame_list); e != list_end(&frame_list); e = list_next(e)) {
      frame = list_entry(e, struct frame, lelem);
@@ -286,11 +288,12 @@ struct frame * get_frame_by_kpage (void *kpage) {
        return frame;
      }
    }
+  lock_release(&frame_lock);
   return NULL;
 }
 
 
-static void
+/*static void
 frame_set_pinned (void *kpage, bool new_pinned) {
   lock_acquire (&frame_lock);
 
@@ -315,9 +318,10 @@ void
 frame_pin (void *kpage) {
   frame_set_pinned (kpage, true);
 }
-
+*/
 struct frame*
 frame_to_evict (uint32_t *pagedir, struct list_elem **hand) {
+  lock_acquire(&frame_lock);
   size_t n = list_size(&frame_list);
 //printf("size of table is %d\n", n);
   size_t i;
@@ -326,7 +330,9 @@ frame_to_evict (uint32_t *pagedir, struct list_elem **hand) {
 //  struct list_elem *hand = NULL;
   for(i = 0; i <= n * 2; i++)  {
 //	  printf("round %d\n", i%n);
+   // lock_acquire(&frame_lock);
     e = clock_frame_next(hand);
+ //   lock_release(&frame_lock);
     if(e->pinned) {
       e->pinned = false;
       continue;
@@ -335,7 +341,7 @@ frame_to_evict (uint32_t *pagedir, struct list_elem **hand) {
       continue;
     }
   //  printf("the frame that can be get is %d with pointer %p\n", i%n, e->user_vaddr);
-
+lock_release(&frame_lock);
     return e;
   }
 
