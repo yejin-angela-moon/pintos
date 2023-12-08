@@ -286,7 +286,7 @@ open(const char *file) {
     exit(-1);
     return FAIL;
   }
-
+check_user ((void *) file) ;
   /* Open the file by filesys_open. */
   lock_acquire(&syscall_lock);
   int status;
