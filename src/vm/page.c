@@ -134,30 +134,22 @@ bool load_page(struct spt_entry *spte, void * kpage) {
   return true;
 }
 
+// Load the page from swap
 bool load_page_swap (struct spt_entry *spte, void *kpage) {
-//	pagedir_destroy(thread_current ()->pagedir);
-//	thread_current()->pagedir = pagedir_create();
-//	pagedir_clear_page (thread_current ()->pagedir, spte->user_vaddr);
-if (pagedir_get_page(thread_current ()->pagedir, spte->user_vaddr) == NULL) {
-//	printf("set cuz it is null\n");
-  if (!pagedir_set_page (thread_current ()->pagedir, spte->user_vaddr, kpage, spte->writable)){
-      //deallocate_frame (kpage);
+  if (pagedir_get_page(thread_current ()->pagedir, spte->user_vaddr) == NULL) {
+    if (!pagedir_set_page (thread_current ()->pagedir, spte->user_vaddr, kpage, spte->writable)){
+      deallocate_frame (kpage);
       return false;
+    }
   }
-}
-//  pagedir_set_dirty(thread_current ()->pagedir, spte->user_vaddr, true);
-//printf("ready to swap in\n");
+
   swap_in_memory (spte->swap_slot, spte->user_vaddr);
-  //pagedir_set_dirty(thread_current ()->pagedir, spte->user_vaddr, false);
-//printf("after swap in\n");
-  if (spte->type == Swap) {
-  //  hash_delete (&thread_current ()->spt, &spte->elem); //TODO
-//    printf("delete from cur spt\n");
-  }
+ 
   if (spte->type == (File | Swap))  {
     spte->type = File; 
     spte->in_memory = true;
   }
+
   return true;
 }
 
@@ -211,6 +203,7 @@ printf("add omre pages\n");
  
 }
 
+// Find the spte by its user vaddr
 struct spt_entry* spt_find_page(struct hash *spt, void *vaddr) {
   struct spt_entry tmp;
   tmp.user_vaddr = vaddr;
@@ -218,8 +211,8 @@ struct spt_entry* spt_find_page(struct hash *spt, void *vaddr) {
   return e != NULL ? hash_entry(e, struct spt_entry, elem) : NULL;
 }
 
-void
-free_spt(struct hash_elem *e, void *aux UNUSED) {
+// Remove from the swap list and free the spte
+void free_spt(struct hash_elem *e, void *aux UNUSED) {
   struct spt_entry *spte = hash_entry(e, struct spt_entry, elem);
   if (spte->type & Swap) {
     remove_swap_store (spte->swap_slot);
@@ -335,29 +328,4 @@ void delete_shared_page(struct shared_page *sp, void * user_vaddr) {
     lock_release(&page_sharing_lock);
 }
 */
-
-/* Allocate a new virtual page and return its address */
-/*
-void *allocate_page(void) {
- 
-}*/
-
-/* Deallocate the virtual page and release associated resources */
-/*
-void deallocate_page(struct page *pg) {
-}*/
-
-/*
- * void handle_page_fault(struct page *pg) - although it would be in exception.c / 
- * or it can be called there?; bring the page into memory
- *
- * void mark_page_dirty(struct page *pg) - set dirty bit true
- *
- * void write_dirty_page(struct page *pg) - write the contents of the dirty page back to disk or swap
- *
- * void *get_frame(struct page *pg)
- *
- * bool is_page_present(struct page *pg)
- * */
-
 

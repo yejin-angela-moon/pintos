@@ -57,13 +57,11 @@ struct map_file {
 };
 
 struct shared_page {
-//    struct hash_elem elem;
     struct list_elem elem;
-    struct spt_entry *spte;
-    int shared_count;
-    struct list pd_list;
+    struct spt_entry *spte;   // The associate spte
+    int shared_count;         // Number of share
+    struct list pd_list;      // List of the pagedir that associate to the page
     uint8_t *kpage;           // Pointer to the kernel page.
-//    uint32_t *pagedir;        // Pointer to the page directory.
 };
 
 void page_init(void);
