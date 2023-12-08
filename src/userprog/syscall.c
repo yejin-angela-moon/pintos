@@ -19,11 +19,13 @@ struct lock syscall_lock;
 static void syscall_handler(struct intr_frame *);
 int get_user(const uint8_t *uaddr);
 static bool put_user(uint8_t *udst, uint8_t byte);
-void check_user(void * ptr);
+void check_user(const void * ptr);
 int process_add_fd(struct file *file, bool executing);
 unsigned fd_hash(const struct hash_elem *e, void *aux);
 
 bool fd_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
+
+//static int next_mmap_id = 1;
 
 /* Hash function to generate a hash value from a file descriptor. */
 unsigned
@@ -59,9 +61,12 @@ syscall_handler(struct intr_frame *f) {
   if (!is_user_vaddr(f->esp)) {
     exit(-1);
   }
+  //This is to obtain the esp for stack growth
+  thread_current()->esp = f->esp;
 
   /* Casting syscall_num into an int */
   int syscall_num = *(int *) (f->esp);
+//  printf("the syscall is %d\n", syscall_num);
   switch (syscall_num) {
     case SYS_HALT: {      /* Halts Pintos */
       halt();
@@ -127,7 +132,7 @@ syscall_handler(struct intr_frame *f) {
       check_user(f->esp + 12);
       int fd = *((int *) (f->esp + 4));
       const void *buffer = *((const void **)(f->esp + 8));
-      unsigned size = *((unsigned *)(f->esp + 12));
+      unsigned size = *((unsigned *) (f->esp + 12));
       f->eax = (uint32_t) write(fd, buffer, size);
       break;
     }
@@ -149,6 +154,20 @@ syscall_handler(struct intr_frame *f) {
       check_user(f->esp + 4);
       int fd = *((int *) (f->esp + 4));
       close(fd);
+      break;
+    }
+    case SYS_MMAP: {  /* memory map a file */
+      check_user(f->esp + 4);
+      check_user(f->esp + 8);
+      int fd = *((int *) (f->esp + 4));
+      void *addr = *((void **) (f->esp + 8));
+      f->eax = (uint32_t) mmap(fd, addr);
+      break;
+    }
+    case SYS_MUNMAP: {  /* unmaps a file */
+      check_user(f->esp + 4);
+      mapid_t mid = *((mapid_t *) (f->esp + 4));
+      munmap(mid);
       break;
     }
     default: {
@@ -267,7 +286,7 @@ open(const char *file) {
     exit(-1);
     return FAIL;
   }
-
+check_user ((void *) file) ;
   /* Open the file by filesys_open. */
   lock_acquire(&syscall_lock);
   int status;
@@ -301,34 +320,53 @@ filesize(int fd) {
 
 int
 read(int fd, void *buffer, unsigned size) {
+//	printf("checking buffer");
   /* Check whether the buffer is valid. */
-  check_user(buffer);
+  //check_user(buffer);
+  if (buffer == NULL || !is_user_vaddr(buffer))	{
+    exit(-1);
+  }
+
+  if (buffer + size == NULL || !is_user_vaddr(buffer + size)) {
+    exit(-1);
+  }
   int read_size;
-  lock_acquire(&syscall_lock);
+  //lock_acquire(&syscall_lock);
   if (fd == 0) {     /* Reading from the keyboard */
     //unsigned i;
     for (unsigned i = 0; i < size; i++) {
       ((uint8_t *) buffer)[i] = input_getc();
     }
     read_size = size;
+ //   printf("keyboard size");
   } else if (size == 0) { /* Case when input size is 0. */
     read_size = size;
+   // printf("size is 0");
   } else {
+    ///check_user(buffer);
+    lock_acquire(&syscall_lock);
     struct file_descriptor *filed = process_get_fd(fd);
     if (filed == NULL){ /* Case when file not found. */
-      read_size = FAIL; 
+      read_size = FAIL;
+     //printf("files is null"); 
     } else {      /* Get the size bytes read by file_read. */
+     // printf("read file");
       read_size = file_read(filed->file, buffer, size);
+     // printf("read file");
+      //lock_release(&syscall_lock);
+      //printf("read file");
     }
+    lock_release(&syscall_lock);
   }
-  lock_release(&syscall_lock);
+//  lock_release(&syscall_lock);
   return read_size;
 }
 
 int
 write(int fd, const void *buffer, unsigned size) {
+//  check_user(buffer);
   int write_size;
-  lock_acquire(&syscall_lock);
+//  lock_acquire(&syscall_lock);
   if (fd == 1) {    /* Writes to console */
     int linesToPut;
     for (uint32_t j = 0; j < size; j += MAX_CONSOLE_WRITE) {  /* max 200B (MAX_CONSOLE_WRITE) at a time */
@@ -339,16 +377,22 @@ write(int fd, const void *buffer, unsigned size) {
   } else if (size == 0) { /* Case when input size is 0. */
     write_size = size;
   } else {
+  //  check_user((void *) buffer);
+    lock_acquire(&syscall_lock);
     struct file_descriptor *filed = process_get_fd(fd);
     if (filed == NULL){  /* Case when file not found. */
       write_size = FAIL;     
     } else if (filed->executing) { /* If the file is executing, it will not be written. */
+      //printf("file exec");
       write_size = 0;
     } else {         /* Get the size bytes written by file_write. */
+  //    printf("file write");
       write_size = file_write(filed->file, buffer, size);
+    //  printf("bad ptr");
     }
+    lock_release(&syscall_lock);
   }
-  lock_release(&syscall_lock);
+ // lock_release(&syscall_lock);
   return write_size;
 }
 
@@ -388,14 +432,185 @@ close(int fd) {
   lock_release(&syscall_lock);
 }
 
+static void
+add_mmap(struct map_file *mmap) {
+  mmap->mid = thread_current()->mmap_id++;  // alternative: could use  hash
+  list_push_back(&thread_current()->mmap_files, &mmap->elem);
+}
+
+static bool
+validate_mapping(void *addr, int length) {
+  if (length == 0 || (uint32_t) addr % PGSIZE != 0)  // checks if file is empty or address is unaligned
+    return false;
+  
+ void *end_addr = addr + (length - 1);
+  for (void *i = addr; i < end_addr; i += PGSIZE) {
+    if (pagedir_get_page(thread_current()->pagedir, i) != NULL || spt_find_page(&thread_current()->spt, i) != NULL)  // page already in use
+      return false;
+  }  
+  
+  // this is meant to return false if overlaps with stack growth region, probably needs to be tweaked: TODO
+  return !(((uint32_t)PHYS_BASE - (uint32_t) addr) <= PGSIZE || ((uint32_t)PHYS_BASE - (uint32_t) end_addr) <= PGSIZE);
+
+}
+
+static int mmap_entry(struct file *file, void * addr) {
+  int length = file_length(file);
+  off_t ofs = 0;
+  int page_no = 0;
+  uint32_t read_bytes;
+  while (length > 0) {
+    read_bytes = length > PGSIZE ? PGSIZE : length;
+    if (!spt_insert_mmap(file, ofs, addr, read_bytes)) {
+      return -1;
+    }
+    length -= PGSIZE;
+    ofs += PGSIZE;
+    addr += PGSIZE;
+    page_no++;
+  }
+  return page_no;
+}
+
+mapid_t
+mmap(int fd, void *addr) {
+  if (fd == 0 || fd == 1) {
+    return -1;
+  }
+  struct thread *cur = thread_current();
+  lock_acquire(&syscall_lock);
+  struct file_descriptor *file = process_get_fd(fd);
+  if (file == NULL || addr == 0)  // check for invalid file or addr
+    return -1; 
+ 
+  int length = file_length(file->file);
+  lock_release(&syscall_lock);
+  if (!validate_mapping(addr, length))
+    return -1;
+  //lock_release(&syscall_lock);
+
+  struct map_file *mmap = malloc(sizeof(struct map_file));
+  if (mmap == NULL)
+    return -1;
+
+  mmap->file = file->file; 
+  mmap->addr = addr;
+//  mmap->length = length;
+  
+  //list_init(&mmap->pages);
+  //lock_init(&mmap->mmap_lock);
+  mmap->mid = thread_current()->mmap_id++; 
+  lock_acquire(&cur->mf_lock);
+  list_push_back(&cur->mmap_files, &mmap->elem);
+  lock_release(&cur->mf_lock);
+
+  //add_mmap(mmap);
+  lock_acquire (&syscall_lock);
+  struct file* copy = file_reopen(file->file);
+  lock_release (&syscall_lock); 
+  mmap->page_no = mmap_entry(copy, addr);
+//printf("befere return will return %d\n", mmap->mid); 
+  if (mmap->page_no == -1) {
+    return -1;
+  } else {
+
+  //  do lazy load pages
+  // then add the spt_entries of those pages to mmap->pages
+    return mmap->mid;
+  }
+}
+
+/* Free the mmap files. */
+void free_mmap (struct map_file * mf) {
+  if (mf == NULL)
+    return;  // not found
+  struct thread *cur = thread_current();
+  void *uaddr = mf->addr;
+  // TODO remove page from list of virtual pages
+  for (int count = 0 ; count < mf->page_no; count++) {
+    lock_acquire(&cur->spt_lock);
+    struct spt_entry *page =  spt_find_page(&cur->spt, uaddr);
+    lock_release(&cur->spt_lock);
+    if (page->in_memory && pagedir_is_dirty (thread_current()->pagedir, page->user_vaddr)) {
+      lock_acquire(&syscall_lock);
+      file_seek(page->file, page->ofs);
+      file_write(page->file, page->user_vaddr, page->read_bytes);
+      lock_release(&syscall_lock);
+    }
+    uaddr += PGSIZE;
+    lock_acquire(&cur->spt_lock);
+    hash_delete(&thread_current()->spt, &page->elem);
+    lock_release(&cur->spt_lock);
+ //   deallocate_frame(page->frame_page);
+//   lock_acquire(&syscall_lock);
+   //file_close(page->file);
+  // lock_release(&syscall_lock); 
+    free(page);
+  }
+ // lock_acquire(&syscall_lock);
+ // file_close(mf->file);
+  //lock_release(&syscall_lock);
+  free(mf);
+}
+
 void
-check_user (void *ptr) {
+munmap(mapid_t mapping) {
+  struct list map_list = thread_current()->mmap_files;
+  struct list_elem *e;
+  struct map_file *mf = NULL;
+  for (e = list_begin (&map_list); e != list_end (&map_list);
+		  e = list_next (e)) {
+    struct map_file *mmap = list_entry (e, struct map_file, elem);
+    if (mmap->mid == mapping) {
+      mf = mmap;
+      list_remove(e);
+      break;
+    }
+  }
+  free_mmap(mf);
+ /* if (mf == NULL)
+    return;  // not found
+  
+  void *uaddr = mf->addr;
+  // TODO remove page from list of virtual pages
+  for (int count = 0 ; count < mf->page_no; count++) {
+    
+    struct spt_entry *page =  spt_find_page(&thread_current()->spt, uaddr);
+    if (page->in_memory && pagedir_is_dirty (thread_current()->pagedir, page->user_vaddr)) {
+      lock_acquire(&syscall_lock);
+      file_seek(page->file, page->ofs);
+      file_write(page->file, page->user_vaddr, page->read_bytes);
+      lock_release(&syscall_lock);
+    }
+    uaddr += PGSIZE;
+    
+    free(page);
+  }
+  free(mf);
+*/
+}
+
+/* Close the file and free the file_descriptor. */
+void free_fd(struct hash_elem *e, void *aux UNUSED) {
+  struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
+  if (lock_held_by_current_thread (&syscall_lock)) {
+    lock_release(&syscall_lock);
+  }
+  lock_acquire(&syscall_lock);
+  file_close(fd->file);
+  lock_release(&syscall_lock);
+  free(fd);
+}
+
+void
+check_user (const void *ptr) {
 /* Don't need to worry about code running after as it kills the process */
     struct thread *t = thread_current();
-    uint8_t *uaddr = ptr;
-    if (!is_user_vaddr((void *) ptr) || (pagedir_get_page(t->pagedir, uaddr) == NULL)) {
+//    uint8_t *uaddr = ptr;
+    if (!is_user_vaddr(ptr) || (pagedir_get_page(t->pagedir, ptr) == NULL)) {
         exit(-1);
     }
+
 }
 
 /* Credit to pintos manual: */

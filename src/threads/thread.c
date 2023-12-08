@@ -15,6 +15,7 @@
 #include "devices/timer.h"
 #include <inttypes.h>
 #include "userprog/process.h"
+#include "vm/frame.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -99,6 +100,8 @@ thread_init(void)
   list_init(&ready_list);
   list_init(&all_list);
 
+  //frame_table_init();
+
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread();
   init_thread(initial_thread, "main", PRI_DEFAULT);
@@ -133,7 +136,6 @@ threads_ready(void) {
 void
 recalculate_recent_cpu(struct thread *t) // to be run once per second
 {
-<<<<<<< HEAD
   t->recent_cpu = fp_add_int(
           fp_mul(fp_div(fp_mul_int(load_avg, 2), fp_add_int(fp_mul_int(load_avg, 2), 1)), t->recent_cpu), t->nice);
 }
@@ -176,12 +178,12 @@ void calculate_priority_all() {
     calculate_priority(list_entry(e,
     struct thread, allelem));
   }
-=======
-  enum intr_level old_level = intr_disable ();
-  return list_size (&ready_list);
-  intr_set_level (old_level);
+
+  //enum intr_level old_level = intr_disable ();
+  //return list_size (&ready_list);
+  //intr_set_level (old_level);
   
->>>>>>> skeleton/master
+//>>>>>>> skeleton/master
 }
 
 /* Called by the timer interrupt handler at each timer tick.
@@ -601,10 +603,20 @@ init_thread(struct thread *t, const char *name, int priority) {
   lock_init(&t->wait_lock);
   list_init(&t->locks);
   t->init_fd = false;
-  list_init (&t->cp_manager.children_list);
+  //spt_init(&t->spt);
+  lock_init(&t->spt_lock);
+   list_init(&t->mmap_files);  // not sure if this should be a hashmap instead
+  lock_init(&t->mf_lock);
+   t->mmap_id = 0;
+  t->unmap = false;  
+  //hash_init (&t->spt, spt_hash, spt_less, NULL);
+  t->init_spt = false;
+
+   list_init (&t->cp_manager.children_list);
   lock_init (&t->cp_manager.children_lock);
   cond_init (&t->cp_manager.children_cond);
   t->cp_manager.load_result = 0;
+
 
   if (thread_mlfqs) {
     if (t != initial_thread) {
@@ -621,6 +633,8 @@ init_thread(struct thread *t, const char *name, int priority) {
   old_level = intr_disable();
   list_push_back(&all_list, &t->allelem);
   intr_set_level(old_level);
+
+  //frame_table_init();
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -732,4 +746,5 @@ allocate_tid(void) {
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof(
 struct thread, stack);
+
 

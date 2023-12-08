@@ -7,6 +7,7 @@
 #include <threads/synch.h>
 #include <threads/fixed-point.h>
 #include <lib/kernel/hash.h>
+#include <vm/page.h>
 
 /* States in a thread's life cycle. */
 enum thread_status {
@@ -107,14 +108,27 @@ struct thread {
     tid_t parent_tid;
     struct child_parent_manager cp_manager;
 
+ 
+    struct list mmap_files;
+    struct lock mf_lock;
+    //struct sup_page_table spt;
+struct hash spt;
+struct lock spt_lock;
+bool init_spt;
+    mapid_t mmap_id; 
+    bool unmap; 
+    struct list_elem pd_elem;
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
     fixed_t recent_cpu;
     int nice;
+    void *esp;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    
+//    struct sup_page_table *spt;
     
 #endif
     /* Owned by thread.c. */

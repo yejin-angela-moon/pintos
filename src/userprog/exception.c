@@ -7,12 +7,27 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/syscall.h"
+#include "vm/page.h"
+#include "threads/vaddr.h"
+#include "vm/swap.h"
+#include "vm/frame.h"
+#include <string.h>
+#include "filesys/file.h"
+#include <stdlib.h>
+#include <threads/malloc.h>
+#include <threads/palloc.h>
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
+
+static void load_page_from_swap(struct spt_entry *spte, void *frame);
+static void load_page_from_file(struct spt_entry *spte, void *frame);
+
+bool install_page(void *upage, void *kpage, bool writable);
+static bool stack_valid(void *vaddr, void *esp);
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -121,7 +136,12 @@ kill (struct intr_frame *f)
 static void
 page_fault (struct intr_frame *f) 
 {
+  bool not_present; /* True: not-present page, False: writing to read-only page. */
+  bool write;       /* True: access was write, False: access was read. */
+  bool user;        /* True: access by user, False: access by kernel. */
+
   void *fault_addr;  /* Fault address. */
+  struct spt_entry *spte;
 
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
@@ -143,16 +163,179 @@ page_fault (struct intr_frame *f)
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
 
-  if (fault_addr == NULL || (uint32_t) fault_addr >= LOADER_PHYS_BASE){
+//printf("PAGE FAULT\n\n");
+
+  /* Determine cause. */
+  not_present = (f->error_code & PF_P) == 0;
+  write = (f->error_code & PF_W) != 0;
+  user = (f->error_code & PF_U) != 0;
+
+  struct thread *cur = thread_current();
+  void * fault_page = (void *) pg_round_down (fault_addr);
+
+  if (!not_present) { 
     exit(-1);
-  } else if (f->cs == SEL_KCSEG) {
-    f->eip = (void (*)(void))f->eax;
-    f->eax = 0xffffffff;
-  } else {
-    kill(f);
+  }
+ 
+  if (fault_addr == NULL || !is_user_vaddr(fault_addr) || fault_addr < 0x08048000){ 
+    exit(-1);
   }
 
+  lock_acquire(&cur->spt_lock);
+  spte = spt_find_page(&cur->spt, fault_page);
+  lock_release(&cur->spt_lock);
+
+  //stack growth code:
+  void *esp = user ? f->esp : cur->esp; 
+  if (spte == NULL && stack_valid(fault_addr, esp)) {
+     if (!user && fault_addr < PHYS_BASE){
+        exit(-1);
+     }
+
+    void *kpage = allocate_frame();
+    if (kpage == NULL) {
+      deallocate_frame (kpage);
+      exit(-1);
+    }
+
+    if (kpage != NULL && !pagedir_set_page (cur->pagedir, fault_page, kpage, true)) {
+      deallocate_frame (kpage); 
+      exit(-1);
+    }
+    return;
+  }
+
+  if (spte == NULL) { 
+    exit(-1);
+  }
+
+ if (!spte->in_memory) {
+   if (spte->file != NULL) {
+
+        struct thread *cur = thread_current();
+
+        struct shared_page *found_shared_page = NULL;
+        
+        if (!spte->writable) {
+//          found_shared_page = get_shared_page(spte);//hash_entry(found_elem, struct shared_page, elem);
+        }
+        
+
+        uint8_t *kpage = NULL;
+        if (found_shared_page != NULL) {
+            // If page is shared and read-only, use existing kpage.
+         
+	    //printf("share pageee with detail file %p, uservaddr %p\n", spte->user_vaddr, spte->file);
+
+            spte->frame_page = share_page(spte->user_vaddr, spte->file);
+	    get_frame_by_kpage (spte->frame_page)->tid = thread_current()->tid;
+                  
+            spte->in_memory = true;
+
+        } else {
+            // Allocate a new frame if page not shared or writable.
+            kpage = pagedir_get_page(cur->pagedir, spte->user_vaddr);
+            if (kpage == NULL) {
+               // deallocate_frame (kpage);
+                kpage = allocate_frame();
+                if (kpage == NULL) {
+                    deallocate_frame (kpage);
+                    exit(-1); 
+                }
+            }
+
+	    switch (spte->type) {
+               case File:
+               case Mmap:
+               case (Mmap | Swap):
+                 load_page (spte, kpage);
+                 break;
+               case (File | Swap):
+	       case Swap:
+                 load_page_swap (spte, kpage);
+                 break;
+               default:
+                 break;
+            }
+             spte->in_memory = true;
+
+            // If page is read-only, consider sharing it.
+            if (!spte->writable) {
+                // Here you can either use the share_page function or write the logic directly.
+                // Ensure to update the shared_page struct with kpage and pagedir.
+             //  create_shared_page (spte, kpage);
+            }
+        }
+    } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
+//	   printf("load page fromswap\n"); 
+   //   load_page_from_swap(spte, frame);
+    } else {
+      /* Page is an all-zero page. */
+     // memset(frame, 0, PGSIZE);
+    }
+      spte->in_memory = true;
+  }
+
+  //if (!install_page((void *) spte->user_vaddr, frame, spte->writable)) {
+  // exit(-1);
+ // }
+
+  /* (3.1.5) a page fault in the kernel merely sets eax to 0xffffffff
+  * and copies its former value into eip. see syscall.c:get_user() */
+  else if(!user) { // kernel mode
+    f->eip = (void *) f->eax;
+    f->eax = 0xffffffff;
+    return;
+  } else {
+
+  /* Page fault can't be handled - kill the process */
+  printf ("Page fault at %p: %s error %s page in %s context.\n",
+          fault_addr,
+          not_present ? "not present" : "rights violation",
+          write ? "writing" : "reading",
+          user ? "user" : "kernel");
+  kill (f);
+  }
+  return;
 
 }
 
+static void load_page_from_file (struct spt_entry *spte, void *frame) {
+//  off_t bytes_read = file_read_at(spte->file, frame, spte->read_bytes, spte->ofs);
+ // if (bytes_read != (off_t) spte->read_bytes) {
+  //  exit(-1);
+ // }
+
+  if (spte->zero_bytes > 0) {
+    memset(frame + spte->read_bytes, 0, spte->zero_bytes);
+  }
+}
+
+static void load_page_from_swap(struct spt_entry *spte, void *frame) {
+  //swap_read(spte->swap_slot, frame);
+}
+
+bool install_page(void *upage, void *kpage, bool writable) {
+  struct thread *cur = thread_current();
+  struct spt_entry *spte = spt_find_page(&cur->spt, upage);
+
+  if (spte == NULL)
+    return false;
+
+  if (pagedir_get_page(cur->pagedir, upage) != NULL)
+    return false;
+
+  if (!pagedir_set_page(cur->pagedir, upage, kpage, writable))
+    return false;
+
+ // spte->frame = kpage;
+
+  return true;
+}
+
+static bool stack_valid(void *vaddr, void *esp){
+//  return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && (vaddr >= esp - PUSHA_SIZE); 
+  return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && (vaddr == esp - 32 || vaddr == esp - 4 || vaddr >= esp); 
+
+}
 
