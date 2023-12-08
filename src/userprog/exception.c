@@ -189,8 +189,10 @@ page_fault (struct intr_frame *f)
 //printf("page found\n");
 
   //stack growth code:
-  void *esp = user ? f->esp : cur->esp;
-  if (spte == NULL && stack_valid(fault_addr, esp)) {
+  void *esp = user ? f->esp : cur->esp; 
+//  printf("the addr %p, esp %p, cur esp %p, and difference %d\n", fault_addr, f->esp, cur->esp, f->esp - fault_addr);
+//  void *esp = user ? f->esp : cur->esp;
+  if (spte == NULL && stack_valid(fault_addr, f->esp)) {
 //	  printf("time to grow stack\n");
    // void *esp = user ? f->esp : cur->esp;
 
@@ -383,8 +385,8 @@ bool install_page(void *upage, void *kpage, bool writable) {
 }
 
 static bool stack_valid(void *vaddr, void *esp){
-  return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && (vaddr >= esp - PUSHA_SIZE); 
-  //return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && (vaddr == esp - 32 || vaddr == esp || vaddr == esp - 4); 
+//  return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && (vaddr >= esp - PUSHA_SIZE); 
+  return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && (vaddr == esp - 32 || vaddr == esp - 4 || vaddr == esp); 
 
 }
 

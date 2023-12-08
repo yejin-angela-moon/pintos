@@ -330,7 +330,7 @@ struct shared_page *search_shared_page(void *kpage) {
     if (sp->kpage == kpage) {
       return sp;
     }
-  }
+  } 
   return NULL;
 }
 
