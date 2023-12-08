@@ -497,7 +497,7 @@ mmap(int fd, void *addr) {
   mmap->addr = addr;
 //  mmap->length = length;
   
-  list_init(&mmap->pages);
+  //list_init(&mmap->pages);
   //lock_init(&mmap->mmap_lock);
   mmap->mid = thread_current()->mmap_id++; 
   lock_acquire(&cur->mf_lock);

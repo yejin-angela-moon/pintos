@@ -26,48 +26,34 @@ enum spte_type {
 };
 
 struct spt_entry {
-    uint8_t * user_vaddr;  /* User virtual address.*/
-    //uint32_t frame_addr; 
+    uint8_t *user_vaddr;  /* User virtual address.*/
     bool in_memory;       /* Whether the page is currently in memory. */
+    void *frame_page;    /* Pointer to the frame in memory. */
     struct hash_elem elem;
     struct list_elem lelem;
-    // other potential fields: fd, file_offset, is_read_only, is_dirty, timestamp, swap slot, is_swapped_out
+    
     // lazy loading fields
+    struct file * file;    /* File associated with the page. */
     off_t ofs;            /* Offset within the file. */
     uint32_t read_bytes;  /* Number of bytes to read from the file. */
     uint32_t zero_bytes;  /* Number of zero bytes to add to the end of the page. */
     bool writable;        /* Whether the page is writable. */
-    struct file * file;    /* File associated with the page. */
-    bool is_dirty;        /* Set to 1 on any write. */
-    bool is_accessed;     /* Set to 1 on any read or write. */
-    bool is_valid;
-    int count;
+    enum spte_type type;  /* Type of the spte. */
+
     // swap
     size_t swap_slot;     /* Swap slot index. */
-    void *frame_page;  /* Pointer to the frame in memory. */
-    enum spte_type type;
+  
     // shared
-    bool is_shared;
-};
-
-// page table itself
-struct sup_page_table {
-  struct hash table;
-  struct lock spt_lock;
-  // other potential fields: owner_thread, spt_lock
-
+    bool is_shared;      /* Whether the spte share page with other */
 };
 
 /* Representation of memory-mapped file */
 struct map_file {
-  mapid_t mid;
-  struct file *file;
-  void *addr;  // should this be void* ?
-  size_t length;
+  mapid_t mid;               // id of the file
+  struct file *file;         // File associated
+  void *addr;                // User virtual address 
   struct list_elem elem;
-  struct list pages;
-  int page_no;
-  struct lock mmap_lock;
+  int page_no;              // Total page count
 };
 
 struct shared_page {
@@ -80,26 +66,22 @@ struct shared_page {
 //    uint32_t *pagedir;        // Pointer to the page directory.
 };
 
-//struct lock page_sharing_lock;
-//struct hash shared_pages;
-
-void spt_init (struct sup_page_table *spt);
 void page_init(void);
+
 struct sup_page_table *spt_create(void);
 
 unsigned spt_hash (const struct hash_elem *e, void *aux);
 
 bool spt_less (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
-bool
-spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
-    uint32_t read_bytes, uint32_t zero_bytes, bool writable);
+bool spt_insert_file (struct file *file, off_t ofs, uint8_t *upage, uint32_t read_bytes, uint32_t zero_bytes, bool writable);
 
 bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read_bytes);
 
 bool load_page(struct spt_entry *spte, void * kpage);
-//bool load_page_mmap(struct spt_entry *spte, void * kpage);
+
 bool load_page_swap (struct spt_entry *spte, void *kpage);
+
 struct shared_page *get_shared_page(struct spt_entry *spte);
 
 void *share_page(void *upage, struct file *file);
@@ -113,10 +95,12 @@ void free_spt(struct hash_elem *e, void *aux);
 void init_page_sharing(void) ;
 
 unsigned shared_page_hash(const struct hash_elem *e, void *aux);
-bool shared_page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux ); 
-struct shared_page *search_shared_page(void *kpage);
-void delete_shared_page(struct shared_page *sp, void * user_vaddr);
 
+bool shared_page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux ); 
+
+struct shared_page *search_shared_page(void *kpage);
+
+void delete_shared_page(struct shared_page *sp, void * user_vaddr);
 
 #endif /* vm/page.h */
 

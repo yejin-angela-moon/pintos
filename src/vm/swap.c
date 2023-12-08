@@ -57,8 +57,10 @@ size_t swap_out_memory(void *user_vaddr) {
     if (list_size(&swap_list) < (block_size(swap_block) / SECTORS_PER_PAGE)) {
       ss = malloc(sizeof(struct swap_store));
       if (ss == NULL) {
+	lock_release(&swap_lock);
         return SWAP_ERROR;
       }
+
       ss->ssid = count;
       ss->user_vaddr = user_vaddr;
       count++;

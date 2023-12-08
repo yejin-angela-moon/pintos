@@ -157,10 +157,11 @@ void deallocate_frame(void *page) {
 static bool
 save_evicted_frame (struct frame *frame) {
   struct thread *t = get_thread_by_tid(frame->tid);
+  lock_acquire(&t->spt_lock);
   struct spt_entry *spte = spt_find_page (&t->spt, frame->user_vaddr);
+  lock_release(&t->spt_lock);
 
   if (spte == NULL) {
-//	  printf("create new spt with type swap\n");
     spte = malloc (sizeof (struct spt_entry));
     spte->user_vaddr = frame->user_vaddr;
     spte->type = Swap;
@@ -179,8 +180,6 @@ save_evicted_frame (struct frame *frame) {
      file_seek (spte->file, spte->ofs);
      file_write (spte->file, spte->user_vaddr,spte->read_bytes);
   } else if ((pagedir_is_dirty (t->pagedir, spte->user_vaddr)) && (spte->writable)) {
-	  //pagedir_set_dirty (t->pagedir, spte->user_vaddr, false);
-//	  printf("dirsrt %d\n", (pagedir_is_dirty (t->pagedir, spte->user_vaddr)));
     swap_slot = swap_out_memory (spte->user_vaddr);
     if (swap_slot == SWAP_ERROR)
       return false;

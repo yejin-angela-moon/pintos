@@ -16,7 +16,6 @@
 #include "threads/vaddr.h"
 #include "userprog/exception.h"
 #include "threads/synch.h"
-// could move to a header file
 
 // Define a hash table to store shared pages.
 // Define a lock for page sharing.
@@ -45,17 +44,10 @@ bool spt_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UN
     return spte_a->user_vaddr < spte_b->user_vaddr;  
 }
 
-void spt_init (struct sup_page_table *spt) {
-  hash_init(&spt->table, spt_hash, spt_less, NULL);
-} 
-
-bool
-spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
-    uint32_t read_bytes, uint32_t zero_bytes, bool writable)
-{ //return true;
-	//printf("indide the spt insrt function\n");
+// Create a new spte with type File and the given infomation
+bool spt_insert_file (struct file *file, off_t ofs, uint8_t *upage, uint32_t read_bytes, uint32_t zero_bytes, bool writable)
+{
   struct spt_entry *spte = malloc (sizeof(struct spt_entry));
-  //printf("calloc a new spte\n");
   struct hash_elem *e;
   struct thread *cur = thread_current ();
   if (spte == NULL) {
@@ -69,40 +61,25 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
   spte->writable = writable;
   spte->in_memory = false;
   spte->type = File;
- // spte->count = count;
-  //count++;
-  //printf("set up the spte\n");
-//  struct hash spt = cur->spt;
- // printf("get the spt of the cur thread\n");
-//  hash_init (&spt, spt_hash, spt_less, NULL);
-//file_seek (spte->file, spte->ofs);
-//void * kp = palloc_get_page(PAL_USER);
-//printf("file read when insert %d\n ", file_read (spte->file, kp, spte->read_bytes));
-//  printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d, writeable %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file), spte->writable);
+ 
   lock_acquire(&cur->spt_lock); 
   e = hash_insert (&cur->spt, &spte->elem);
   lock_release(&cur->spt_lock);
-  //struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
+  
   if (e != NULL) {
 	  struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
-//	  printf("cannot insert\n");
-	  //free (spte);
-	  //result->user_vaddr = upage;
 	  result->file = file;
-	  //result->ofs = ofs;
 	  result->read_bytes = read_bytes;
 	  result->zero_bytes = zero_bytes;
-	  //result->in_memory = false;
-	  result->writable = writable;  // return false;
+	  result->writable = writable; 
   }
-  //load_page_to_frame(spte);
-//printf("inserted a new addr %d to the hash\n", (uint32_t) upage);
+  
   return true;
 }
 
+// Create a new spte with type Mmap and the given infomation
 bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read_bytes) {
-   struct spt_entry *spte = malloc (sizeof(struct spt_entry));
-  //printf("calloc a new spte\n");
+  struct spt_entry *spte = malloc (sizeof(struct spt_entry));
   struct hash_elem *e;
   struct thread *cur = thread_current ();
   if (spte == NULL) {
@@ -115,55 +92,46 @@ bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read
   spte->in_memory = false;
   spte->type = Mmap;
   
-//printf("file read when insert %d\n ", file_read (spte->file, kp, spte->read_bytes));
-  //printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file));
   lock_acquire(&cur->spt_lock);
   e = hash_insert (&cur->spt, &spte->elem);
-
   if (e != NULL) {     
           struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
           result->read_bytes = read_bytes;
   }
   lock_release(&cur->spt_lock);
-//  void * kpage = allocate_frame();
-  //printf("try load page rn %d\n", load_page(spte, kpage));
+
   return true;
 }
 
-bool load_page(struct spt_entry *spte, void * kpage) {
-  
+// Load the page with the allocate frame when needed
+bool load_page(struct spt_entry *spte, void * kpage) {  
   struct thread *cur = thread_current ();
   lock_acquire(&file_lock);
   file_seek(spte->file, spte->ofs);
   bool writable = spte->type == File ? spte->writable : true;
   if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes) {
-//	        printf("kpage pointer: %p\n", (void *) kpage);
-//	    printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
-      deallocate_frame (kpage);
-      return false;
-    }
+    deallocate_frame (kpage);
+    return false;
+  }
   lock_release(&file_lock);
-  //printf("file read\n");
+
   uint32_t size = spte->type == File ? spte->zero_bytes : PGSIZE - spte->read_bytes;
   memset (kpage + spte->read_bytes, 0, size);  
-  
+ 
   if (pagedir_get_page(cur->pagedir, spte->user_vaddr) == NULL) {
-//	  printf("not mapped\n");
-  if (!pagedir_set_page (cur->pagedir, spte->user_vaddr, kpage, writable)) {
+    if (!pagedir_set_page (cur->pagedir, spte->user_vaddr, kpage, writable)) {
       deallocate_frame (kpage);
       return false;
     }
-  } else {
-  //  printf("already mapped\n");
-  }
-  //printf("end of the load page to frame function\n");
+  } 
+
   spte->in_memory = true;
   spte->frame_page = kpage;
-  if (spte->type & Swap)
+  if (spte->type & Swap) {
     spte->type = Mmap;
+  }
 
   return true;
-
 }
 
 bool load_page_swap (struct spt_entry *spte, void *kpage) {
@@ -187,46 +155,12 @@ if (pagedir_get_page(thread_current ()->pagedir, spte->user_vaddr) == NULL) {
 //    printf("delete from cur spt\n");
   }
   if (spte->type == (File | Swap))  {
-      spte->type = File;
-      //spte->is_loaded = true;
- 
+    spte->type = File; 
     spte->in_memory = true;
   }
   return true;
 }
 
-/*
-bool load_page_mmap(struct spt_entry *spte, void * kpage) {
-        struct thread *cur = thread_current ();
-
-  file_seek(spte->file, spte->ofs);
-
-  if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes)
-    {
-//              printf("kpage pointer: %p\n", (void *) kpage);
-//          printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
-      deallocate_frame (kpage);
-      return false;
-    }
-  //printf("file read\n");
-  memset (kpage + spte->read_bytes, 0, spte->zero_bytes);
-
-  if (pagedir_get_page(cur->pagedir, spte->user_vaddr) == NULL) {
-//        printf("not mapped\n");
-  if (!pagedir_set_page (cur->pagedir, spte->user_vaddr, kpage, true)) {
-      deallocate_frame (kpage);
-      return false;
-    }
-  } else {
-  //  printf("already mapped\n");
-  }
-  //printf("end of the load page to frame function\n");
-  spte->in_memory = true;
-  return true;
-
-}*/
-
-//bool spt_insert_mmap(struct file *file, off_t ofs, void *addr, read_bytes)
 
 static bool is_equal_spt(struct spt_entry * this, struct spt_entry * other) {
   //bool equal_mmap = (this->user_vaddr == other->user_vaddr) && (this->ofs == other->ofs) && (this->read_bytes == other->read_bytes) && (this->file == other->file);
@@ -287,9 +221,7 @@ struct spt_entry* spt_find_page(struct hash *spt, void *vaddr) {
 void
 free_spt(struct hash_elem *e, void *aux UNUSED) {
   struct spt_entry *spte = hash_entry(e, struct spt_entry, elem);
-  //printf("about to free spte\n");
   if (spte->type & Swap) {
-//	  printf("still in swap so remove");
     remove_swap_store (spte->swap_slot);
   }
   free(spte);
