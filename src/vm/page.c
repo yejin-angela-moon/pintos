@@ -100,7 +100,7 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
 //	  printf("cannot insert\n");
 	  //free (spte);
 	  //result->user_vaddr = upage;
-	 // result->file = file;
+	  result->file = file;
 	  //result->ofs = ofs;
 	  result->read_bytes = read_bytes;
 	  result->zero_bytes = zero_bytes;
@@ -191,7 +191,7 @@ if (pagedir_get_page(thread_current ()->pagedir, spte->user_vaddr) == NULL) {
   //pagedir_set_dirty(thread_current ()->pagedir, spte->user_vaddr, false);
 //printf("after swap in\n");
   if (spte->type == Swap) {
-    hash_delete (&thread_current ()->spt, &spte->elem);
+  //  hash_delete (&thread_current ()->spt, &spte->elem); //TODO
 //    printf("delete from cur spt\n");
   }
   if (spte->type == (File | Swap))  {

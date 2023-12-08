@@ -13,6 +13,7 @@
 struct swap_store {
   struct list_elem elem;
   int ssid;
+  uint8_t *user_vaddr;
 };
 
 void swap_vm_init(void);

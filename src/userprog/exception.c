@@ -177,7 +177,7 @@ page_fault (struct intr_frame *f)
 //	  printf("not present\n");
     exit(-1);
   }
-  printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
+  //printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
   if (fault_addr == NULL || !is_user_vaddr(fault_addr) || fault_addr < 0x08048000){ //|| !not_present || !is_user_vaddr(fault_addr)) {
 //	  printf("addr is NULL or not user vaddr");
     exit(-1);
@@ -224,7 +224,7 @@ page_fault (struct intr_frame *f)
  if (!spte->in_memory) {
 //	 printf("not in memory");
    if (spte->file != NULL) {
-	   printf("spte file not null\n");
+//	   printf("spte file not null\n");
         struct thread *cur = thread_current();
 
         struct shared_page *found_shared_page = NULL;
