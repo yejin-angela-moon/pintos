@@ -11,7 +11,8 @@
 
 struct frame {
   void *kpage;       /* Pointer to the kernel virtual page */
-  struct thread *t; /* Pointer to the thread */
+  //struct thread *t; /* Pointer to the thread */
+  int tid;
   struct spt_entry *spte;
   uint8_t *user_vaddr; /* User virtual address */
   bool pinned;
@@ -27,14 +28,12 @@ struct frame {
 unsigned frame_hash(const struct hash_elem *e, void *aux);
 bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
-void *frame_get_page(struct spt_entry *spte);
-void *evict_frame (void);
+//void *frame_get_page(struct spt_entry *spte);
 void frame_table_init(void);
 void* allocate_frame(void);
-
-void deallocate_frame(void* frame_addr, bool free_page);
-void free_frame (void *frame_addr);
-void frame_remove_entry (void *frame_addr);
+void remove_frame_for_thread(void);
+void deallocate_frame(void* frame_addr);
+struct frame * get_frame_by_kpage (void *kpage);
 void frame_set_status (void *kpage, uint32_t *pte UNUSED, void *upage);
-
 #endif /* vm/frame.h */
+

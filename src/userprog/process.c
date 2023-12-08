@@ -331,8 +331,11 @@ process_exit (void)
     free_mmap (mmap);
     me = nme;
   }
+  
 
+//  list_remove(&cur->pd_elem);
   hash_destroy(&cur->spt, free_spte);
+
 
   /* Destroy the fd_table with free_fd. */
   //hash_destroy(&cur->fd_table, free_fd);
@@ -761,7 +764,7 @@ setup_stack (void **esp)
     if (success)
       *esp = PHYS_BASE;
     else
-      free_frame (kpage);
+      deallocate_frame (kpage);
   }
   return success;
 }
