@@ -24,11 +24,13 @@
 //bool share_page(struct spt_entry *spte);
 void unshare_page(struct spt_entry *spte);
 
-static int count = 0;
+//static int count = 0;
+struct lock file_lock;
 struct list shared_pages;
 struct lock page_sharing_lock;
 
-void spte_init(struct spt_entry *spte) {
+void page_init() {
+  lock_init(&file_lock);
   /*
   pg->frame = NULL;
   pg->present = false;
@@ -61,7 +63,7 @@ struct sup_page_table *spt_create (void) {
 
 void spt_init (struct sup_page_table *spt) {
   hash_init(&spt->table, spt_hash, spt_less, NULL);
-}
+} 
 
 bool
 spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
@@ -93,7 +95,9 @@ spt_insert_file (struct file *file, off_t ofs, uint8_t *upage,
 //void * kp = palloc_get_page(PAL_USER);
 //printf("file read when insert %d\n ", file_read (spte->file, kp, spte->read_bytes));
 //  printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d, writeable %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file), spte->writable);
+  lock_acquire(&cur->spt_lock); 
   e = hash_insert (&cur->spt, &spte->elem);
+  lock_release(&cur->spt_lock);
   //struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
   if (e != NULL) {
 	  struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
@@ -129,11 +133,14 @@ bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read
   
 //printf("file read when insert %d\n ", file_read (spte->file, kp, spte->read_bytes));
   //printf("when insertedcount of spte is %d, ofs %d, read %d, file %p, file length %d\n", spte->count, spte->ofs, spte->read_bytes, spte->file, file_length(spte->file));
+  lock_acquire(&cur->spt_lock);
   e = hash_insert (&cur->spt, &spte->elem);
+
   if (e != NULL) {     
           struct spt_entry *result = hash_entry(e, struct spt_entry, elem);
           result->read_bytes = read_bytes;
   }
+  lock_release(&cur->spt_lock);
 //  void * kpage = allocate_frame();
   //printf("try load page rn %d\n", load_page(spte, kpage));
   return true;
@@ -142,7 +149,7 @@ bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read
 bool load_page(struct spt_entry *spte, void * kpage) {
   
   struct thread *cur = thread_current ();
-
+  lock_acquire(&file_lock);
   file_seek(spte->file, spte->ofs);
   bool writable = spte->type == File ? spte->writable : true;
   if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes) {
@@ -151,6 +158,7 @@ bool load_page(struct spt_entry *spte, void * kpage) {
       deallocate_frame (kpage);
       return false;
     }
+  lock_release(&file_lock);
   //printf("file read\n");
   uint32_t size = spte->type == File ? spte->zero_bytes : PGSIZE - spte->read_bytes;
   memset (kpage + spte->read_bytes, 0, size);  

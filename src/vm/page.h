@@ -83,7 +83,7 @@ struct shared_page {
 //struct hash shared_pages;
 
 void spt_init (struct sup_page_table *spt);
-
+void page_init(void);
 struct sup_page_table *spt_create(void);
 
 unsigned spt_hash (const struct hash_elem *e, void *aux);
