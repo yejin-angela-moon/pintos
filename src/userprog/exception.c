@@ -177,8 +177,8 @@ page_fault (struct intr_frame *f)
 //	  printf("not present\n");
     exit(-1);
   }
- // printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
-  if (fault_addr == NULL){ //|| !not_present || !is_user_vaddr(fault_addr)) {
+  printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
+  if (fault_addr == NULL || !is_user_vaddr(fault_addr) || fault_addr < 0x08048000){ //|| !not_present || !is_user_vaddr(fault_addr)) {
 //	  printf("addr is NULL or not user vaddr");
     exit(-1);
   }
@@ -222,7 +222,9 @@ page_fault (struct intr_frame *f)
     //exit(-1);
 //printf("the thread cur is %d \n", thread_current()->tid);
  if (!spte->in_memory) {
+//	 printf("not in memory");
    if (spte->file != NULL) {
+	   printf("spte file not null\n");
         struct thread *cur = thread_current();
 
         struct shared_page *found_shared_page = NULL;
@@ -276,7 +278,7 @@ page_fault (struct intr_frame *f)
                  break;
                case (File | Swap):
                case Swap:
-	//	 printf("swap ");
+//		 printf("swap ");
                  load_page_swap (spte, kpage);
                  break;
                default:
@@ -376,7 +378,9 @@ bool install_page(void *upage, void *kpage, bool writable) {
 }
 
 static bool stack_valid(void *vaddr, void *esp){
-  return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && (vaddr >= esp - PUSHA_SIZE); 
+//  return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && (vaddr >= esp - PUSHA_SIZE); 
+return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && 
+          (vaddr == esp - 32 || vaddr == esp); 
 
 }
 

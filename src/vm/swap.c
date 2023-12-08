@@ -22,7 +22,7 @@ void swap_vm_init(void) {
   list_init(&swap_list);
   lock_init(&swap_lock);  
   swap_block = block_get_role(BLOCK_SWAP);
-  count = 0;
+  count = 1;
   if (swap_block == NULL) {
     return;
   }
@@ -44,23 +44,27 @@ size_t swap_out_memory(void *user_vaddr) {
     return SWAP_ERROR;
   }
 //return -1;
-
+lock_acquire(&swap_lock);
   if (list_size(&swap_list) < (block_size(swap_block) / SECTORS_PER_PAGE)) {
     struct swap_store *ss = malloc(sizeof(struct swap_store));
     if (ss == NULL) {
       return SWAP_ERROR;
     }
-    ss->ssid = count++;//list_size(&swap_list);
-    lock_acquire(&swap_lock);
+    ss->ssid = count;//list_size(&swap_list);
+    count++;
+    //lock_acquire(&swap_lock);
     list_push_back(&swap_list, &ss->elem);
-    lock_release(&swap_lock);
+    //lock_release(&swap_lock);
     for (int i = 0; i < SECTORS_PER_PAGE; i++) {
       block_write (swap_block, ss->ssid * SECTORS_PER_PAGE + i, (uint8_t *) user_vaddr + i * BLOCK_SECTOR_SIZE);
     }
+    //if (ss->ssid == 0) { 
+	   printf("\nthe user vaddr for %d is %p\n", count-1, user_vaddr);
   //  printf("the size of swap list is %d\n", ss->ssid);
-    //lock_release(&swap_lock);
+    lock_release(&swap_lock);
     return ss->ssid;
   } else {
+   lock_release(&swap_lock); 
     return SWAP_ERROR;
   } 
 }
@@ -77,7 +81,7 @@ static struct swap_store *get_swap_store_by_ssid(size_t swap_slot) {
 }
 
 void swap_in_memory(size_t swap_slot, void *user_vaddr) {
-	printf("there are %d elem in swap list\n", list_size(&swap_list));
+//	printf("there are %d elem in swap list\n", list_size(&swap_list));
   lock_acquire(&swap_lock);
   struct swap_store *ss = get_swap_store_by_ssid(swap_slot);
   if (ss == NULL) {
