@@ -24,20 +24,13 @@
 //bool share_page(struct spt_entry *spte);
 void unshare_page(struct spt_entry *spte);
 
-//static int count = 0;
+
 struct lock file_lock;
 struct list shared_pages;
 struct lock page_sharing_lock;
 
 void page_init() {
   lock_init(&file_lock);
-  /*
-  pg->frame = NULL;
-  pg->present = false;
-  pg->dirty = false;
-  */ 
-  //spte->frame = NULL;
-  //spte->is_dirty = false;
 }
 
 unsigned spt_hash(const struct hash_elem *elem, void *aux UNUSED) {
@@ -51,15 +44,6 @@ bool spt_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UN
     struct spt_entry *spte_b = hash_entry(b, struct spt_entry, elem);
     return spte_a->user_vaddr < spte_b->user_vaddr;  
 }
-
-/*
-struct sup_page_table *spt_create (void) {
-  struct sup_page_table *spt = malloc(sizeof(struct sup_page_table));
-  hash_init (&spt->table, spt_hash, spt_less, NULL);
-  return spt;
-}
-*/
-
 
 void spt_init (struct sup_page_table *spt) {
   hash_init(&spt->table, spt_hash, spt_less, NULL);
@@ -244,7 +228,7 @@ bool load_page_mmap(struct spt_entry *spte, void * kpage) {
 
 //bool spt_insert_mmap(struct file *file, off_t ofs, void *addr, read_bytes)
 
-bool is_equal_spt(struct spt_entry * this, struct spt_entry * other) {
+static bool is_equal_spt(struct spt_entry * this, struct spt_entry * other) {
   //bool equal_mmap = (this->user_vaddr == other->user_vaddr) && (this->ofs == other->ofs) && (this->read_bytes == other->read_bytes) && (this->file == other->file);
 //  if (this->type == Mmap && this->type == other->type) {
 //	  printf("mmap equal = %d\n", equal_mmap);
@@ -341,8 +325,8 @@ struct shared_page *search_shared_page(void *kpage) {
   } 
   return NULL;
 } 
-
-struct shared_page *search_shared_page_by_up(void *upage) {
+ 
+static struct shared_page *search_shared_page_by_up(void *upage) {
   struct shared_page *sp;
   for (struct list_elem *e = list_begin(&shared_pages); e != list_end(&shared_pages); e = list_next(e)) {
     sp = list_entry(e, struct shared_page, elem);
