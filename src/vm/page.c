@@ -332,7 +332,7 @@ struct shared_page *search_shared_page(void *kpage) {
     }
   } 
   return NULL;
-}
+} 
 
 struct shared_page *search_shared_page_by_up(void *upage) {
   struct shared_page *sp;

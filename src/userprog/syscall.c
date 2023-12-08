@@ -320,27 +320,45 @@ filesize(int fd) {
 
 int
 read(int fd, void *buffer, unsigned size) {
+//	printf("checking buffer");
   /* Check whether the buffer is valid. */
-  check_user(buffer);
+  //check_user(buffer);
+  if (buffer == NULL || !is_user_vaddr(buffer))	{
+    exit(-1);
+  }
+
+  if (buffer + size == NULL || !is_user_vaddr(buffer + size)) {
+    exit(-1);
+  }
   int read_size;
-  lock_acquire(&syscall_lock);
+  //lock_acquire(&syscall_lock);
   if (fd == 0) {     /* Reading from the keyboard */
     //unsigned i;
     for (unsigned i = 0; i < size; i++) {
       ((uint8_t *) buffer)[i] = input_getc();
     }
     read_size = size;
+ //   printf("keyboard size");
   } else if (size == 0) { /* Case when input size is 0. */
     read_size = size;
+   // printf("size is 0");
   } else {
+    ///check_user(buffer);
+    lock_acquire(&syscall_lock);
     struct file_descriptor *filed = process_get_fd(fd);
     if (filed == NULL){ /* Case when file not found. */
-      read_size = FAIL; 
+      read_size = FAIL;
+     //printf("files is null"); 
     } else {      /* Get the size bytes read by file_read. */
+     // printf("read file");
       read_size = file_read(filed->file, buffer, size);
+     // printf("read file");
+      //lock_release(&syscall_lock);
+      //printf("read file");
     }
+    lock_release(&syscall_lock);
   }
-  lock_release(&syscall_lock);
+//  lock_release(&syscall_lock);
   return read_size;
 }
 
@@ -365,9 +383,12 @@ write(int fd, const void *buffer, unsigned size) {
     if (filed == NULL){  /* Case when file not found. */
       write_size = FAIL;     
     } else if (filed->executing) { /* If the file is executing, it will not be written. */
+      //printf("file exec");
       write_size = 0;
     } else {         /* Get the size bytes written by file_write. */
+  //    printf("file write");
       write_size = file_write(filed->file, buffer, size);
+    //  printf("bad ptr");
     }
     lock_release(&syscall_lock);
   }
