@@ -324,6 +324,8 @@ process_exit (void)
 
   struct list_elem *me = list_begin(&cur->mmap_files);
   struct list_elem *nme;
+
+  lock_acquire(&cur->mf_lock);
   while (me != list_end(&cur->mmap_files)){
     nme = list_next(me);
     struct map_file *mmap = list_entry (me, struct map_file, elem);
@@ -331,6 +333,7 @@ process_exit (void)
     free_mmap (mmap);
     me = nme;
   }
+  lock_release(&cur->mf_lock);
   
 
 //  list_remove(&cur->pd_elem);

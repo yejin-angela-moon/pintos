@@ -110,6 +110,7 @@ struct thread {
 
  
     struct list mmap_files;
+    struct lock mf_lock;
     //struct sup_page_table spt;
 struct hash spt;
 struct lock spt_lock;

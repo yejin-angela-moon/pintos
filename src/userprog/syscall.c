@@ -477,6 +477,7 @@ mmap(int fd, void *addr) {
   if (fd == 0 || fd == 1) {
     return -1;
   }
+  struct thread *cur = thread_current();
   lock_acquire(&syscall_lock);
   struct file_descriptor *file = process_get_fd(fd);
   if (file == NULL || addr == 0)  // check for invalid file or addr
@@ -497,11 +498,11 @@ mmap(int fd, void *addr) {
 //  mmap->length = length;
   
   list_init(&mmap->pages);
-  lock_init(&mmap->mmap_lock);
+  //lock_init(&mmap->mmap_lock);
   mmap->mid = thread_current()->mmap_id++; 
-  lock_acquire(&mmap->mmap_lock);
-  list_push_back(&thread_current()->mmap_files, &mmap->elem);
-  lock_release(&mmap->mmap_lock);
+  lock_acquire(&cur->mf_lock);
+  list_push_back(&cur->mmap_files, &mmap->elem);
+  lock_release(&cur->mf_lock);
 
   //add_mmap(mmap);
   lock_acquire (&syscall_lock);
