@@ -19,7 +19,6 @@ struct lock frame_lock;
 struct list frame_list;
 struct list_elem *hand;
 
-//static struct frame *frame_to_evict_v (void);
 static bool save_evicted_frame (struct frame *);
 struct frame* clock_frame_next(struct list_elem **hand);
 struct frame* frame_to_evict (uint32_t *pagedir, struct list_elem **hand);
