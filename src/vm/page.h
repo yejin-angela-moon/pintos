@@ -114,7 +114,10 @@ void init_page_sharing(void) ;
 unsigned shared_page_hash(const struct hash_elem *e, void *aux);
 bool shared_page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux ); 
 struct shared_page *search_shared_page(void *kpage);
+struct shared_page *search_shared_page_by_up(void *upage);
 void delete_shared_page(struct shared_page *sp, void * user_vaddr);
+void sp_clear_pagedir(struct shared_page *sp, void *user_vaddr);
+void sp_set_memory_false(struct shared_page *sp, void *user_vaddr);
 
 
 #endif /* vm/page.h */
