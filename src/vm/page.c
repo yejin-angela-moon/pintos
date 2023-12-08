@@ -344,7 +344,7 @@ struct shared_page *search_shared_page_by_up(void *upage) {
   }
   return NULL;
 }
-
+  
 // Function to share a page.
 void * share_page(void *upage, struct file *file) {
     lock_acquire(&page_sharing_lock);
