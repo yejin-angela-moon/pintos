@@ -151,7 +151,7 @@ void deallocate_frame(void *page_addr) {
   palloc_free_page(frame->kpage);
   free(frame);
 }
-
+/*
 void *
 evict_frame() {
   bool result;
@@ -159,7 +159,6 @@ evict_frame() {
   struct frame *frame; 
   struct thread *cur = thread_current();
 
-  /* To ensure eviction is atomic */
   lock_acquire (&frame_lock);
 
   frame = frame_to_evict_v();
@@ -173,9 +172,9 @@ evict_frame() {
 
   lock_release (&frame_lock);
 
-  /* Should return v*/
+  
   return frame->kpage;
-}
+}*/
 
 /* Use hash iterator to choose the frame to evict. */
 // maybe list instead?
