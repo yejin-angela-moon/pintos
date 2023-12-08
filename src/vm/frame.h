@@ -18,6 +18,7 @@ struct frame {
   struct hash_elem elem;
   struct list_elem lelem;
   int no;
+  uint32_t *pte;
   // other fields if needed
 };
 
@@ -31,7 +32,9 @@ void *evict_frame (void);
 void frame_table_init(void);
 void* allocate_frame(void);
 
-//void deallocate_frame(void* frame_addr);
+void deallocate_frame(void* frame_addr, bool free_page);
+void free_frame (void *frame_addr);
+void frame_remove_entry (void *frame_addr);
 void frame_set_status (void *kpage, uint32_t *pte UNUSED, void *upage);
 
 #endif /* vm/frame.h */

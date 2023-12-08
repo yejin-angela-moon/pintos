@@ -177,7 +177,7 @@ page_fault (struct intr_frame *f)
 //	  printf("not present\n");
     exit(-1);
   }
-//printf("the fault addr is %p\n", fault_page);
+
   if (fault_addr == NULL){ //|| !not_present || !is_user_vaddr(fault_addr)) {
 //	  printf("addr is NULL or not user vaddr");
     exit(-1);
@@ -232,7 +232,9 @@ page_fault (struct intr_frame *f)
         //lock_acquire(&page_sharing_lock);
         //struct hash_elem *found_elem = hash_find(&shared_pages, &spage_lookup.elem);
         //if (found_elem != NULL) {
-           found_shared_page = get_shared_page(&spte);//hash_entry(found_elem, struct shared_page, elem);
+
+//           found_shared_page = get_shared_page(spte);//hash_entry(found_elem, struct shared_page, elem);
+
        // }
         ///lock_release(&page_sharing_lock);
 
@@ -263,7 +265,30 @@ page_fault (struct intr_frame *f)
                     exit(-1); // Or handle the memory allocation failure appropriately.
                 }
             }
-            load_page(spte, kpage);
+
+//	    printf("the type is %d\n", spte->type );
+	    switch (spte->type) {
+               case File:
+                 load_page (spte, kpage);
+                 break;
+               case Mmap:
+               case (Mmap | Swap):
+                 load_page (spte, kpage);
+                 break;
+               case (File | Swap):
+               case Swap:
+                 load_page_swap (spte, kpage);
+                 break;
+               default:
+                 break;
+            }/*
+	    if (spte->type == File || spte->type == Mmap) {
+	      load_page (spte, kpage);
+	    } else {
+              printf("haha swap time\n");
+              load_page_swap (spte, kpage);
+	    }*/
+             spte->in_memory = true;
 
             // If page is read-only, consider sharing it.
             if (!spte->writable) {
@@ -282,7 +307,7 @@ page_fault (struct intr_frame *f)
                 hash_insert(&shared_pages, &new_shared_page->elem);
                 lock_release(&page_sharing_lock);*/
 		create_shared_page (spte, kpage);
-    kpage->spte = spte;
+    //kpage->spte = spte;
             }
         }
     } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
@@ -293,7 +318,7 @@ page_fault (struct intr_frame *f)
      // memset(frame, 0, PGSIZE);
     }
       spte->in_memory = true;
-      kpage->spte = spte;
+      //kpage->spte = spte;
   }
 
   //if (!install_page((void *) spte->user_vaddr, frame, spte->writable)) {

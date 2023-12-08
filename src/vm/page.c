@@ -145,8 +145,7 @@ bool load_page(struct spt_entry *spte, void * kpage) {
 
   file_seek(spte->file, spte->ofs);
   bool writable = spte->type == File ? spte->writable : true;
-  if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes)
-    {
+  if (file_read (spte->file, kpage, spte->read_bytes) != (int) spte->read_bytes) {
 //	        printf("kpage pointer: %p\n", (void *) kpage);
 //	    printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
       frame_remove_entry (kpage);
@@ -173,10 +172,16 @@ bool load_page(struct spt_entry *spte, void * kpage) {
 }
 
 bool load_page_swap (struct spt_entry *spte, void *kpage) {
+//	pagedir_destroy(thread_current ()->pagedir);
+//	thread_current()->pagedir = pagedir_create();
+//	pagedir_clear_page (thread_current ()->pagedir, spte->user_vaddr);
+if (pagedir_get_page(thread_current ()->pagedir, spte->user_vaddr) == NULL) {
+	printf("set cuz it is null\n");
   if (!pagedir_set_page (thread_current ()->pagedir, spte->user_vaddr, kpage, spte->writable)){
-      deallocate_frame (kpage);
+      //deallocate_frame (kpage);
       return false;
   }
+}
 printf("ready to swap in\n");
   swap_in_memory (spte->swap_slot, spte->user_vaddr);
 //printf("after swap in\n");
