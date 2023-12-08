@@ -19,7 +19,7 @@ struct lock syscall_lock;
 static void syscall_handler(struct intr_frame *);
 int get_user(const uint8_t *uaddr);
 static bool put_user(uint8_t *udst, uint8_t byte);
-void check_user(void * ptr);
+void check_user(const void * ptr);
 int process_add_fd(struct file *file, bool executing);
 unsigned fd_hash(const struct hash_elem *e, void *aux);
 
@@ -286,7 +286,7 @@ open(const char *file) {
     exit(-1);
     return FAIL;
   }
-
+check_user ((void *) file) ;
   /* Open the file by filesys_open. */
   lock_acquire(&syscall_lock);
   int status;
@@ -320,34 +320,53 @@ filesize(int fd) {
 
 int
 read(int fd, void *buffer, unsigned size) {
+//	printf("checking buffer");
   /* Check whether the buffer is valid. */
-  check_user(buffer);
+  //check_user(buffer);
+  if (buffer == NULL || !is_user_vaddr(buffer))	{
+    exit(-1);
+  }
+
+  if (buffer + size == NULL || !is_user_vaddr(buffer + size)) {
+    exit(-1);
+  }
   int read_size;
-  lock_acquire(&syscall_lock);
+  //lock_acquire(&syscall_lock);
   if (fd == 0) {     /* Reading from the keyboard */
     //unsigned i;
     for (unsigned i = 0; i < size; i++) {
       ((uint8_t *) buffer)[i] = input_getc();
     }
     read_size = size;
+ //   printf("keyboard size");
   } else if (size == 0) { /* Case when input size is 0. */
     read_size = size;
+   // printf("size is 0");
   } else {
+    ///check_user(buffer);
+    lock_acquire(&syscall_lock);
     struct file_descriptor *filed = process_get_fd(fd);
     if (filed == NULL){ /* Case when file not found. */
-      read_size = FAIL; 
+      read_size = FAIL;
+     //printf("files is null"); 
     } else {      /* Get the size bytes read by file_read. */
+     // printf("read file");
       read_size = file_read(filed->file, buffer, size);
+     // printf("read file");
+      //lock_release(&syscall_lock);
+      //printf("read file");
     }
+    lock_release(&syscall_lock);
   }
-  lock_release(&syscall_lock);
+//  lock_release(&syscall_lock);
   return read_size;
 }
 
 int
 write(int fd, const void *buffer, unsigned size) {
+//  check_user(buffer);
   int write_size;
-  lock_acquire(&syscall_lock);
+//  lock_acquire(&syscall_lock);
   if (fd == 1) {    /* Writes to console */
     int linesToPut;
     for (uint32_t j = 0; j < size; j += MAX_CONSOLE_WRITE) {  /* max 200B (MAX_CONSOLE_WRITE) at a time */
@@ -358,16 +377,22 @@ write(int fd, const void *buffer, unsigned size) {
   } else if (size == 0) { /* Case when input size is 0. */
     write_size = size;
   } else {
+  //  check_user((void *) buffer);
+    lock_acquire(&syscall_lock);
     struct file_descriptor *filed = process_get_fd(fd);
     if (filed == NULL){  /* Case when file not found. */
       write_size = FAIL;     
     } else if (filed->executing) { /* If the file is executing, it will not be written. */
+      //printf("file exec");
       write_size = 0;
     } else {         /* Get the size bytes written by file_write. */
+  //    printf("file write");
       write_size = file_write(filed->file, buffer, size);
+    //  printf("bad ptr");
     }
+    lock_release(&syscall_lock);
   }
-  lock_release(&syscall_lock);
+ // lock_release(&syscall_lock);
   return write_size;
 }
 
@@ -555,18 +580,21 @@ munmap(mapid_t mapping) {
 /* Close the file and free the file_descriptor. */
 void free_fd(struct hash_elem *e, void *aux UNUSED) {
   struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
-  //lock_acquire(&syscall_lock);
+  if (lock_held_by_current_thread (&syscall_lock)) {
+    lock_release(&syscall_lock);
+  }
+  lock_acquire(&syscall_lock);
   file_close(fd->file);
-  //lock_release(&syscall_lock);
+  lock_release(&syscall_lock);
   free(fd);
 }
 
 void
-check_user (void *ptr) {
+check_user (const void *ptr) {
 /* Don't need to worry about code running after as it kills the process */
     struct thread *t = thread_current();
-    uint8_t *uaddr = ptr;
-    if (!is_user_vaddr((void *) ptr) || (pagedir_get_page(t->pagedir, uaddr) == NULL)) {
+//    uint8_t *uaddr = ptr;
+    if (!is_user_vaddr(ptr) || (pagedir_get_page(t->pagedir, ptr) == NULL)) {
         exit(-1);
     }
 

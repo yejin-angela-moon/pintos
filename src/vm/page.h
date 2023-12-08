@@ -74,8 +74,9 @@ struct shared_page {
     struct list_elem elem;
     struct spt_entry *spte;
     int shared_count;
+    struct list pd_list;
     uint8_t *kpage;           // Pointer to the kernel page.
-    uint32_t *pagedir;        // Pointer to the page directory.
+//    uint32_t *pagedir;        // Pointer to the page directory.
 };
 
 //struct lock page_sharing_lock;
@@ -100,6 +101,8 @@ bool load_page(struct spt_entry *spte, void * kpage);
 bool load_page_swap (struct spt_entry *spte, void *kpage);
 struct shared_page *get_shared_page(struct spt_entry *spte);
 
+void *share_page(void *upage, struct file *file);
+
 void create_shared_page (struct spt_entry *spte, void *kpage);
 
 struct spt_entry* spt_find_page(struct hash *spt, void *vaddr);
@@ -110,6 +113,8 @@ void init_page_sharing(void) ;
 
 unsigned shared_page_hash(const struct hash_elem *e, void *aux);
 bool shared_page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux ); 
+struct shared_page *search_shared_page(void *kpage);
+void delete_shared_page(struct shared_page *sp, void * user_vaddr);
 
 
 #endif /* vm/page.h */

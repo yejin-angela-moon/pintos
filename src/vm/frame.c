@@ -48,31 +48,40 @@ void frame_table_init(void) {
 
 /* Allocate a free frame and return its address */
 void *allocate_frame(void) {
-  lock_acquire (&frame_lock);
+  //lock_acquire (&frame_lock);
 
   void *frame_page = palloc_get_page (PAL_USER);
+  lock_acquire (&frame_lock);
+  remove_frame_for_thread();
+  lock_release (&frame_lock);
   if (frame_page == NULL) {
   //printf("no page at all time to evict\n");
     struct frame *evicted = frame_to_evict (thread_current()->pagedir, &hand);
     //printf("run frame to evict\n");
     frame_page = evicted->kpage;
     
-    ASSERT (evicted != NULL && evicted->t != NULL);
-    ASSERT (evicted->t->pagedir != (void *)0xcccccccc);
+    ASSERT (evicted != NULL && get_thread_by_tid(evicted->tid) != NULL);
+   // if (evicted->t->pagedir != (void *)0xcccccccc) {
+    //  printf("the tid with weird pd is %d\n", evicted->t->tid);
+    //} 
+    //ASSERT (evicted->t->pagedir != (void *)0xcccccccc);
   //  if (pagedir_is_dirty(evicted->t->pagedir, evicted->user_vaddr)) {
   //    printf("that evict frame is dirty\n");
       save_evicted_frame(evicted);
     //}
-    struct spt_entry *evi_spte = spt_find_page(&evicted->t->spt, evicted->user_vaddr);
+    struct thread *t = get_thread_by_tid(evicted->tid);
+    struct spt_entry *evi_spte = spt_find_page(&t->spt, evicted->user_vaddr);
     evi_spte->in_memory = false;
     //evi_spte->frame_page = NULL;
     //printf("delete the frame from the table\n");
     evicted->kpage = NULL;
     evicted->user_vaddr = NULL;
     evicted->pte = NULL;
-    evicted->t = thread_current();
+    evicted->tid = thread_current()->tid;
+    lock_acquire (&frame_lock);
     list_remove(&evicted->lelem);
     hash_delete(&frame_table, &evicted->elem);
+    lock_release (&frame_lock); 
   //  pagedir_clear_page (evicted->t->pagedir, evicted->user_vaddr);
    // palloc_free_page(evicted->kpage);
 //pagedir_set_dirty(evicted->t->pagedir, evicted->user_vaddr, false);
@@ -89,7 +98,7 @@ void *allocate_frame(void) {
 
     //frame_page = evicted->kpage;//palloc_get_page (PAL_USER);
     ASSERT (frame_page != NULL);
-  }
+ }
 
 //printf("get page\n");
   struct frame *frame = malloc(sizeof(struct frame));
@@ -99,17 +108,33 @@ void *allocate_frame(void) {
     return NULL;
   }
 frame->no = counting++;
-  frame->t = thread_current();
+  frame->tid = thread_current()->tid;
  // frame->user_vaddr = is_user_vaddr;
   frame->kpage = frame_page;
   frame->pinned = true; // can't be evicted yet
 //  pagedir_set_dirty(frame->t->pagedir, frame->user_vaddr, false);
+  lock_acquire (&frame_lock);
   hash_insert (&frame_table, &frame->elem);
   list_push_back (&frame_list, &frame->lelem);
 
   lock_release (&frame_lock);
 //  printf("allocate a page with a frame set\n");
   return frame->kpage;
+}
+
+void remove_frame_for_thread() {
+  struct frame *frame;
+  struct list_elem *ne;
+  struct list_elem *e = list_begin(&frame_list);
+  while (e != list_end(&frame_list)) {
+    ne = list_next(e);
+    frame = list_entry(e, struct frame, lelem);
+    if (get_thread_by_tid(frame->tid) == NULL) {
+//            printf("remove from frame\n");
+      list_remove(e);
+    }
+    e = ne;
+  }
 }
 
 void *frame_get_page(struct spt_entry *spte) {
@@ -195,7 +220,7 @@ frame_to_evict_v (void) {
 
 static bool
 save_evicted_frame (struct frame *frame) {
-  struct thread *t = frame->t;
+  struct thread *t = get_thread_by_tid(frame->tid);
   struct spt_entry *spte = spt_find_page (&t->spt, frame->user_vaddr);
 
   if (spte == NULL) {
@@ -204,6 +229,7 @@ save_evicted_frame (struct frame *frame) {
     spte->user_vaddr = frame->user_vaddr;
     spte->type = Swap;
     struct hash_elem *he = hash_insert(&t->spt, &spte->elem);
+    list_push_back(&frame_list, &spte->lelem);
     if (he != NULL)
       return false;
   }
@@ -215,23 +241,54 @@ save_evicted_frame (struct frame *frame) {
      file_write (spte->file, spte->user_vaddr,spte->read_bytes);
   } else if ((pagedir_is_dirty (t->pagedir, spte->user_vaddr)) && (spte->writable)) {
 	  //pagedir_set_dirty (t->pagedir, spte->user_vaddr, false);
-	//  printf("dirsrt %d\n", (pagedir_is_dirty (t->pagedir, spte->user_vaddr)));
+//	  printf("dirsrt %d\n", (pagedir_is_dirty (t->pagedir, spte->user_vaddr)));
     swap_slot = swap_out_memory (spte->user_vaddr);
     if (swap_slot == SWAP_ERROR)
       return false;
     spte->type = spte->type | Swap;
   }
 
+  //delete_shared_page(search_shared_page(frame->kpage));
+  struct shared_page *sp = search_shared_page(frame->kpage);
   memset (frame->kpage, 0, PGSIZE);
 
   spte->swap_slot = swap_slot;
   spte->writable = *(frame->pte) & PTE_W;
   spte->in_memory = false;
-
+ /* struct shared_page *sp = search_shared_page(frame->kpage);
+  struct thread *thr;
+  struct list_elem *te = list_begin(&sp->pd_list); 
+  struct list_elem *nte;
+  printf("remove stuff when save\n");
+  while (te != list_end(&sp->pd_list)) {
+	//printf("remove from the pd list and clear page for tid %d\n", thr->tid);
+    nte = list_next(te);
+    thr = list_entry(te, struct thread, pd_elem);
+     printf("remove from the pd list and clear page for tid %d\n", thr->tid);
+    pagedir_clear_page (thr->pagedir, spte->user_vaddr);
+    list_remove(te);
+    te = nte;
+  }*/
+  if (sp != NULL) {
+	  printf("remove a sp from its list\n");
+  list_remove(&sp->elem);
+  }
   pagedir_clear_page (t->pagedir, spte->user_vaddr);
-
+  //delete_shared_page(sp);
   return true;
 }
+
+struct frame * get_frame_by_kpage (void *kpage) {
+  struct frame *frame = NULL; 
+  for (struct list_elem *e = list_begin(&frame_list); e != list_end(&frame_list); e = list_next(e)) {
+     frame = list_entry(e, struct frame, lelem);
+     if (frame->kpage == kpage) {
+       return frame;
+     }
+   }
+  return NULL;
+}
+
 
 static void
 frame_set_pinned (void *kpage, bool new_pinned) {
@@ -265,6 +322,7 @@ frame_to_evict (uint32_t *pagedir, struct list_elem **hand) {
 //printf("size of table is %d\n", n);
   size_t i;
   struct frame *e;
+  
 //  struct list_elem *hand = NULL;
   for(i = 0; i <= n * 2; i++)  {
 //	  printf("round %d\n", i%n);

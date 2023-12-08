@@ -58,6 +58,9 @@ size_t swap_out_memory(void *user_vaddr) {
   if (swap_block == NULL) {
     return SWAP_ERROR;
   }
+  if (lock_held_by_current_thread(&swap_lock)) {
+    lock_release(&swap_lock);
+  }
 //return -1;
 lock_acquire(&swap_lock);
 struct swap_store *ss = get_swap_store_by_uv(user_vaddr);
