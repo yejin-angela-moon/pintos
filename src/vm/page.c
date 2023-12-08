@@ -167,6 +167,9 @@ bool load_page(struct spt_entry *spte, void * kpage) {
   //printf("end of the load page to frame function\n");
   spte->in_memory = true;
   spte->frame_page = kpage;
+  if (spte->type & Swap)
+    spte->type = Mmap;
+
   return true;
 
 }
@@ -176,14 +179,16 @@ bool load_page_swap (struct spt_entry *spte, void *kpage) {
 //	thread_current()->pagedir = pagedir_create();
 //	pagedir_clear_page (thread_current ()->pagedir, spte->user_vaddr);
 if (pagedir_get_page(thread_current ()->pagedir, spte->user_vaddr) == NULL) {
-	printf("set cuz it is null\n");
+//	printf("set cuz it is null\n");
   if (!pagedir_set_page (thread_current ()->pagedir, spte->user_vaddr, kpage, spte->writable)){
       //deallocate_frame (kpage);
       return false;
   }
 }
-printf("ready to swap in\n");
+//  pagedir_set_dirty(thread_current ()->pagedir, spte->user_vaddr, true);
+//printf("ready to swap in\n");
   swap_in_memory (spte->swap_slot, spte->user_vaddr);
+  //pagedir_set_dirty(thread_current ()->pagedir, spte->user_vaddr, false);
 //printf("after swap in\n");
   if (spte->type == Swap) {
     hash_delete (&thread_current ()->spt, &spte->elem);
@@ -281,6 +286,11 @@ struct spt_entry* spt_find_page(struct hash *spt, void *vaddr) {
 void
 free_spt(struct hash_elem *e, void *aux UNUSED) {
   struct spt_entry *spte = hash_entry(e, struct spt_entry, elem);
+  //printf("about to free spte\n");
+  if (spte->type & Swap) {
+//	  printf("still in swap so remove");
+    remove_swap_store (spte->swap_slot);
+  }
   free(spte);
 }
 

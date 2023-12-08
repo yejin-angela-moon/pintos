@@ -59,10 +59,10 @@ void *allocate_frame(void) {
     
     ASSERT (evicted != NULL && evicted->t != NULL);
     ASSERT (evicted->t->pagedir != (void *)0xcccccccc);
- //   if (pagedir_is_dirty(evicted->t->pagedir, evicted->user_vaddr)) {
+  //  if (pagedir_is_dirty(evicted->t->pagedir, evicted->user_vaddr)) {
   //    printf("that evict frame is dirty\n");
       save_evicted_frame(evicted);
-   // }
+    //}
     struct spt_entry *evi_spte = spt_find_page(&evicted->t->spt, evicted->user_vaddr);
     evi_spte->in_memory = false;
     //evi_spte->frame_page = NULL;
@@ -72,10 +72,11 @@ void *allocate_frame(void) {
     evicted->pte = NULL;
     evicted->t = thread_current();
     list_remove(&evicted->lelem);
-//    hash_delete(&frame_table, &evicted->elem);
+    hash_delete(&frame_table, &evicted->elem);
   //  pagedir_clear_page (evicted->t->pagedir, evicted->user_vaddr);
    // palloc_free_page(evicted->kpage);
-
+//pagedir_set_dirty(evicted->t->pagedir, evicted->user_vaddr, false);
+//	pagedir_set_(evicted->t->pagedir, evicted->user_vaddr);
 
   //  free(evicted);
     //bool dirty = false
@@ -102,7 +103,7 @@ frame->no = counting++;
  // frame->user_vaddr = is_user_vaddr;
   frame->kpage = frame_page;
   frame->pinned = true; // can't be evicted yet
-  
+//  pagedir_set_dirty(frame->t->pagedir, frame->user_vaddr, false);
   hash_insert (&frame_table, &frame->elem);
   list_push_back (&frame_list, &frame->lelem);
 
@@ -132,6 +133,7 @@ void frame_set_status (void *kpage, uint32_t *pte, void *upage) {
 	  //printf("not null and set the uv to %p for frame no %d\n", upage, frame->no);
       frame->pte = pte;
       frame->user_vaddr = upage;
+  //    pagedir_set_dirty(frame->t->pagedir, frame->user_vaddr, false);
   }
 }
 
@@ -211,7 +213,9 @@ save_evicted_frame (struct frame *frame) {
   if (pagedir_is_dirty (t->pagedir, spte->user_vaddr) && (spte->type == Mmap)) {
      file_seek (spte->file, spte->ofs);
      file_write (spte->file, spte->user_vaddr,spte->read_bytes);
-  } else if (pagedir_is_dirty (t->pagedir, spte->user_vaddr) || (spte->type != File)) {
+  } else if ((pagedir_is_dirty (t->pagedir, spte->user_vaddr)) && (spte->writable)) {
+	  //pagedir_set_dirty (t->pagedir, spte->user_vaddr, false);
+	//  printf("dirsrt %d\n", (pagedir_is_dirty (t->pagedir, spte->user_vaddr)));
     swap_slot = swap_out_memory (spte->user_vaddr);
     if (swap_slot == SWAP_ERROR)
       return false;

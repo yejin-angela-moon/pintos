@@ -266,14 +266,17 @@ page_fault (struct intr_frame *f)
 //	    printf("the type is %d\n", spte->type );
 	    switch (spte->type) {
                case File:
+	//	       printf("normal one ");
                  load_page (spte, kpage);
                  break;
                case Mmap:
                case (Mmap | Swap):
+	//	 printf("normal one ");
                  load_page (spte, kpage);
                  break;
                case (File | Swap):
                case Swap:
+	//	 printf("swap ");
                  load_page_swap (spte, kpage);
                  break;
                default:
@@ -302,7 +305,7 @@ page_fault (struct intr_frame *f)
                 lock_acquire(&page_sharing_lock);
                 hash_insert(&shared_pages, &new_shared_page->elem);
                 lock_release(&page_sharing_lock);*/
-		create_shared_page (spte, kpage);
+	//	create_shared_page (spte, kpage);
             }
         }
     } else if (spte->swap_slot != INVALID_SWAP_SLOT) {

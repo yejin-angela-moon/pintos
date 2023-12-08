@@ -20,6 +20,7 @@ void swap_vm_init(void);
 size_t swap_out_memory (void *vaddr);
 void swap_in_memory(size_t swap_slot, void *vaddr);
 void swap_free(size_t swap_slot);
+void remove_swap_store (size_t swap_slot);
 
 #endif /* vm/swap.h */
 
