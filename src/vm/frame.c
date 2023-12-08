@@ -48,10 +48,12 @@ void frame_table_init(void) {
 
 /* Allocate a free frame and return its address */
 void *allocate_frame(void) {
-  lock_acquire (&frame_lock);
+  //lock_acquire (&frame_lock);
 
   void *frame_page = palloc_get_page (PAL_USER);
+  lock_acquire (&frame_lock);
   remove_frame_for_thread();
+  lock_release (&frame_lock);
   if (frame_page == NULL) {
   //printf("no page at all time to evict\n");
     struct frame *evicted = frame_to_evict (thread_current()->pagedir, &hand);
@@ -76,8 +78,10 @@ void *allocate_frame(void) {
     evicted->user_vaddr = NULL;
     evicted->pte = NULL;
     evicted->tid = thread_current()->tid;
+    lock_acquire (&frame_lock);
     list_remove(&evicted->lelem);
     hash_delete(&frame_table, &evicted->elem);
+    lock_release (&frame_lock); 
   //  pagedir_clear_page (evicted->t->pagedir, evicted->user_vaddr);
    // palloc_free_page(evicted->kpage);
 //pagedir_set_dirty(evicted->t->pagedir, evicted->user_vaddr, false);
@@ -109,6 +113,7 @@ frame->no = counting++;
   frame->kpage = frame_page;
   frame->pinned = true; // can't be evicted yet
 //  pagedir_set_dirty(frame->t->pagedir, frame->user_vaddr, false);
+  lock_acquire (&frame_lock);
   hash_insert (&frame_table, &frame->elem);
   list_push_back (&frame_list, &frame->lelem);
 

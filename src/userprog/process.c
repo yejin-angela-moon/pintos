@@ -332,7 +332,6 @@ process_exit (void)
     me = nme;
   }
   
- // remove_frame_for_thread(cur);
 
 //  list_remove(&cur->pd_elem);
   hash_destroy(&cur->spt, free_spte);

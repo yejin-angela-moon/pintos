@@ -174,12 +174,12 @@ page_fault (struct intr_frame *f)
   void * fault_page = (void *) pg_round_down (fault_addr);
 
   if (!not_present) {
-	  //printf("not present\n");
+//	  printf("not present\n");
     exit(-1);
   }
-//  printf("\nPAGE FAULT: the fault addr is %p\n || tid: %d", fault_page, thread_current()->tid);
+ // printf("\nPAGE FAULT: the fault addr is %p\n || tid: %d", fault_page, thread_current()->tid);
   if (fault_addr == NULL || !is_user_vaddr(fault_addr) || fault_addr < 0x08048000){ //|| !not_present || !is_user_vaddr(fault_addr)) {
-	  //printf("addr is NULL or not user vaddr");
+//	  printf("addr is NULL or not user vaddr");
     exit(-1);
   }
 //printf("ready to find page with addr %d and after round down %d\n", (uint32_t) fault_page, (uint32_t) fault_addr);
@@ -210,7 +210,7 @@ page_fault (struct intr_frame *f)
   }
 
   if (spte == NULL) { // || (PHYS_BASE - fault_page > MAX_STACK_SIZE)) {
-		      //printf("spte is null; exit\n" );
+//		      printf("spte is null; exit\n" );
     exit(-1);
   }
 //printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
@@ -384,8 +384,7 @@ bool install_page(void *upage, void *kpage, bool writable) {
 
 static bool stack_valid(void *vaddr, void *esp){
   return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && (vaddr >= esp - PUSHA_SIZE); 
-//return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && 
-          (vaddr == esp - 32 || vaddr == esp); 
+  //return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && (vaddr == esp - 32 || vaddr == esp || vaddr == esp - 4); 
 
 }
 

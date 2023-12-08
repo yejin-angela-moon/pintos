@@ -19,7 +19,7 @@ struct lock syscall_lock;
 static void syscall_handler(struct intr_frame *);
 int get_user(const uint8_t *uaddr);
 static bool put_user(uint8_t *udst, uint8_t byte);
-void check_user(void * ptr);
+void check_user(const void * ptr);
 int process_add_fd(struct file *file, bool executing);
 unsigned fd_hash(const struct hash_elem *e, void *aux);
 
@@ -346,8 +346,9 @@ read(int fd, void *buffer, unsigned size) {
 
 int
 write(int fd, const void *buffer, unsigned size) {
+//  check_user(buffer);
   int write_size;
-  lock_acquire(&syscall_lock);
+//  lock_acquire(&syscall_lock);
   if (fd == 1) {    /* Writes to console */
     int linesToPut;
     for (uint32_t j = 0; j < size; j += MAX_CONSOLE_WRITE) {  /* max 200B (MAX_CONSOLE_WRITE) at a time */
@@ -358,6 +359,8 @@ write(int fd, const void *buffer, unsigned size) {
   } else if (size == 0) { /* Case when input size is 0. */
     write_size = size;
   } else {
+  //  check_user((void *) buffer);
+    lock_acquire(&syscall_lock);
     struct file_descriptor *filed = process_get_fd(fd);
     if (filed == NULL){  /* Case when file not found. */
       write_size = FAIL;     
@@ -366,8 +369,9 @@ write(int fd, const void *buffer, unsigned size) {
     } else {         /* Get the size bytes written by file_write. */
       write_size = file_write(filed->file, buffer, size);
     }
+    lock_release(&syscall_lock);
   }
-  lock_release(&syscall_lock);
+ // lock_release(&syscall_lock);
   return write_size;
 }
 
@@ -555,18 +559,21 @@ munmap(mapid_t mapping) {
 /* Close the file and free the file_descriptor. */
 void free_fd(struct hash_elem *e, void *aux UNUSED) {
   struct file_descriptor *fd = hash_entry(e, struct file_descriptor, elem);
-  //lock_acquire(&syscall_lock);
+  if (lock_held_by_current_thread (&syscall_lock)) {
+    lock_release(&syscall_lock);
+  }
+  lock_acquire(&syscall_lock);
   file_close(fd->file);
-  //lock_release(&syscall_lock);
+  lock_release(&syscall_lock);
   free(fd);
 }
 
 void
-check_user (void *ptr) {
+check_user (const void *ptr) {
 /* Don't need to worry about code running after as it kills the process */
     struct thread *t = thread_current();
-    uint8_t *uaddr = ptr;
-    if (!is_user_vaddr((void *) ptr) || (pagedir_get_page(t->pagedir, uaddr) == NULL)) {
+//    uint8_t *uaddr = ptr;
+    if (!is_user_vaddr(ptr) || (pagedir_get_page(t->pagedir, ptr) == NULL)) {
         exit(-1);
     }
 

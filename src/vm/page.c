@@ -363,7 +363,7 @@ void * share_page(void *upage, struct file *file) {
         //existing_spage->shared_count++;
         lock_release(&page_sharing_lock);
         return 0;
-    }
+    }   
   //  spte->frame_page = sp->kpage;
     //spte->in_memory = true;
     list_push_back(&sp->pd_list, &cur->pd_elem);
