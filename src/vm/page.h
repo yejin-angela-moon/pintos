@@ -27,7 +27,8 @@ enum spte_type {
 
 struct spt_entry {
     uint8_t * user_vaddr;  /* User virtual address.*/
-    //uint32_t frame_addr; 
+    //uint32_t frame_addr;
+    uint8_t original_addr;
     bool in_memory;       /* Whether the page is currently in memory. */
     struct hash_elem elem;
     struct list_elem lelem;

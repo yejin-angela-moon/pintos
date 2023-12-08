@@ -240,7 +240,8 @@ bool is_equal_spt(struct spt_entry * this, struct spt_entry * other) {
   //bool equal_mmap = (this->user_vaddr == other->user_vaddr) && (this->ofs == other->ofs) && (this->read_bytes == other->read_bytes) && (this->file == other->file);
 //  if (this->type == Mmap && this->type == other->type) {
 //	  printf("mmap equal = %d\n", equal_mmap);
-  return this->user_vaddr == other->user_vaddr; 
+//printf("reached here");
+  return this->original_addr == other->original_addr;
 //  return equal_mmap;
   //}
 //printf("mmap equal = %d\n", equal_mmap);

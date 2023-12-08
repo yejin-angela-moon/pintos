@@ -188,6 +188,7 @@ void deallocate_frame(void *page_addr) {
 	break;
     }
   }*/
+  printf("deallocate called\n");
   struct frame tmp;
   tmp.kpage = page_addr;
   struct hash_elem *e = hash_find(&frame_table, &tmp.elem);
