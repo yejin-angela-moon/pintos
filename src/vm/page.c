@@ -240,7 +240,7 @@ bool is_equal_spt(struct spt_entry * this, struct spt_entry * other) {
   //bool equal_mmap = (this->user_vaddr == other->user_vaddr) && (this->ofs == other->ofs) && (this->read_bytes == other->read_bytes) && (this->file == other->file);
 //  if (this->type == Mmap && this->type == other->type) {
 //	  printf("mmap equal = %d\n", equal_mmap);
-  return this->file == other->file; 
+  return this->user_vaddr == other->user_vaddr; 
 //  return equal_mmap;
   //}
 //printf("mmap equal = %d\n", equal_mmap);
@@ -334,11 +334,11 @@ struct shared_page *search_shared_page(void *kpage) {
   return NULL;
 }
 
-struct shared_page *search_shared_page_by_file(struct file *file) {
+struct shared_page *search_shared_page_by_up(void *upage) {
   struct shared_page *sp;
   for (struct list_elem *e = list_begin(&shared_pages); e != list_end(&shared_pages); e = list_next(e)) {
     sp = list_entry(e, struct shared_page, elem);
-    if (sp->spte->file == file) {
+    if (sp->spte->user_vaddr == upage) {
       return sp;
     }
   }
@@ -346,7 +346,7 @@ struct shared_page *search_shared_page_by_file(struct file *file) {
 }
 
 // Function to share a page.
-bool share_page(void *upage, struct spt_entry *spte) {
+void * share_page(void *upage, struct file *file) {
     lock_acquire(&page_sharing_lock);
     struct thread *cur = thread_current();
     //struct shared_page spage;
@@ -355,21 +355,22 @@ bool share_page(void *upage, struct spt_entry *spte) {
 
     //struct hash_elem *existing = hash_insert(&shared_pages, &spage.elem);
     //spte->is_shared = true;
-    struct shared_page *sp = search_shared_page_by_file(spte->file);
-
+    struct shared_page *sp = search_shared_page_by_up(upage);
+//Assert(sp->spte->file == spte->file);
     if (sp == NULL) {
 	    printf("no file find\n");
         //struct shared_page *existing_spage = hash_entry(existing, struct shared_page, elem);
         //existing_spage->shared_count++;
         //lock_release(&page_sharing_lock);
-        return false;
+        return 0;
     }
-    spte->frame_page = sp->kpage;
+  //  spte->frame_page = sp->kpage;
     //spte->in_memory = true;
     list_push_back(&sp->pd_list, &cur->pd_elem);
-    pagedir_set_page(cur->pagedir, spte->user_vaddr, sp->kpage, false);
+    printf("set page with user vaddr %p and file %p and page %p\n", upage, file, sp->kpage);
+    pagedir_set_page(cur->pagedir, upage, sp->kpage, false);
     lock_release(&page_sharing_lock);
-    return true;
+    return sp->kpage;
 }
 /*
 void delete_shared_page(struct shared_page *sp, void * user_vaddr) {

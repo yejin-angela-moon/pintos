@@ -225,7 +225,7 @@ page_fault (struct intr_frame *f)
  if (!spte->in_memory) {
 //	 printf("not in memory");
    if (spte->file != NULL) {
-//	   printf("spte file not null\n");
+	   printf("spte file not null with pointer %p\n", spte->file);
         struct thread *cur = thread_current();
 
         struct shared_page *found_shared_page = NULL;
@@ -245,8 +245,9 @@ page_fault (struct intr_frame *f)
            // spte->frame_page = found_shared_page->kpage;
             //if (pagedir_get_page(cur->pagedir, spte->user_vaddr) == NULL) {
                  //bool writable = spte->type == File ? spte->writable : true;
-	    printf("share pageee\n");
-             share_page(spte->user_vaddr, spte);
+	    printf("share pageee with detail file %p, uservaddr %p\n", spte->user_vaddr, spte->file);
+
+            spte->frame_page = share_page(spte->user_vaddr, spte->file);
                    //    deallocate_frame (kpage);
                    //  return;
          //         }
@@ -310,6 +311,7 @@ page_fault (struct intr_frame *f)
                 hash_insert(&shared_pages, &new_shared_page->elem);
                 lock_release(&page_sharing_lock);*/
 		create_shared_page (spte, kpage);
+		printf("create share page with page %p\n", kpage);
             }
         }
     } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
