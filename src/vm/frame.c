@@ -244,6 +244,7 @@ save_evicted_frame (struct frame *frame) {
     te = nte;
   }*/
   if (sp != NULL) {
+	  printf("remove a sp from its list\n");
   list_remove(&sp->elem);
   }
   pagedir_clear_page (t->pagedir, spte->user_vaddr);

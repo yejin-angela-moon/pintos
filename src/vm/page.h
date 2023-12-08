@@ -101,7 +101,7 @@ bool load_page(struct spt_entry *spte, void * kpage);
 bool load_page_swap (struct spt_entry *spte, void *kpage);
 struct shared_page *get_shared_page(struct spt_entry *spte);
 
-bool share_page(void *upage, void *kpage);
+bool share_page(void *upage, struct spt_entry *spte);
 
 void create_shared_page (struct spt_entry *spte, void *kpage);
 

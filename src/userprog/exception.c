@@ -174,12 +174,12 @@ page_fault (struct intr_frame *f)
   void * fault_page = (void *) pg_round_down (fault_addr);
 
   if (!not_present) {
-//	  printf("not present\n");
+	  printf("not present\n");
     exit(-1);
   }
-//  printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
+  printf("\nPAGE FAULT: the fault addr is %p\n || tid: %d", fault_page, thread_current()->tid);
   if (fault_addr == NULL || !is_user_vaddr(fault_addr) || fault_addr < 0x08048000){ //|| !not_present || !is_user_vaddr(fault_addr)) {
-//	  printf("addr is NULL or not user vaddr");
+	  printf("addr is NULL or not user vaddr");
     exit(-1);
   }
 //printf("ready to find page with addr %d and after round down %d\n", (uint32_t) fault_page, (uint32_t) fault_addr);
@@ -210,6 +210,7 @@ page_fault (struct intr_frame *f)
   }
 
   if (spte == NULL) { // || (PHYS_BASE - fault_page > MAX_STACK_SIZE)) {
+		      printf("spte is null; exit\n" );
     exit(-1);
   }
 //printf("the read byte is not equal with %d and %d\n", file_read (spte->file, kpage, (off_t) (int) spte->read_bytes), (int) spte->read_bytes);
@@ -233,19 +234,19 @@ page_fault (struct intr_frame *f)
 
         //lock_acquire(&page_sharing_lock);
         //struct hash_elem *found_elem = hash_find(&shared_pages, &spage_lookup.elem);
-        //if (found_elem != NULL) {
+        if (!spte->writable) {
           found_shared_page = get_shared_page(spte);//hash_entry(found_elem, struct shared_page, elem);
-       // }
+        }
         ///lock_release(&page_sharing_lock);
 
         uint8_t *kpage = NULL;
-        if (found_shared_page != NULL && !spte->writable) {
+        if (found_shared_page != NULL) {
             // If page is shared and read-only, use existing kpage.
            // spte->frame_page = found_shared_page->kpage;
             //if (pagedir_get_page(cur->pagedir, spte->user_vaddr) == NULL) {
                  //bool writable = spte->type == File ? spte->writable : true;
-	 //   printf("share pageee\n");
-             share_page(spte->user_vaddr, kpage);
+	    printf("share pageee\n");
+             share_page(spte->user_vaddr, spte);
                    //    deallocate_frame (kpage);
                    //  return;
          //         }
@@ -291,6 +292,7 @@ page_fault (struct intr_frame *f)
               load_page_swap (spte, kpage);
 	    }*/
              spte->in_memory = true;
+	     printf("is the spte writeable %d\n", spte->writable);
             // If page is read-only, consider sharing it.
             if (!spte->writable) {
                 // Here you can either use the share_page function or write the logic directly.
