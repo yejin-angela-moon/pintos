@@ -248,6 +248,7 @@ page_fault (struct intr_frame *f)
 	    printf("share pageee with detail file %p, uservaddr %p\n", spte->user_vaddr, spte->file);
 
             spte->frame_page = share_page(spte->user_vaddr, spte->file);
+	    get_frame_by_kpage (spte->frame_page)->t = thread_current();
                    //    deallocate_frame (kpage);
                    //  return;
          //         }

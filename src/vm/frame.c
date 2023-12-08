@@ -252,6 +252,18 @@ save_evicted_frame (struct frame *frame) {
   return true;
 }
 
+struct frame * get_frame_by_kpage (void *kpage) {
+  struct frame *frame = NULL; 
+  for (struct list_elem *e = list_begin(&frame_list); e != list_end(&frame_list); e = list_next(e)) {
+     frame = list_entry(e, struct frame, lelem);
+     if (frame->kpage == kpage) {
+       return frame;
+     }
+   }
+  return NULL;
+}
+
+
 static void
 frame_set_pinned (void *kpage, bool new_pinned) {
   lock_acquire (&frame_lock);

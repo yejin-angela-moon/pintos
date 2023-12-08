@@ -361,7 +361,7 @@ void * share_page(void *upage, struct file *file) {
 	    printf("no file find\n");
         //struct shared_page *existing_spage = hash_entry(existing, struct shared_page, elem);
         //existing_spage->shared_count++;
-        //lock_release(&page_sharing_lock);
+        lock_release(&page_sharing_lock);
         return 0;
     }
   //  spte->frame_page = sp->kpage;
