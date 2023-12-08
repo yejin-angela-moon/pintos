@@ -8,16 +8,16 @@
 #include <stdint.h>
 #include "threads/malloc.h"
 
-#define SWAP_ERROR SIZE_MAX
 
 struct frame {
   void *kpage;       /* Pointer to the kernel virtual page */
   struct thread *t; /* Pointer to the thread */
   struct spt_entry *spte;
-  void *user_vaddr; /* User virtual address */
+  uint8_t *user_vaddr; /* User virtual address */
   bool pinned;
   struct hash_elem elem;
   struct list_elem lelem;
+  int no;
   // other fields if needed
 };
 
@@ -30,11 +30,8 @@ void *frame_get_page(struct spt_entry *spte);
 void *evict_frame (void);
 void frame_table_init(void);
 void* allocate_frame(void);
-void free_frame (void *kpage);
-void frame_remove_entry (void *kpage);
-void deallocate_frame(void* frame_addr, bool free_page);
-void frame_unpint (void *kpage);
-void frame_pin (void *kpage);
-struct frame *frame_to_evict (uint32_t *pagedir);
+
+//void deallocate_frame(void* frame_addr);
+void frame_set_status (void *kpage, uint32_t *pte UNUSED, void *upage);
 
 #endif /* vm/frame.h */

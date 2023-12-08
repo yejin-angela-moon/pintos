@@ -282,6 +282,7 @@ page_fault (struct intr_frame *f)
                 hash_insert(&shared_pages, &new_shared_page->elem);
                 lock_release(&page_sharing_lock);*/
 		create_shared_page (spte, kpage);
+    kpage->spte = spte;
             }
         }
     } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
@@ -292,6 +293,7 @@ page_fault (struct intr_frame *f)
      // memset(frame, 0, PGSIZE);
     }
       spte->in_memory = true;
+      kpage->spte = spte;
   }
 
   //if (!install_page((void *) spte->user_vaddr, frame, spte->writable)) {
@@ -316,21 +318,6 @@ page_fault (struct intr_frame *f)
   }
   return;
 
-}
-
-static void load_page_from_file (struct spt_entry *spte, void *frame) {
-//  off_t bytes_read = file_read_at(spte->file, frame, spte->read_bytes, spte->ofs);
- // if (bytes_read != (off_t) spte->read_bytes) {
-  //  exit(-1);
- // }
-
-  if (spte->zero_bytes > 0) {
-    memset(frame + spte->read_bytes, 0, spte->zero_bytes);
-  }
-}
-
-static void load_page_from_swap(struct spt_entry *spte, void *frame) {
-  //swap_read(spte->swap_slot, frame);
 }
 
 bool install_page(void *upage, void *kpage, bool writable) {

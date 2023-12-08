@@ -37,6 +37,7 @@
 #include "devices/swap.h"
 #include "vm/page.h"
 #include "vm/frame.h"
+#include "vm/swap.h"
 #endif
 #ifdef FILESYS
 #include "devices/block.h"
@@ -141,6 +142,7 @@ main (void)
   swap_init ();
   frame_table_init ();
   init_page_sharing (); 
+  swap_vm_init();
 #endif
 
   printf ("Boot complete.\n");

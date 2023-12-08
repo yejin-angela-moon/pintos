@@ -10,6 +10,7 @@
 #include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "vm/page.h"
+#include "vm/swap.h"
 #include "threads/thread.h"
 #include <string.h>
 #include "threads/vaddr.h"
@@ -139,7 +140,8 @@ bool spt_insert_mmap(struct file *file, off_t ofs, uint8_t *upage, uint32_t read
 }
 
 bool load_page(struct spt_entry *spte, void * kpage) {
-	struct thread *cur = thread_current ();
+  
+  struct thread *cur = thread_current ();
 
   file_seek(spte->file, spte->ofs);
   bool writable = spte->type == File ? spte->writable : true;
@@ -169,6 +171,28 @@ bool load_page(struct spt_entry *spte, void * kpage) {
   return true;
 
 }
+
+bool load_page_swap (struct spt_entry *spte, void *kpage) {
+  if (!pagedir_set_page (thread_current ()->pagedir, spte->user_vaddr, kpage, spte->writable)){
+      deallocate_frame (kpage);
+      return false;
+  }
+printf("ready to swap in\n");
+  swap_in_memory (spte->swap_slot, spte->user_vaddr);
+//printf("after swap in\n");
+  if (spte->type == Swap) {
+    hash_delete (&thread_current ()->spt, &spte->elem);
+//    printf("delete from cur spt\n");
+  }
+  if (spte->type == (File | Swap))  {
+      spte->type = File;
+      //spte->is_loaded = true;
+ 
+    spte->in_memory = true;
+  }
+  return true;
+}
+
 /*
 bool load_page_mmap(struct spt_entry *spte, void * kpage) {
         struct thread *cur = thread_current ();
