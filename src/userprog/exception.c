@@ -178,7 +178,9 @@ page_fault (struct intr_frame *f)
     exit(-1);
   }
 
-  if (fault_addr == NULL){ //|| !not_present || !is_user_vaddr(fault_addr)) {
+//printf("the fault addr is %p\n", fault_page);
+  if (fault_addr == NULL || !is_user_vaddr(fault_addr) || fault_addr < 0x08048000){ //|| !not_present || !is_user_vaddr(fault_addr)) {
+
 //	  printf("addr is NULL or not user vaddr");
     exit(-1);
   }
@@ -191,6 +193,13 @@ page_fault (struct intr_frame *f)
   //stack growth code:
   void *esp = user ? f->esp : cur->esp;
   if (spte == NULL && stack_valid(fault_addr, esp)) {
+    // struct hash_iterator i;
+    // //printf("reached here1\n");
+    // hash_first (&i, &cur->spt);
+    // if(hash_next (&i) == NULL){
+    //   printf("reached here2\n");
+    //   exit(-1);
+    // }
 //	  printf("time to grow stack\n");
    // void *esp = user ? f->esp : cur->esp;
 
@@ -364,7 +373,10 @@ bool install_page(void *upage, void *kpage, bool writable) {
 }
 
 static bool stack_valid(void *vaddr, void *esp){
-  return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && (vaddr >= esp - PUSHA_SIZE); 
+  // printf("vaddr: %p\n", vaddr);
+  // printf("esp: %p\n", esp);
+  return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && 
+          (vaddr == esp - 32 || vaddr == esp); 
 
 }
 
