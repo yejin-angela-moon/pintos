@@ -183,8 +183,9 @@ page_fault (struct intr_frame *f)
     exit(-1);
   }
 //printf("ready to find page with addr %d and after round down %d\n", (uint32_t) fault_page, (uint32_t) fault_addr);
-
+  lock_acquire(&cur->spt_lock);
   spte = spt_find_page(&cur->spt, fault_page);
+  lock_release(&cur->spt_lock);
   //struct frame * ffff = malloc(sizeof(struct frame));
 //printf("page found\n");
 
@@ -277,9 +278,6 @@ page_fault (struct intr_frame *f)
 //	    printf("the type is %d\n", spte->type );
 	    switch (spte->type) {
                case File:
-	//	       printf("normal one ");
-                 load_page (spte, kpage);
-                 break;
                case Mmap:
                case (Mmap | Swap):
 	//	 printf("normal one ");

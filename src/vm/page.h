@@ -67,6 +67,7 @@ struct map_file {
   struct list_elem elem;
   struct list pages;
   int page_no;
+  struct lock mmap_lock;
 };
 
 struct shared_page {
