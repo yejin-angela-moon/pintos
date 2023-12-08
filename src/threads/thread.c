@@ -604,8 +604,10 @@ init_thread(struct thread *t, const char *name, int priority) {
   list_init(&t->locks);
   t->init_fd = false;
   //spt_init(&t->spt);
+  lock_init(&t->spt_lock);
    list_init(&t->mmap_files);  // not sure if this should be a hashmap instead
-  t->mmap_id = 0;
+  lock_init(&t->mf_lock);
+   t->mmap_id = 0;
   t->unmap = false;  
   //hash_init (&t->spt, spt_hash, spt_less, NULL);
   t->init_spt = false;

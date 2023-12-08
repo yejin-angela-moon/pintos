@@ -140,6 +140,7 @@ main (void)
 #ifdef VM
   /* Initialise the swap disk */  
   swap_init ();
+  page_init();
   frame_table_init ();
   init_page_sharing (); 
   swap_vm_init();

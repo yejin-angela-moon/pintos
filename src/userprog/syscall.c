@@ -432,13 +432,13 @@ close(int fd) {
   lock_release(&syscall_lock);
 }
 
-void
+static void
 add_mmap(struct map_file *mmap) {
   mmap->mid = thread_current()->mmap_id++;  // alternative: could use  hash
   list_push_back(&thread_current()->mmap_files, &mmap->elem);
 }
 
-bool
+static bool
 validate_mapping(void *addr, int length) {
   if (length == 0 || (uint32_t) addr % PGSIZE != 0)  // checks if file is empty or address is unaligned
     return false;
@@ -454,7 +454,7 @@ validate_mapping(void *addr, int length) {
 
 }
 
-int mmap_entry(struct file *file, void * addr) {
+static int mmap_entry(struct file *file, void * addr) {
   int length = file_length(file);
   off_t ofs = 0;
   int page_no = 0;
@@ -477,13 +477,17 @@ mmap(int fd, void *addr) {
   if (fd == 0 || fd == 1) {
     return -1;
   }
+  struct thread *cur = thread_current();
+  lock_acquire(&syscall_lock);
   struct file_descriptor *file = process_get_fd(fd);
   if (file == NULL || addr == 0)  // check for invalid file or addr
     return -1; 
  
   int length = file_length(file->file);
+  lock_release(&syscall_lock);
   if (!validate_mapping(addr, length))
     return -1;
+  //lock_release(&syscall_lock);
 
   struct map_file *mmap = malloc(sizeof(struct map_file));
   if (mmap == NULL)
@@ -493,9 +497,14 @@ mmap(int fd, void *addr) {
   mmap->addr = addr;
 //  mmap->length = length;
   
-  list_init(&mmap->pages);
+  //list_init(&mmap->pages);
+  //lock_init(&mmap->mmap_lock);
+  mmap->mid = thread_current()->mmap_id++; 
+  lock_acquire(&cur->mf_lock);
+  list_push_back(&cur->mmap_files, &mmap->elem);
+  lock_release(&cur->mf_lock);
 
-  add_mmap(mmap);
+  //add_mmap(mmap);
   lock_acquire (&syscall_lock);
   struct file* copy = file_reopen(file->file);
   lock_release (&syscall_lock); 
@@ -505,7 +514,7 @@ mmap(int fd, void *addr) {
     return -1;
   } else {
 
-  // TODO do lazy load pages
+  //  do lazy load pages
   // then add the spt_entries of those pages to mmap->pages
     return mmap->mid;
   }
@@ -515,11 +524,13 @@ mmap(int fd, void *addr) {
 void free_mmap (struct map_file * mf) {
   if (mf == NULL)
     return;  // not found
+  struct thread *cur = thread_current();
   void *uaddr = mf->addr;
   // TODO remove page from list of virtual pages
   for (int count = 0 ; count < mf->page_no; count++) {
-
-    struct spt_entry *page =  spt_find_page(&thread_current()->spt, uaddr);
+    lock_acquire(&cur->spt_lock);
+    struct spt_entry *page =  spt_find_page(&cur->spt, uaddr);
+    lock_release(&cur->spt_lock);
     if (page->in_memory && pagedir_is_dirty (thread_current()->pagedir, page->user_vaddr)) {
       lock_acquire(&syscall_lock);
       file_seek(page->file, page->ofs);
@@ -527,11 +538,13 @@ void free_mmap (struct map_file * mf) {
       lock_release(&syscall_lock);
     }
     uaddr += PGSIZE;
+    lock_acquire(&cur->spt_lock);
     hash_delete(&thread_current()->spt, &page->elem);
+    lock_release(&cur->spt_lock);
  //   deallocate_frame(page->frame_page);
-   lock_acquire(&syscall_lock);
+//   lock_acquire(&syscall_lock);
    //file_close(page->file);
-   lock_release(&syscall_lock); 
+  // lock_release(&syscall_lock); 
     free(page);
   }
  // lock_acquire(&syscall_lock);
