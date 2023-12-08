@@ -55,21 +55,28 @@ void *allocate_frame(void) {
   //printf("no page at all time to evict\n");
     struct frame *evicted = frame_to_evict (thread_current()->pagedir, &hand);
     //printf("run frame to evict\n");
-
+    frame_page = evicted->kpage;
+    
     ASSERT (evicted != NULL && evicted->t != NULL);
     ASSERT (evicted->t->pagedir != (void *)0xcccccccc);
-    if (pagedir_is_dirty(evicted->t->pagedir, evicted->user_vaddr)) {
+  //  if (pagedir_is_dirty(evicted->t->pagedir, evicted->user_vaddr)) {
   //    printf("that evict frame is dirty\n");
       save_evicted_frame(evicted);
-    }
+    //}
     struct spt_entry *evi_spte = spt_find_page(&evicted->t->spt, evicted->user_vaddr);
     evi_spte->in_memory = false;
+    //evi_spte->frame_page = NULL;
     //printf("delete the frame from the table\n");
+    evicted->kpage = NULL;
+    evicted->user_vaddr = NULL;
+    evicted->pte = NULL;
+    evicted->t = thread_current();
     list_remove(&evicted->lelem);
-//    hash_delete(&frame_table, &evicted->elem);
-    pagedir_clear_page (evicted->t->pagedir, evicted->user_vaddr);
-    palloc_free_page(evicted->kpage);
-
+    hash_delete(&frame_table, &evicted->elem);
+  //  pagedir_clear_page (evicted->t->pagedir, evicted->user_vaddr);
+   // palloc_free_page(evicted->kpage);
+//pagedir_set_dirty(evicted->t->pagedir, evicted->user_vaddr, false);
+//	pagedir_set_(evicted->t->pagedir, evicted->user_vaddr);
 
   //  free(evicted);
     //bool dirty = false
@@ -80,7 +87,7 @@ void *allocate_frame(void) {
     
 
 
-    frame_page = palloc_get_page (PAL_USER);
+    //frame_page = evicted->kpage;//palloc_get_page (PAL_USER);
     ASSERT (frame_page != NULL);
   }
 
@@ -96,7 +103,7 @@ frame->no = counting++;
  // frame->user_vaddr = is_user_vaddr;
   frame->kpage = frame_page;
   frame->pinned = true; // can't be evicted yet
-  
+//  pagedir_set_dirty(frame->t->pagedir, frame->user_vaddr, false);
   hash_insert (&frame_table, &frame->elem);
   list_push_back (&frame_list, &frame->lelem);
 
@@ -111,7 +118,7 @@ void *frame_get_page(struct spt_entry *spte) {
 } 
 
 
-void frame_set_status (void *kpage, uint32_t *pte UNUSED, void *upage) {
+void frame_set_status (void *kpage, uint32_t *pte, void *upage) {
   struct frame *frame = NULL; 
   for (struct list_elem *e = list_begin(&frame_list); e != list_end(&frame_list); e = list_next(e)) {
      frame = list_entry(e, struct frame, lelem);
@@ -124,8 +131,9 @@ void frame_set_status (void *kpage, uint32_t *pte UNUSED, void *upage) {
   //struct frame *frame = hash_entry(&tmp.elem, struct frame, elem);
   if (frame != NULL) {
 	  //printf("not null and set the uv to %p for frame no %d\n", upage, frame->no);
-      //frame->pte = pte;
+      frame->pte = pte;
       frame->user_vaddr = upage;
+  //    pagedir_set_dirty(frame->t->pagedir, frame->user_vaddr, false);
   }
 }
 
@@ -150,7 +158,7 @@ void deallocate_frame(void *page_addr) {
   palloc_free_page(frame->kpage);
   free(frame);
 }
-
+/*
 void *
 evict_frame() {
   bool result;
@@ -158,7 +166,6 @@ evict_frame() {
   struct frame *frame; 
   struct thread *cur = thread_current();
 
-  /* To ensure eviction is atomic */
   lock_acquire (&frame_lock);
 
   frame = frame_to_evict_v();
@@ -172,9 +179,9 @@ evict_frame() {
 
   lock_release (&frame_lock);
 
-  /* Should return v*/
+  
   return frame->kpage;
-}
+}*/
 
 /* Use hash iterator to choose the frame to evict. */
 // maybe list instead?
@@ -192,6 +199,7 @@ save_evicted_frame (struct frame *frame) {
   struct spt_entry *spte = spt_find_page (&t->spt, frame->user_vaddr);
 
   if (spte == NULL) {
+//	  printf("create new spt with type swap\n");
     spte = malloc (sizeof (struct spt_entry));
     spte->user_vaddr = frame->user_vaddr;
     spte->type = Swap;
@@ -205,7 +213,9 @@ save_evicted_frame (struct frame *frame) {
   if (pagedir_is_dirty (t->pagedir, spte->user_vaddr) && (spte->type == Mmap)) {
      file_seek (spte->file, spte->ofs);
      file_write (spte->file, spte->user_vaddr,spte->read_bytes);
-  } else if (pagedir_is_dirty (t->pagedir, spte->user_vaddr) || (spte->type != File)) {
+  } else if ((pagedir_is_dirty (t->pagedir, spte->user_vaddr)) && (spte->writable)) {
+	  //pagedir_set_dirty (t->pagedir, spte->user_vaddr, false);
+	//  printf("dirsrt %d\n", (pagedir_is_dirty (t->pagedir, spte->user_vaddr)));
     swap_slot = swap_out_memory (spte->user_vaddr);
     if (swap_slot == SWAP_ERROR)
       return false;
@@ -215,10 +225,10 @@ save_evicted_frame (struct frame *frame) {
   memset (frame->kpage, 0, PGSIZE);
 
   spte->swap_slot = swap_slot;
-  spte->writable = ((int) frame->user_vaddr) & PTE_W;
+  spte->writable = *(frame->pte) & PTE_W;
   spte->in_memory = false;
 
-  //pagedir_clear_page (t->pagedir, spte->user_vaddr);
+  pagedir_clear_page (t->pagedir, spte->user_vaddr);
 
   return true;
 }
@@ -266,7 +276,7 @@ frame_to_evict (uint32_t *pagedir, struct list_elem **hand) {
       pagedir_set_accessed(pagedir, e->user_vaddr, false);
       continue;
     }
-    printf("the frame that can be get is %d with pointer %p\n", i%n, e->user_vaddr);
+  //  printf("the frame that can be get is %d with pointer %p\n", i%n, e->user_vaddr);
 
     return e;
   }

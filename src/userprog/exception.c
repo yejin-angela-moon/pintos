@@ -177,8 +177,8 @@ page_fault (struct intr_frame *f)
 //	  printf("not present\n");
     exit(-1);
   }
-//printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
-  if (fault_addr == NULL){ //|| !not_present || !is_user_vaddr(fault_addr)) {
+  //printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
+  if (fault_addr == NULL || !is_user_vaddr(fault_addr) || fault_addr < 0x08048000){ //|| !not_present || !is_user_vaddr(fault_addr)) {
 //	  printf("addr is NULL or not user vaddr");
     exit(-1);
   }
@@ -222,7 +222,9 @@ page_fault (struct intr_frame *f)
     //exit(-1);
 //printf("the thread cur is %d \n", thread_current()->tid);
  if (!spte->in_memory) {
+//	 printf("not in memory");
    if (spte->file != NULL) {
+//	   printf("spte file not null\n");
         struct thread *cur = thread_current();
 
         struct shared_page *found_shared_page = NULL;
@@ -232,7 +234,7 @@ page_fault (struct intr_frame *f)
         //lock_acquire(&page_sharing_lock);
         //struct hash_elem *found_elem = hash_find(&shared_pages, &spage_lookup.elem);
         //if (found_elem != NULL) {
-           found_shared_page = get_shared_page(spte);//hash_entry(found_elem, struct shared_page, elem);
+//           found_shared_page = get_shared_page(spte);//hash_entry(found_elem, struct shared_page, elem);
        // }
         ///lock_release(&page_sharing_lock);
 
@@ -263,13 +265,32 @@ page_fault (struct intr_frame *f)
                     exit(-1); // Or handle the memory allocation failure appropriately.
                 }
             }
+//	    printf("the type is %d\n", spte->type );
+	    switch (spte->type) {
+               case File:
+	//	       printf("normal one ");
+                 load_page (spte, kpage);
+                 break;
+               case Mmap:
+               case (Mmap | Swap):
+	//	 printf("normal one ");
+                 load_page (spte, kpage);
+                 break;
+               case (File | Swap):
+               case Swap:
+//		 printf("swap ");
+                 load_page_swap (spte, kpage);
+                 break;
+               default:
+                 break;
+            }/*
 	    if (spte->type == File || spte->type == Mmap) {
 	      load_page (spte, kpage);
 	    } else {
               printf("haha swap time\n");
-              load_page_swap(spte, kpage);
-	    }
-
+              load_page_swap (spte, kpage);
+	    }*/
+             spte->in_memory = true;
             // If page is read-only, consider sharing it.
             if (!spte->writable) {
                 // Here you can either use the share_page function or write the logic directly.
@@ -286,7 +307,7 @@ page_fault (struct intr_frame *f)
                 lock_acquire(&page_sharing_lock);
                 hash_insert(&shared_pages, &new_shared_page->elem);
                 lock_release(&page_sharing_lock);*/
-		create_shared_page (spte, kpage);
+	//	create_shared_page (spte, kpage);
             }
         }
     } else if (spte->swap_slot != INVALID_SWAP_SLOT) {
@@ -357,7 +378,9 @@ bool install_page(void *upage, void *kpage, bool writable) {
 }
 
 static bool stack_valid(void *vaddr, void *esp){
-  return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && (vaddr >= esp - PUSHA_SIZE); 
+//  return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && (vaddr >= esp - PUSHA_SIZE); 
+return  (PHYS_BASE - pg_round_down(vaddr) <= MAX_STACK_SIZE) && 
+          (vaddr == esp - 32 || vaddr == esp); 
 
 }
 

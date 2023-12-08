@@ -18,6 +18,7 @@ struct frame {
   struct hash_elem elem;
   struct list_elem lelem;
   int no;
+  uint32_t *pte;
   // other fields if needed
 };
 
