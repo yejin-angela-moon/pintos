@@ -136,6 +136,10 @@ threads_ready(void) {
 void
 recalculate_recent_cpu(struct thread *t) // to be run once per second
 {
+<<<<<<< src/threads/thread.c
+=======
+<<<<<<< HEAD
+>>>>>>> src/threads/thread.c
   t->recent_cpu = fp_add_int(
           fp_mul(fp_div(fp_mul_int(load_avg, 2), fp_add_int(fp_mul_int(load_avg, 2), 1)), t->recent_cpu), t->nice);
 }
@@ -178,12 +182,21 @@ void calculate_priority_all() {
     calculate_priority(list_entry(e,
     struct thread, allelem));
   }
+<<<<<<< src/threads/thread.c
 
   //enum intr_level old_level = intr_disable ();
   //return list_size (&ready_list);
   //intr_set_level (old_level);
   
 //>>>>>>> skeleton/master
+=======
+=======
+  enum intr_level old_level = intr_disable ();
+  return list_size (&ready_list);
+  intr_set_level (old_level);
+  
+>>>>>>> skeleton/master
+>>>>>>> src/threads/thread.c
 }
 
 /* Called by the timer interrupt handler at each timer tick.
