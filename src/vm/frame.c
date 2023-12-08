@@ -215,21 +215,39 @@ save_evicted_frame (struct frame *frame) {
      file_write (spte->file, spte->user_vaddr,spte->read_bytes);
   } else if ((pagedir_is_dirty (t->pagedir, spte->user_vaddr)) && (spte->writable)) {
 	  //pagedir_set_dirty (t->pagedir, spte->user_vaddr, false);
-	//  printf("dirsrt %d\n", (pagedir_is_dirty (t->pagedir, spte->user_vaddr)));
+//	  printf("dirsrt %d\n", (pagedir_is_dirty (t->pagedir, spte->user_vaddr)));
     swap_slot = swap_out_memory (spte->user_vaddr);
     if (swap_slot == SWAP_ERROR)
       return false;
     spte->type = spte->type | Swap;
   }
 
+  //delete_shared_page(search_shared_page(frame->kpage));
+  struct shared_page *sp = search_shared_page(frame->kpage);
   memset (frame->kpage, 0, PGSIZE);
 
   spte->swap_slot = swap_slot;
   spte->writable = *(frame->pte) & PTE_W;
   spte->in_memory = false;
-
+ /* struct shared_page *sp = search_shared_page(frame->kpage);
+  struct thread *thr;
+  struct list_elem *te = list_begin(&sp->pd_list); 
+  struct list_elem *nte;
+  printf("remove stuff when save\n");
+  while (te != list_end(&sp->pd_list)) {
+	//printf("remove from the pd list and clear page for tid %d\n", thr->tid);
+    nte = list_next(te);
+    thr = list_entry(te, struct thread, pd_elem);
+     printf("remove from the pd list and clear page for tid %d\n", thr->tid);
+    pagedir_clear_page (thr->pagedir, spte->user_vaddr);
+    list_remove(te);
+    te = nte;
+  }*/
+  if (sp != NULL) {
+  list_remove(&sp->elem);
+  }
   pagedir_clear_page (t->pagedir, spte->user_vaddr);
-
+  //delete_shared_page(sp);
   return true;
 }
 

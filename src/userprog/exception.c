@@ -177,7 +177,7 @@ page_fault (struct intr_frame *f)
 //	  printf("not present\n");
     exit(-1);
   }
-  //printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
+//  printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
   if (fault_addr == NULL || !is_user_vaddr(fault_addr) || fault_addr < 0x08048000){ //|| !not_present || !is_user_vaddr(fault_addr)) {
 //	  printf("addr is NULL or not user vaddr");
     exit(-1);
@@ -234,26 +234,26 @@ page_fault (struct intr_frame *f)
         //lock_acquire(&page_sharing_lock);
         //struct hash_elem *found_elem = hash_find(&shared_pages, &spage_lookup.elem);
         //if (found_elem != NULL) {
-//           found_shared_page = get_shared_page(spte);//hash_entry(found_elem, struct shared_page, elem);
+          found_shared_page = get_shared_page(spte);//hash_entry(found_elem, struct shared_page, elem);
        // }
         ///lock_release(&page_sharing_lock);
 
         uint8_t *kpage = NULL;
         if (found_shared_page != NULL && !spte->writable) {
             // If page is shared and read-only, use existing kpage.
-            spte->frame_page = found_shared_page->kpage;
-            if (pagedir_get_page(cur->pagedir, spte->user_vaddr) == NULL) {
-		    bool writable = spte->type == File ? spte->writable : true;
-//	  printf("not mapped\n");
-  if (!pagedir_set_page (cur->pagedir, spte->user_vaddr, kpage, writable)) {
-  //    deallocate_frame (kpage);
-    //  return;
-    }
-  } else {
+           // spte->frame_page = found_shared_page->kpage;
+            //if (pagedir_get_page(cur->pagedir, spte->user_vaddr) == NULL) {
+                 //bool writable = spte->type == File ? spte->writable : true;
+	 //   printf("share pageee\n");
+             share_page(spte->user_vaddr, kpage);
+                   //    deallocate_frame (kpage);
+                   //  return;
+         //         }
+  //} else {
   //  printf("already mapped\n");
-  }
+              //    }
   //printf("end of the load page to frame function\n");
-  spte->in_memory = true;
+                 spte->in_memory = true;
 
 //	    printf("shared page\n");
         } else {
@@ -307,7 +307,7 @@ page_fault (struct intr_frame *f)
                 lock_acquire(&page_sharing_lock);
                 hash_insert(&shared_pages, &new_shared_page->elem);
                 lock_release(&page_sharing_lock);*/
-	//	create_shared_page (spte, kpage);
+		create_shared_page (spte, kpage);
             }
         }
     } else if (spte->swap_slot != INVALID_SWAP_SLOT) {

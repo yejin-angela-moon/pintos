@@ -331,7 +331,7 @@ process_exit (void)
     free_mmap (mmap);
     me = nme;
   }
-
+  list_remove(&cur->pd_elem);
   hash_destroy(&cur->spt, free_spte);
 
   /* Destroy the fd_table with free_fd. */
