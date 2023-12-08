@@ -177,7 +177,7 @@ page_fault (struct intr_frame *f)
 //	  printf("not present\n");
     exit(-1);
   }
-  printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
+ // printf("\nPAGE FAULT: the fault addr is %p\n", fault_page);
   if (fault_addr == NULL){ //|| !not_present || !is_user_vaddr(fault_addr)) {
 //	  printf("addr is NULL or not user vaddr");
     exit(-1);
@@ -263,7 +263,7 @@ page_fault (struct intr_frame *f)
                     exit(-1); // Or handle the memory allocation failure appropriately.
                 }
             }
-	    printf("the type is %d\n", spte->type );
+//	    printf("the type is %d\n", spte->type );
 	    switch (spte->type) {
                case File:
                  load_page (spte, kpage);
