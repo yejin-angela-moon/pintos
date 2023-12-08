@@ -95,6 +95,9 @@ static struct swap_store *get_swap_store_by_ssid(size_t swap_slot) {
 
 /* Swaps page on disk in swap-slot SLOT into memory at VADDR */
 void swap_in_memory(size_t swap_slot, void *user_vaddr) {
+ if (swap_block == NULL) {
+    return;
+  }	
   lock_acquire(&swap_lock);
   struct swap_store *ss = get_swap_store_by_ssid(swap_slot);
   if (ss == NULL) {

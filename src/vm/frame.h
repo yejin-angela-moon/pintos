@@ -11,16 +11,14 @@
 
 struct frame {
   void *kpage;       /* Pointer to the kernel virtual page */
-  //struct thread *t; /* Pointer to the thread */
-  int tid;
-  struct spt_entry *spte;
+  int tid;           /* tid of the thread that owns the pagedir */
+  //struct spt_entry *spte;  
   uint8_t *user_vaddr; /* User virtual address */
-  bool pinned;
+  bool pinned;             /* Decides whether this frame to be evicted */
   struct hash_elem elem;
   struct list_elem lelem;
-  int no;
-  uint32_t *pte;
-  // other fields if needed
+ // int no;
+  uint32_t *pte;           /* pte when lookup page for the user vaddr and pagedir */
 };
 
 
